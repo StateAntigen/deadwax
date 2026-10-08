@@ -3678,7 +3678,7 @@ impl RemoteClient {
             &directory,
             &cached,
             &protected_file_ids,
-            AUDIO_CACHE_BUDGET_BYTES,
+            load_cache_budget(&self.app_data),
         )?;
         Ok(!deferred)
     }
@@ -3689,8 +3689,116 @@ impl RemoteClient {
 /// Two gigabytes is roughly a long album's worth of lossless or several hundred
 /// tracks of lossy audio: enough that the cap is never what a person runs into in
 /// a session, and small enough to matter on a phone that is also holding the
-/// system's own storage.
+/// system's own storage. This is only the default: a size chosen in Settings is
+/// kept in `AUDIO_CACHE_SETTINGS_FILE` and read back by `load_cache_budget`.
 const AUDIO_CACHE_BUDGET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
+/// Where this phone's own choice of audio-cache size is kept.
+///
+/// Its own file rather than a field beside the pairing: what a person decided
+/// about storage has nothing to do with which computers they are paired with, so
+/// pairing again must not silently reset it.
+const AUDIO_CACHE_SETTINGS_FILE: &str = "audio-cache.json";
+
+/// The smallest store a person may ask for.
+///
+/// A floor on the SETTING, not on what is kept: the pre-load's protected window is
+/// never evicted whatever the budget says, so what this stops is a budget smaller
+/// than that window, which would make every fetch evict the track about to play.
+const MIN_CACHE_BUDGET_BYTES: u64 = 100 * 1024 * 1024;
+
+/// The largest store a person may ask for, so a mistyped number cannot fill the
+/// disk.
+const MAX_CACHE_BUDGET_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AudioCacheSettings {
+    budget_bytes: u64,
+}
+
+/// What this phone's audio cache is holding, and how much it may hold.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AudioCacheStats {
+    /// Tracks whose audio is really on disk, which is what can be played offline.
+    tracks: usize,
+    bytes: u64,
+    budget_bytes: u64,
+}
+
+/// The size this phone's audio cache was told to keep, clamped and defaulted.
+///
+/// A missing or unreadable file is the default rather than an error: the setting
+/// is a preference, and nobody should lose their cache because a file was cut
+/// short by a crash.
+fn load_cache_budget(app_data: &Path) -> u64 {
+    let Ok(text) = fs::read_to_string(app_data.join(AUDIO_CACHE_SETTINGS_FILE)) else {
+        return AUDIO_CACHE_BUDGET_BYTES;
+    };
+    serde_json::from_str::<AudioCacheSettings>(&text)
+        .map(|settings| {
+            settings
+                .budget_bytes
+                .clamp(MIN_CACHE_BUDGET_BYTES, MAX_CACHE_BUDGET_BYTES)
+        })
+        .unwrap_or(AUDIO_CACHE_BUDGET_BYTES)
+}
+
+fn save_cache_budget(app_data: &Path, budget_bytes: u64) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(&AudioCacheSettings { budget_bytes })
+        .map_err(|error| error.to_string())?;
+    fs::write(app_data.join(AUDIO_CACHE_SETTINGS_FILE), text).map_err(|error| error.to_string())
+}
+
+/// The words a query is made of, lowercased, with nothing empty left in.
+fn query_words(query: &str) -> Vec<String> {
+    query
+        .split_whitespace()
+        .map(|word| word.to_lowercase())
+        .filter(|word| !word.is_empty())
+        .collect()
+}
+
+/// Whether a track answers every one of these words.
+///
+/// Every word rather than any, which is what makes "alexisonfire caliber"
+/// narrower than either word alone. An empty word list answers nothing rather
+/// than everything, because a search with no words is a browse and not this
+/// function's job.
+fn matches_words(track: &RemoteTrack, words: &[String]) -> bool {
+    if words.is_empty() {
+        return false;
+    }
+    let haystack = format!("{}\n{}\n{}", track.title, track.artist, track.album).to_lowercase();
+    words.iter().all(|word| haystack.contains(word))
+}
+
+/// How many tracks the store really holds, and how many bytes that is.
+///
+/// Everything `cached_entries_in` answers with has already been checked against
+/// the audio file on disk, so this is a count of playable tracks rather than of
+/// sidecars, and the size is what emptying the store would actually free.
+fn cache_usage(directory: &Path, cached: &[CachedRemoteAudio]) -> (usize, u64) {
+    let mut tracks = 0usize;
+    let mut bytes = 0u64;
+    for item in cached {
+        let Ok(extension) = safe_extension(&item.track.format) else {
+            continue;
+        };
+        let size = fs::metadata(directory.join(format!("{}.{}", item.track.file_id, extension)))
+            .map(|data| data.len())
+            .unwrap_or(0);
+        // An entry with no audio behind it is not a track, whatever its sidecar
+        // says: the count is of what someone could actually listen to offline.
+        if size == 0 {
+            continue;
+        }
+        tracks += 1;
+        bytes = bytes.saturating_add(size);
+    }
+    (tracks, bytes)
+}
 
 /// Drop the least recently used audio until the store is inside its budget.
 ///
@@ -4453,6 +4561,91 @@ async fn remote_withdraw_playlist(
 #[tauri::command]
 async fn cached_library(state: State<'_, AppState>) -> Result<OfflineLibrary, String> {
     state.remote.offline_library().await
+}
+
+/// What this phone's audio cache holds, and how much it may hold.
+#[tauri::command]
+async fn audio_cache_stats(state: State<'_, AppState>) -> Result<AudioCacheStats, String> {
+    let app_data = state.remote.app_data.clone();
+    tokio::task::spawn_blocking(move || {
+        let cached = cached_entries_in(&app_data)?;
+        let (tracks, bytes) = cache_usage(&app_data.join("audio"), &cached);
+        Ok::<_, String>(AudioCacheStats {
+            tracks,
+            bytes,
+            budget_bytes: load_cache_budget(&app_data),
+        })
+    })
+    .await
+    .map_err(|error| format!("could not read the audio cache: {error}"))?
+}
+
+/// Change how much audio this phone keeps, and drop what no longer fits.
+///
+/// The eviction is immediate rather than waiting for the next reconciliation,
+/// because the person has just asked for a smaller store and watching the number
+/// not move would read as the setting not having been taken.
+#[tauri::command]
+async fn set_audio_cache_budget(
+    bytes: u64,
+    protected_file_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<AudioCacheStats, String> {
+    let app_data = state.remote.app_data.clone();
+    let budget_bytes = bytes.clamp(MIN_CACHE_BUDGET_BYTES, MAX_CACHE_BUDGET_BYTES);
+    let protected = protected_file_ids
+        .into_iter()
+        .filter(|file_id| validate_file_id(file_id).is_ok())
+        .collect::<HashSet<_>>();
+    tokio::task::spawn_blocking(move || {
+        save_cache_budget(&app_data, budget_bytes)?;
+        let directory = app_data.join("audio");
+        let cached = cached_entries_in(&app_data)?;
+        evict_beyond_budget(&directory, &cached, &protected, budget_bytes)?;
+        // Read back rather than reporting what was asked for: the eviction may
+        // not have been able to reach the budget because everything left is
+        // protected, and the number on the screen has to be the truth.
+        let cached = cached_entries_in(&app_data)?;
+        let (tracks, bytes) = cache_usage(&directory, &cached);
+        Ok::<_, String>(AudioCacheStats {
+            tracks,
+            bytes,
+            budget_bytes,
+        })
+    })
+    .await
+    .map_err(|error| format!("could not set the audio cache size: {error}"))?
+}
+
+/// Search what this phone itself holds, for when no computer can be asked.
+///
+/// The words are matched against the title, the artist and the album, because
+/// those are the three things a person searches by and the three the offline
+/// screen draws. Every word has to match, so "alexisonfire caliber" is narrower
+/// than either word alone - the same rule the host's own search follows, which is
+/// what keeps an answer from changing shape when the connection does.
+#[tauri::command]
+async fn search_cached_library(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<RemoteTrack>, String> {
+    let words = query_words(&query);
+    if words.is_empty() {
+        return Ok(Vec::new());
+    }
+    let app_data = state.remote.app_data.clone();
+    tokio::task::spawn_blocking(move || {
+        let cached = cached_entries_in(&app_data)?;
+        Ok::<_, String>(
+            cached
+                .into_iter()
+                .filter(|item| item.library_visible && matches_words(&item.track, &words))
+                .map(|item| item.track)
+                .collect::<Vec<_>>(),
+        )
+    })
+    .await
+    .map_err(|error| format!("could not search the audio cache: {error}"))?
 }
 
 /// Album artwork for the given `artist|album` keys, resolved by the paired
@@ -5856,6 +6049,9 @@ pub fn run() {
             remote_delete_playlist,
             remote_withdraw_playlist,
             cached_library,
+            audio_cache_stats,
+            set_audio_cache_budget,
+            search_cached_library,
             remote_covers,
             remote_art,
             remote_track_discussion,
@@ -7114,6 +7310,85 @@ mod tests {
         assert!(!directory.join("oldest.mp3").exists());
         assert!(!directory.join("newest.mp3").exists());
         fs::remove_dir_all(directory.parent().unwrap()).unwrap();
+    }
+
+    /// A complete track record, so a test can name only the fields it is about.
+    fn staged_track() -> RemoteTrack {
+        RemoteTrack {
+            file_id: "a".repeat(64),
+            filename: "a.mp3".into(),
+            title: "Untitled".into(),
+            artist: "Napstr".into(),
+            album: String::new(),
+            format: "MP3".into(),
+            mime: "audio/mpeg".into(),
+            size: 100,
+            tags: String::new(),
+            local: true,
+            sources: Vec::new(),
+            bitrate_kbps: 128,
+            sample_rate_hz: 44_100,
+            channels: 2,
+            lossless: false,
+            duration_ms: 0,
+        }
+    }
+
+    #[test]
+    fn the_audio_cache_stats_count_and_weigh_what_is_really_on_disk() {
+        let (directory, cached) = staged_audio_cache("usage");
+        assert_eq!(cache_usage(&directory, &cached), (3, 300));
+        // Audio that has gone is not a track this phone can play, so it leaves the
+        // count as well as the total: the screen this feeds says what someone can
+        // listen to with no network at all.
+        fs::remove_file(directory.join("middle.mp3")).unwrap();
+        assert_eq!(cache_usage(&directory, &cached), (2, 200));
+        fs::remove_dir_all(directory.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_cache_budget_is_remembered_clamped_and_survives_a_bad_file() {
+        let root =
+            std::env::temp_dir().join(format!("napstrfy-cache-setting-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        // Nothing written yet is the default, not an error.
+        assert_eq!(load_cache_budget(&root), AUDIO_CACHE_BUDGET_BYTES);
+        save_cache_budget(&root, 512 * 1024 * 1024).unwrap();
+        assert_eq!(load_cache_budget(&root), 512 * 1024 * 1024);
+        // A file cut short by a crash is the default rather than a refusal to use
+        // the cache at all.
+        fs::write(root.join(AUDIO_CACHE_SETTINGS_FILE), "{ not json").unwrap();
+        assert_eq!(load_cache_budget(&root), AUDIO_CACHE_BUDGET_BYTES);
+        // A stored value below the range is read back as the range's floor, so a
+        // file edited by hand cannot make the cache thrash.
+        fs::write(root.join(AUDIO_CACHE_SETTINGS_FILE), r#"{"budgetBytes": 1}"#).unwrap();
+        assert_eq!(load_cache_budget(&root), MIN_CACHE_BUDGET_BYTES);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn offline_search_matches_artist_and_album_as_well_as_the_title() {
+        // The reported bug: a track this phone holds, searched for by its artist,
+        // found nothing with the network off.
+        let track = RemoteTrack {
+            title: ".44 Caliber Love Letter".into(),
+            artist: "Alexisonfire".into(),
+            album: "Alexisonfire".into(),
+            ..staged_track()
+        };
+        let words = query_words("  Alexisonfire  Caliber ");
+        assert_eq!(words, vec!["alexisonfire", "caliber"]);
+        assert!(matches_words(&track, &words));
+        // Order does not matter, which is what typing from memory needs.
+        assert!(matches_words(&track, &query_words("caliber alexisonfire")));
+        // Every word has to match, so one more word narrows rather than widens.
+        assert!(!matches_words(&track, &query_words("alexisonfire watch out")));
+        // The artist alone is enough to find it.
+        assert!(matches_words(&track, &query_words("alexisonfire")));
+        // A query with no words is a browse, and answers nothing here.
+        assert!(!matches_words(&track, &query_words("   ")));
+        assert!(query_words("\t\n").is_empty());
     }
 
     #[test]

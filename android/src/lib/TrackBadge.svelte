@@ -15,7 +15,7 @@
    */
   const GRAIN = 'M12 2.8Q18.2 7.6 18.2 12.2 18.2 16.8 12 21.2 5.8 16.8 5.8 12.2 5.8 7.6 12 2.8Z';
 
-  let { track, cached = false, pending = false, host = '', hostName = '' }: {
+  let { track, cached = false, pending = false, host = '', hostName = '', away = false }: {
     track: RemoteTrack;
     cached?: boolean;
     pending?: boolean;
@@ -23,6 +23,15 @@
     host?: string;
     /** What that computer is called, for the label. */
     hostName?: string;
+    /**
+     * Whether the computer this badge stands for cannot be reached.
+     *
+     * The badge is dashed when it cannot, which is the same language the seeder
+     * mark already uses for a track nobody can be found holding: a solid mark is a
+     * promise that this file can be had from there, and it is not one to make while
+     * nothing is answering.
+     */
+    away?: boolean;
   } = $props();
 </script>
 
@@ -41,9 +50,14 @@
   <span
     class="track-badge computer"
     class:elsewhere={Boolean(host)}
+    class:away
     style={`--host-hue:${host ? hostHue(host) : 0}`}
     role="img"
-    aria-label={host ? `Stored on ${hostName || 'another computer'}` : 'Stored on your Napstr computer'}
+    aria-label={away
+      ? `${hostName || 'Your computer'} cannot be reached, so this file is not on this phone`
+      : host
+        ? `Stored on ${hostName || 'another computer'}`
+        : 'Stored on your Napstr computer'}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2.2" />

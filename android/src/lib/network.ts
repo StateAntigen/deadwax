@@ -48,6 +48,18 @@ export function connectionKind(): ConnectionKind {
   }
 }
 
+/**
+ * Whether this phone has a network at all right now.
+ *
+ * `unknown` counts as online: a build with no bridge, or a phone that will not
+ * answer, must not be told it is offline — everything the app does on that
+ * assumption is a refusal, and a wrong refusal looks like a broken app. The one
+ * answer that means offline is Android saying so.
+ */
+export function onlineNow(): boolean {
+  return connectionKind() !== 'offline';
+}
+
 /** Calls back when the phone switches connection, and stops when told to. */
 export function watchNetwork(changed: () => void): () => void {
   window.addEventListener(NETWORK_EVENT, changed);

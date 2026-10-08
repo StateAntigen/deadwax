@@ -174,6 +174,11 @@ test('crate digging chooses the rarest end of the list, and starts only when ask
   await expect
     .poll(() => calls(page, 'remote_discover'))
     .toContainEqual(expect.objectContaining({ mode: 'leastSeeded' }));
+  // The poll above resolves when the request GOES OUT, not when its answer is
+  // applied - so without this the button can be pressed while the list is still
+  // empty and the queue it builds is empty with it, which is a flake rather than a
+  // fault. The other tests in this file all wait for the rows they are about.
+  await expect(page.locator('.track-row')).toHaveCount(2);
   expect(await audioPaused(page)).toBe(true);
 
   // The button beside the title is what starts it, and the row the computer ranked

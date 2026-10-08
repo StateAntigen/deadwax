@@ -23,9 +23,10 @@
   import { playedBars, waveformShape, type WaveBar } from './lib/waveform';
   import { dedupeByFile } from './lib/tracks';
   import { PRELOAD_DEPTHS, readPreloadDepth, storePreloadDepth } from './lib/preload';
-  import { meteredNow, watchNetwork } from './lib/network';
+  import { meteredNow, onlineNow, watchNetwork } from './lib/network';
+  import { CACHE_SIZE_CHOICES, readOfflineMode, readableBytes, storeOfflineMode } from './lib/offline';
   import appIcon from '../src-tauri/icons/icon.png';
-  import { coverFor, coverHueOf, coverHueRevision, coverKey, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverHue, type AlbumCover } from './lib/artwork';
+  import { coverFor, coverHueOf, coverHueRevision, coverKey, holdsArtFor, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverHue, type AlbumCover } from './lib/artwork';
   import { reportReasons } from './lib/types';
   import { hostHue } from './lib/hosts';
   import type { AudiobookLibraryPage, CachedAudio, CarryReport, CompanionStatus, CoverReport, LibraryPage, NostrIdentity, PlaybackCommand, PlaylistPage, PodcastDownload, PodcastEpisode, PodcastFeed, ReadOnlyTicketOffer, RemoteAudiobook, RemoteAudiobookSummary, RemoteDiscussionMessage, RemoteHost, RemotePlaybackState, RemotePlaylist, RemotePlaylistCoordinate, RemotePlaylistSummary, RemotePlaylistTrack, RemoteRepeat, RemoteTrack, RemoteTransfer, ReportReason } from './lib/types';
@@ -45,6 +46,18 @@
   /** How long a notice stays up. Its fade-out animation (`.toast`) ends just
    *  before this, so the element is unmounted after it has already gone. */
   const NOTICE_VISIBLE_MS = 4200;
+  /**
+   * How long the app may claim to be connecting to a silent computer.
+   *
+   * "Connecting…" is worth saying at a cold start, when a tunnel really is being
+   * opened - that is what it was added for. It is not worth saying for a session,
+   * which is what it became: a phone with nothing to reach keeps a tunnel attempt
+   * in the background, so `status.connecting` is true more often than not and the
+   * chip never got as far as saying what was actually true. Found on the device
+   * with Wi-Fi off (and no network of any kind), where it sat on "Connecting…" for
+   * the whole time.
+   */
+  const CONNECT_GRACE_MS = 45_000;
   /** Temporary: cover-art diagnostics overlay. Delete with CoverDebug.svelte. */
   const COVER_DEBUG = true;
   /** The host caps a library page at 200, so one album always fits. */
@@ -175,6 +188,13 @@
   const MAX_PLAYLIST_MEMBERS = 500;
   /** Mirrors `MAX_TRACKS_BY_ID`: the most file ids one resolve can carry. */
   const MAX_TRACKS_BY_ID = 100;
+  /**
+   * Members of a remembered playlist looked at for a cover to draw a row with.
+   *
+   * A bound rather than the whole list, because a playlist may name five hundred
+   * members and this runs for every row on a shelf.
+   */
+  const PLAYLIST_ART_MEMBERS = 32;
   /**
    * Liked ids one pass tries to turn into records.
    *
@@ -371,10 +391,14 @@
       }
       return homeComputer()?.desktopName || status.desktopName || 'Napstr';
     }
+    // A phone with no network at all is not connecting to anything: every attempt
+    // is going to time out, so "Connecting…" is a claim it makes and never keeps.
+    if (phoneOffline) return $t("Offline");
     // Two different things to look at: “connecting” is this app doing something and
     // asking to be waited for, “offline” is nothing happening at all. A cold start
-    // used to spend its first seconds being told the second.
-    if (statusPending || status.connecting) return $t("Connecting…");
+    // used to spend its first seconds being told the second - and it may only say
+    // the first for as long as a real attempt takes, or it never stops saying it.
+    if (statusPending || (status.connecting && !connectGraceDone)) return $t("Connecting…");
     if (!status.connected) return $t("Offline");
     return status.desktopName || 'Napstr';
   }
@@ -552,6 +576,69 @@
 
   let statusLoading = $state(true);
   let statusPending = $state(false);
+  /**
+   * Whether this phone has no network at all.
+   *
+   * Only Android can answer this, and it is the one reason for offline mode that
+   * nothing else can see: with Wi-Fi off, no amount of asking will find a
+   * computer, so the phone has to be told rather than left to find out.
+   */
+  let phoneOffline = $state(!onlineNow());
+  /** Whether the person has asked to stay on what this phone holds. */
+  let manualOffline = $state(readOfflineMode());
+  /**
+   * Whether a status question has been asked and answered.
+   *
+   * Nothing reachable before the first answer is not a fact about the computers,
+   * it is a page that has not looked yet — and reading it as one put the
+   * cache-only library on screen for the first seconds of every start.
+   */
+  let statusSeen = $state(false);
+  /** Whether no computer of this phone's is answering. */
+  let computerAway = $derived(
+    statusSeen && !anyoneReachable && !statusLoading && !statusPending
+  );
+  /**
+   * Whether the grace for saying "Connecting…" has run out.
+   *
+   * Its own piece of state rather than a clock read inside the label: a label that
+   * asks the time is not reactive, so it would keep saying whatever it said the
+   * last time something else changed.
+   */
+  let connectGraceDone = $state(false);
+  /**
+   * Offline mode: draw what this phone holds, and never wait on a computer.
+   *
+   * Three reasons, and any one of them is enough. The phone has no network; none
+   * of its computers answers; or the person asked for it, because they know they
+   * are about to lose signal and would rather see their own music than a library
+   * that cannot play.
+   */
+  let offlineMode = $derived(manualOffline || phoneOffline || computerAway);
+
+  /**
+   * Say that a track is not here, rather than wait to be told.
+   *
+   * Offline the ask would go to a computer that is not there: the tap would hold
+   * the app for a tunnel timeout, refuse anyway, and block every other tap while
+   * it did. The answer is the same either way, so it is given at once.
+   */
+  function sayNotOnThisPhone(track: RemoteTrack) {
+    notice = msg("{p0} is not on this phone, and nothing can be reached to fetch it", {
+      p0: title(track)
+    });
+  }
+
+  /** Turn offline mode on or off, and settle the library that follows from it. */
+  function chooseOfflineMode(enabled: boolean) {
+    manualOffline = enabled;
+    storeOfflineMode(enabled);
+    // Leaving the mode is a request to see the computer's own library again. The
+    // effect below only ever loads the cache, because that is the direction that
+    // has to work with nothing to ask.
+    if (!enabled && anyoneReachable) void loadLibrary();
+  }
+
   /**
    * When the next status question is asked.
    *
@@ -863,6 +950,17 @@
   let playlistRowTracks = $state<Record<string, RemoteTrack>>({});
   let showSettings = $state(false);
   /**
+   * The audio-cache sheet: what this phone has kept, and how much it may keep.
+   *
+   * Its own screen rather than a settings row that unfolds, because it is a number
+   * a person comes to look at rather than a switch to flick - and because the
+   * answer is only worth anything if it is read when asked for.
+   */
+  let showCacheSheet = $state(false);
+  let cacheStats = $state<AudioCacheStats | null>(null);
+  let cacheBusy = $state(false);
+  let cacheError = $state('');
+  /**
    * Whether the connection this phone is spending is one it pays for.
    *
    * The phone answers this, not Napstr: only the phone knows whether the bytes
@@ -886,6 +984,10 @@
   // profile applies and what a "fetch it anyway" was an answer about.
   $effect(() => watchNetwork(() => {
     metered = meteredNow();
+    // Wi-Fi going off is the one reason for offline mode that nothing else can
+    // see: a phone with no network will never find its computer, however long it
+    // keeps asking, so it has to be told rather than left to find out.
+    phoneOffline = !onlineNow();
     qualityOverride = false;
   }));
   /** The computer's player, drawn by the same drawer as this phone's. */
@@ -1395,6 +1497,10 @@
     // The source picker standing on its own, rather than inside the track menu.
     if (showSourceOptions && !showActions) {
       showSourceOptions = false;
+      return;
+    }
+    if (showCacheSheet) {
+      showCacheSheet = false;
       return;
     }
     if (showSettings) {
@@ -1938,6 +2044,10 @@
    * drawn from the network's own list is mostly that.
    */
   function playableNow(track: RemoteTrack): boolean {
+    // Offline, "the computer holds it" is worth nothing: reaching the computer is
+    // the very thing that is missing, so the only file this phone can start is one
+    // it already has.
+    if (offlineMode) return cachedFileIds.has(track.fileId);
     return track.local || cachedFileIds.has(track.fileId);
   }
 
@@ -2212,6 +2322,9 @@
     } finally {
       statusLoading = false;
       statusPending = false;
+      // A question that has been asked is what makes "no computer answered" a
+      // fact about the computers rather than about a page that has not looked.
+      statusSeen = true;
       // The wait to the next question follows from what this one answered.
       scheduleStatus();
     }
@@ -2715,6 +2828,15 @@
   });
 
   async function loadLibrary(append = false) {
+    // Offline the library IS the cache, and a computer that happens to answer -
+    // the phone has Wi-Fi and the computer is running, but the person asked to
+    // stay on what they hold - must not put a list of unplayable rows in front of
+    // it. This is the one gate every library path goes through.
+    if (offlineMode) {
+      showingLikedMusic = false;
+      await loadCachedLibrary();
+      return;
+    }
     if (!status.paired || loading || loadingMore) return;
     libraryAskedOnce = true;
     const viewVersion = ++musicViewVersion;
@@ -2755,6 +2877,9 @@
 
   async function refreshLibrarySilently(revision: number) {
     if (silentLibraryRefresh) return;
+    // Offline there is nothing to refresh silently: the list on screen is the
+    // cache, and it is not the computer's answer that is being waited for.
+    if (offlineMode) return;
     // A load already in flight is a reason to wait, not a reason to forget: dropping
     // the request here is how the shuffled library failed to arrive on the first
     // connection. The wish is recorded, and whatever is loading asks again as soon as
@@ -2802,7 +2927,7 @@
     // Clearing the box abandons the search in flight and goes back to the library.
     if (!query.trim()) {
       abandonSearch();
-      return loadLibrary();
+      return offlineMode ? loadCachedLibrary() : loadLibrary();
     }
     const viewVersion = ++musicViewVersion;
     const searchQuery = query.trim();
@@ -2824,6 +2949,20 @@
       total = tracks.length;
       selected = tracks.find((track) => track.fileId === selected?.fileId) ?? tracks[0] ?? null;
     };
+    // Offline there is no host to ask and no network to search, so the words are
+    // answered from what this phone holds - which is the only music it could play
+    // anyway. Without this a search for a track sitting in the cache found nothing.
+    if (offlineMode) {
+      searchingNetwork = false;
+      try {
+        mergeResults(await invoke<RemoteTrack[]>('search_cached_library', { query: searchQuery }));
+      } catch (nextError) {
+        if (viewVersion === musicViewVersion) error = String(nextError);
+      } finally {
+        if (viewVersion === musicViewVersion) loading = false;
+      }
+      return;
+    }
     // Both requests go out together: the host answers for its own folder, the
     // network for everything else, and neither waits for the other. A query
     // typed while they are in flight supersedes them rather than being ignored.
@@ -3008,6 +3147,21 @@
       const stored = readStoredPlaylistList();
       if (stored.length > 0) playlists = stored;
     }
+    // Offline there is nobody to ask, and the wait for the answer is what puts a
+    // spinner and "Asking Napstr…" over a screen that is already complete: the list
+    // above is the one this phone was last shown. Found on the device with Wi-Fi
+    // off, where the Playlists tab said it was asking for the best part of a minute.
+    if (offlineMode) {
+      playlistsLoading = false;
+      playlistsError = '';
+      // The rows still draw their covers. The file a playlist opens with is one
+      // this phone can answer for itself - art is resolved through the library, not
+      // through the computer that owns the list - and without this the shelf cards
+      // and the search carousel sat on the music-note placeholder while the cover
+      // for that very album was on the phone.
+      void resolvePlaylistRowArt(playlists);
+      return;
+    }
     playlistsLoading = true;
     playlistsError = '';
     try {
@@ -3017,25 +3171,71 @@
       void resolvePlaylistRowArt(page.playlists);
     } catch (nextError) {
       // A list this phone already holds is an answer: only an empty screen has
-      // to say why it is empty.
+      // to say why it is empty. Either way its covers are still resolved, for the
+      // same reason as above - the computer failing does not empty the cache.
       if (playlists.length === 0) playlistsError = String(nextError);
+      else void resolvePlaylistRowArt(playlists);
     } finally {
       playlistsLoading = false;
     }
   }
 
   /**
-   * The artwork a playlist row draws, resolved from the file it opens with.
+   * The artwork a playlist row draws.
    *
-   * The list carries only that file id - a page of names has to fit in one
-   * control frame - so the artist and album a cover is looked up by come off the
-   * library, which answers for many file ids in one go. A member the computer
-   * does not hold leaves its row on the placeholder, which is the same thing it
-   * gets for a playlist that names nothing yet.
+   * The list carries only the file a playlist opens with - a page of names has to
+   * fit in one control frame - so the artist and album a cover is looked up by come
+   * off the library, which answers for many file ids in one go. But the library can
+   * only answer for the files the computer *holds*: when the computer is asleep, and
+   * for a member that is only a remote address, the row was left on the music-note
+   * placeholder while the cover for that very album was on this phone. Found on the
+   * device with Wi-Fi off, where four of seven playlists had no art.
+   *
+   * The pictures do not come from the library, so they do not need it: what this
+   * phone was last shown of a playlist carries its members with the artist and album
+   * they were written with, and that is enough to find art this phone already holds.
    */
   async function resolvePlaylistRowArt(rows: RemotePlaylistSummary[]) {
     const resolved = await resolveTracks(rows.map((row) => row.firstFileId).filter(Boolean));
+    for (const row of rows) {
+      const opening = resolved[row.firstFileId];
+      // What the library answered for the file the playlist opens with is the row's
+      // face, and online its cover is one question away - so nothing is looked for
+      // beyond it, and the art of the record a playlist opens with is what is drawn.
+      if (opening && !offlineMode) continue;
+      // Offline, or for an opening file the library cannot answer for, the row is
+      // drawn from what this phone remembers of the playlist, and only from art that
+      // is here: there is nobody to fetch any, and a picture already on this phone
+      // beats a note however this phone came to have it.
+      const remembered = firstDrawableMember(row);
+      if (remembered) resolved[row.firstFileId] = remembered;
+    }
     if (Object.keys(resolved).length > 0) playlistRowTracks = { ...playlistRowTracks, ...resolved };
+  }
+
+  /** The member a list row takes its face from: see `firstDrawableMemberOf`. */
+  function firstDrawableMember(row: RemotePlaylistSummary): RemoteTrack | null {
+    const remembered = readStoredPlaylist(row.author, row.playlistId);
+    const member = remembered ? firstDrawableMemberOf(remembered.tracks) : null;
+    return member ? trackFromMember(member) : null;
+  }
+
+  /**
+   * The first member of a list whose album this phone can draw, or nothing.
+   *
+   * In order, so the opening member wins whenever its art is here: what a playlist
+   * looks like is the record it opens with. When that one cannot be drawn the next
+   * member that can is used rather than nothing, because a playlist is a list of
+   * records and the first record with a picture is a better face for it than a note.
+   *
+   * Only the first few are looked at. A playlist may name five hundred members and
+   * this runs for every row on a shelf, and art is not usually far down a list.
+   */
+  function firstDrawableMemberOf(members: RemotePlaylistTrack[]): RemotePlaylistTrack | null {
+    for (const member of members.slice(0, PLAYLIST_ART_MEMBERS)) {
+      if (holdsArtFor(trackFromMember(member))) return member;
+    }
+    return null;
   }
 
   /**
@@ -3050,6 +3250,16 @@
    * what a page can draw without asking anybody.
    */
   async function loadPlaylist(author: string, playlistId: string): Promise<RemotePlaylist> {
+    const remembered = readStoredPlaylist(author, playlistId);
+    // Offline the computer is not going to answer, and the wait for it is what made
+    // opening a playlist take a minute. What this phone was last shown is a
+    // playlist it can still read and play, so it is used at once.
+    if (offlineMode) {
+      if (remembered) return remembered;
+      throw new Error(
+        'This playlist has not been opened on this phone, and there is no connection to fetch it.'
+      );
+    }
     try {
       const first = await invoke<RemotePlaylist>('remote_playlist', {
         author, playlistId, offset: 0, limit: PLAYLIST_PAGE
@@ -3068,8 +3278,7 @@
     } catch (nextError) {
       // The computer could not answer: this is the copy of the playlist this
       // phone was last shown, which is a playlist it can still read and play.
-      const stored = readStoredPlaylist(author, playlistId);
-      if (stored) return stored;
+      if (remembered) return remembered;
       throw nextError;
     }
   }
@@ -3745,16 +3954,21 @@
   async function playlistPlayable(): Promise<RemoteTrack[]> {
     const fileIds = playlistMembers.map((member) => member.fileId);
     const playable: RemoteTrack[] = [];
-    try {
-      for (let offset = 0; offset < fileIds.length; offset += MAX_TRACKS_BY_ID) {
-        const answered = await tracksByIds(fileIds.slice(offset, offset + MAX_TRACKS_BY_ID));
-        playable.push(...answered.filter((track) => track.local));
+    // Offline the question would be asked of nobody, and waiting for the answer is
+    // what held a spinner over a playlist this phone can play perfectly well from
+    // its own cache.
+    if (!offlineMode) {
+      try {
+        for (let offset = 0; offset < fileIds.length; offset += MAX_TRACKS_BY_ID) {
+          const answered = await tracksByIds(fileIds.slice(offset, offset + MAX_TRACKS_BY_ID));
+          playable.push(...answered.filter((track) => track.local));
+        }
+      } catch {
+        // The computer is out of reach, which is not a reason not to play: what
+        // this phone holds is still here.
       }
-    } catch {
-      // The computer is out of reach, which is not a reason not to play: what
-      // this phone holds is still here.
     }
-    if (playable.length > 0 || status.connected) return playable;
+    if (playable.length > 0 || (status.connected && !offlineMode)) return playable;
     const held = await cachedTracksById();
     return fileIds
       .map((fileId) => held[fileId])
@@ -3787,7 +4001,9 @@
   async function playPlaylist(member?: RemotePlaylistTrack) {
     if (!playlistDraft || playlistMembers.length === 0) return;
     playlistError = '';
-    if (playbackTarget === 'desktop') {
+    // The computer's own player is the one thing that cannot work offline, and
+    // asking it would hold the button's spinner over a playlist the phone can play.
+    if (playbackTarget === 'desktop' && !offlineMode) {
       const onDesktop = member ?? playlistMembers[0];
       const resolved = await tracksByIds([onDesktop.fileId]);
       if (resolved.length > 0) await playOnDesktop(resolved[0]);
@@ -3810,7 +4026,15 @@
 
   /** The track menu for one member of the open playlist. */
   async function openMemberActions(member: RemotePlaylistTrack) {
-    const resolved = await tracksByIds([member.fileId]);
+    // Offline the computer cannot answer for the row, so what this phone holds is
+    // used instead. Every row of this menu - the code, liking, sharing - is
+    // something the phone does by itself, and a press that quietly does nothing
+    // reads as a broken button rather than as an absent computer.
+    const resolved = offlineMode
+      ? [(await cachedTracksById())[member.fileId]].filter(
+        (track): track is RemoteTrack => Boolean(track)
+      )
+      : await tracksByIds([member.fileId]);
     if (resolved.length === 0) return;
     openActions(resolved[0]);
   }
@@ -3827,8 +4051,22 @@
   let playlistArtLoaded = $state('');
   let playlistArtKey = '';
 
+  /**
+   * The member a playlist page draws its picture from.
+   *
+   * The record a playlist opens with is what a playlist looks like, and online its
+   * cover is one fetch away - so that is the one asked about. Offline there is
+   * nobody to fetch one, and this phone may hold a picture for a later member and
+   * none for the first: then the first member it can draw is used, because a page
+   * with a picture on it is better than a page with a music note on it. Found on the
+   * device: the shelf card drew a cover and the page it opened showed a note.
+   */
+  let playlistArtMember = $derived(
+    (offlineMode ? firstDrawableMemberOf(playlistMembers) : null) ?? playlistMembers[0]
+  );
+
   $effect(() => {
-    const first = playlistMembers[0];
+    const first = playlistArtMember;
     const key = first ? `${first.artist}|${first.album}` : '';
     if (key === playlistArtKey) return;
     playlistArtKey = key;
@@ -4015,6 +4253,12 @@
    * one of a discovery run - which must not lose that list by arriving.
    */
   async function activateTrack(track: RemoteTrack, keepQueue = false) {
+    // Offline this can only be a file already here, and saying so now is what stops
+    // a tap holding the app for a timeout it was never going to come back from.
+    if (offlineMode && !playableNow(track)) {
+      sayNotOnThisPhone(track);
+      return;
+    }
     activeMedia = 'music';
     selected = track;
     if (playbackTarget === 'desktop') return playOnDesktop(track);
@@ -4054,7 +4298,12 @@
         playerIndex = at;
       }
     } else {
-      const queue = tracks.filter((item) => item.local);
+      // What can be started, in the order the list has it. Offline that is only
+      // what this phone holds, which is what keeps a liked list - cached and
+      // uncached together - from queuing tracks that cannot play. Online it is the
+      // computer's own files, as before: a file it holds is seconds away, and one
+      // nobody here holds is minutes away for a reason that is not this.
+      const queue = offlineMode ? tracks.filter(playableNow) : tracks.filter((item) => item.local);
       playerQueue = queue;
       playerQueueLibraryVisible = true;
       playerIndex = queue.findIndex((item) => item.fileId === track.fileId);
@@ -4144,6 +4393,52 @@
     storePreloadDepth(depth);
   }
 
+  /** What this phone's audio cache holds, and how much it may hold. */
+  type AudioCacheStats = { tracks: number; bytes: number; budgetBytes: number };
+
+  /**
+   * Open the audio-cache sheet, with the numbers read fresh.
+   *
+   * Read on opening rather than kept in a variable: playing a track changes what
+   * is here, so a number remembered from last time would be wrong in the direction
+   * that matters - it would promise music the phone no longer has.
+   */
+  async function openCacheSheet() {
+    showCacheSheet = true;
+    cacheError = '';
+    await refreshCacheStats();
+  }
+
+  async function refreshCacheStats() {
+    try {
+      cacheStats = await invoke<AudioCacheStats>('audio_cache_stats');
+    } catch (nextError) {
+      cacheError = String(nextError);
+    }
+  }
+
+  /** Change how much audio this phone keeps, and take the eviction that follows. */
+  async function chooseCacheBudget(bytes: number) {
+    if (cacheBusy) return;
+    cacheBusy = true;
+    cacheError = '';
+    try {
+      cacheStats = await invoke<AudioCacheStats>('set_audio_cache_budget', {
+        bytes,
+        // What no budget may evict whatever it says: the track that is playing and
+        // the ones already fetched behind it.
+        protectedFileIds: protectedForCache()
+      });
+      // The store has just shrunk, so which rows may claim to be on this phone has
+      // to be read again rather than remembered from before the eviction.
+      await refreshCachedIds();
+    } catch (nextError) {
+      cacheError = String(nextError);
+    } finally {
+      cacheBusy = false;
+    }
+  }
+
   /**
    * The track `step` places after the one playing, in the order the player will
    * take them — which is the shuffled order when shuffle is on, because that is
@@ -4176,6 +4471,9 @@
    * hold it ready behind the playing one.
    */
   function warmUpcoming(afterFileId: string, libraryVisible: boolean) {
+    // Warming is asking a computer for the next few files, and offline there is
+    // nobody to ask: the asks would sit on the tunnel's timeout one after another.
+    if (offlineMode) return;
     const warmed = new Set<string>([afterFileId]);
     for (let step = 1; step <= preloadDepth; step += 1) {
       const upcoming = upcomingTrack(step);
@@ -4267,6 +4565,13 @@
 
   async function playTrack(track: RemoteTrack, libraryVisible = playerQueueLibraryVisible) {
     if (caching) return;
+    // The same rule a row tap follows, for the paths that reach the player without
+    // one: offline the track has to be here already, and the refusal is the answer
+    // rather than a wait.
+    if (offlineMode && !playableNow(track)) {
+      sayNotOnThisPhone(track);
+      return;
+    }
     const held = holdReason(track);
     if (held && !window.confirm(`${held}. Fetch it anyway?`)) {
       notice = `${held}. Music quality in Settings decides this.`;
@@ -4360,6 +4665,12 @@
     destinationFolder: string | null = null,
     audiobookId: string | null = null
   ): Promise<'queued' | 'held' | 'refused'> {
+    if (offlineMode) {
+      // Every fetch goes through here, so the refusal belongs here rather than at
+      // each caller: nothing can be asked for while there is nothing to ask.
+      sayNotOnThisPhone(track);
+      return 'refused';
+    }
     if (!mayDownload) {
       error = 'This pairing may not download from the network.';
       return 'refused';
@@ -4975,6 +5286,7 @@
       showPlaylistSort ||
       !!pickerTrack ||
       (showSourceOptions && !showActions) ||
+      showCacheSheet ||
       showSettings ||
       showActions ||
       showAlbumView ||
@@ -5581,7 +5893,17 @@
    */
   async function tracksByIds(fileIds: string[]): Promise<RemoteTrack[]> {
     const wanted = fileIds.filter((fileId) => fileId);
-    if (wanted.length === 0 || !remoteAvailable()) return [];
+    if (wanted.length === 0) return [];
+    // A file this phone holds answers for itself when the computer cannot be asked.
+    // Without this every playlist row and every carousel drew its placeholder while
+    // the cover for that very album was on the phone - and `remoteAvailable` is
+    // false for a computer that is merely asleep, not only for offline mode.
+    if (offlineMode || !remoteAvailable()) {
+      const held = await cachedTracksById();
+      return wanted
+        .map((fileId) => held[fileId])
+        .filter((track): track is RemoteTrack => Boolean(track));
+    }
     try {
       return await invoke<RemoteTrack[]>('remote_library_by_ids', { fileIds: wanted });
     } catch {
@@ -6145,6 +6467,13 @@
    * messages are the same ones anyone could fetch.
    */
   async function openDiscussion(track: RemoteTrack) {
+    // The thread lives on public relays and is fetched by the computer, so with no
+    // computer there is nothing to read and nothing that could be written - and
+    // opening an empty screen with a composer that refuses is worse than saying so.
+    if (offlineMode) {
+      notice = msg("Track discussion needs a connection");
+      return;
+    }
     closeActions();
     discussionTrack = track;
     // Whatever the card already knew, so the thread opens on something rather
@@ -7106,9 +7435,28 @@
     void loadCachedLibrary()
       .then(() => refreshStatus(true, false))
       .then(() => { if (anyoneReachable) void loadLibrary(); });
+
+    /**
+     * Offline, the library page is the cache and nothing else.
+     *
+     * Driving `tracks` is what does all of it: the shelves, Last played and the
+     * track rows are every one of them built from this list, so replacing the list
+     * leaves out an album with nothing on this phone, a shelf entry that could not
+     * play, and a row that would only refuse - without any of them needing to know
+     * that a mode exists. Coming back online is the other direction's job:
+     * `refreshStatus` reloads the computer's own library when a connection returns.
+     */
+    $effect(() => {
+      if (!offlineMode) return;
+      untrack(() => void loadCachedLibrary());
+    });
+
     // This phone's own key, which is made on first launch and read from its file
     // on every one after that.
     void loadNostrIdentity();
+    // The chip may say "Connecting…" while a real attempt is in flight, and no
+    // longer: after this it says what is true, which is that nothing answered.
+    window.setTimeout(() => { connectGraceDone = true; }, CONNECT_GRACE_MS);
     void refreshPodcastDownloads();
     // Fifteen seconds is right for a connection that is up, and far too slow for one
     // that is being opened - which is the whole of a cold start. The tunnel lands in a
@@ -7246,6 +7594,7 @@
         pending={pending.has(track.fileId)}
         host={fileHosts[track.fileId] ?? ''}
         hostName={hostNameOf(fileHosts[track.fileId])}
+        away={offlineMode}
       />
     </button>
     <!-- The row's own control is the track menu rather than a heart: liking
@@ -7377,8 +7726,12 @@
       {/if}
       <!-- How much this phone's computers are hosting, in the middle of the bar:
            the library is not a page, it is what every page here is drawn from. -->
-      {#if status.paired && activeTab === 'music' && !showingLikedMusic}
-        <span class="header-count">{$t(total === 1 ? "{p0} hosted track" : "{p0} hosted tracks", { p0: total })}</span>
+      {#if (status.paired || offlineMode) && activeTab === 'music' && !showingLikedMusic}
+        <span class="header-count">
+          {offlineMode
+            ? $t(total === 1 ? "{p0} cached track" : "{p0} cached tracks", { p0: total })
+            : $t(total === 1 ? "{p0} hosted track" : "{p0} hosted tracks", { p0: total })}
+        </span>
       {/if}
       <button class="header-icon" onclick={() => (showSettings = true)} aria-label={$t("Settings")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -7560,7 +7913,7 @@
             {/if}
             {#if playlists.length > 0}
               <div class="album-shelf-block">
-                <div class="section-label"><b>{$t("Playlists")}</b><span>{playlists.length} {$t("on your computer")}</span></div>
+                <div class="section-label"><b>{$t("Playlists")}</b><span>{playlists.length} {$t(offlineMode ? "remembered" : "on your computer")}</span></div>
                 <div class="album-shelf">
                   {#each playlists as playlist (playlist.author + playlist.playlistId)}
                     <div class="album-card">
@@ -7580,7 +7933,7 @@
             {/if}
             {#if discoverAlbums.length > 0}
               <div class="album-shelf-block">
-                <div class="section-label"><b>{$t("Discover albums")}</b><span>{libraryAlbums.length} {$t("in this library")}</span></div>
+                <div class="section-label"><b>{$t("Discover albums")}</b><span>{libraryAlbums.length} {$t("in {p0} tracks", { p0: String(tracks.length) })}</span></div>
                 <div class="album-shelf">
                   {#each discoverAlbums as album (album.key)}
                     <div class="album-card">
@@ -7709,7 +8062,7 @@
           <div
             class="album-view playlist-sheet"
             class:desktop={desktopShell}
-            style={`--cover-hue:${coverHueOf(playlistMembers[0]?.fileId ?? '') ?? placeholderHue(playlistMembers[0]?.fileId ?? playlistDraft.playlistId)}`}
+            style={`--cover-hue:${coverHueOf(playlistArtMember?.fileId ?? '') ?? placeholderHue(playlistArtMember?.fileId ?? playlistDraft.playlistId)}`}
             role="dialog"
             aria-modal="true"
             aria-label={playlistDraft.title || $t("Playlist")}
@@ -7726,9 +8079,9 @@
             <div class="album-scroll playlist-view" onscroll={onPlaylistScroll} bind:this={playlistScroller}>
               <div class="album-art">
                 {#if playlistThumb}
-                  <!-- The first member's cover, which is where this page's colour
-                       comes from as well as its picture. -->
-                  {@const playlistArtOf = playlistMembers[0]?.fileId ?? ''}
+                  <!-- The cover of the member this page is drawn from, which is
+                       where its colour comes from as well as its picture. -->
+                  {@const playlistArtOf = playlistArtMember?.fileId ?? ''}
                   <img
                     class="album-art-backdrop"
                     src={playlistThumb}
@@ -7830,7 +8183,7 @@
                         <small>{member.artist}</small>
                         <span class="track-meta">{member.album}</span>
                       </span>
-                      <TrackBadge track={memberTrack(member)} cached={cachedFileIds.has(member.fileId)} />
+                      <TrackBadge track={memberTrack(member)} cached={cachedFileIds.has(member.fileId)} away={offlineMode} />
                     </button>
                     <button class="track-more" onclick={() => void openMemberActions(member)} aria-label={`${$t("Track options")} · ${member.title || member.fileId.slice(0, 12)}`}>
                       <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="filled" cx="12" cy="5.6" r="1.5" /><circle class="filled" cx="12" cy="12" r="1.5" /><circle class="filled" cx="12" cy="18.4" r="1.5" /></svg>
@@ -7972,7 +8325,7 @@
                     {#if !cachedFileIds.has(member.fileId)}
                       <i class="playlist-badge">{$t("Not on this phone")}</i>
                     {/if}
-                    <TrackBadge track={memberTrack(member)} cached={cachedFileIds.has(member.fileId)} />
+                    <TrackBadge track={memberTrack(member)} cached={cachedFileIds.has(member.fileId)} away={offlineMode} />
                     <span class="playlist-grip" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><path d="M8 8.5h8" /><path d="M8 12h8" /><path d="M8 15.5h8" /></svg>
                     </span>
@@ -8334,7 +8687,12 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>
                 <b>{$t("Track discussion")}</b>
               </span>
-              {#if sheetNewest}
+              {#if offlineMode}
+                <!-- Offline there is no thread to read and nothing that could be
+                     written, so the card says that rather than inviting a person in
+                     to an empty screen. Tapping it says the same thing, out loud. -->
+                <span class="sheet-card-line quiet">{$t("Needs a connection")}</span>
+              {:else if sheetNewest}
                 <span class="sheet-card-line">
                   <b>{sheetNewest.displayName || sheetNewest.npub}</b>
                   {sheetNewest.content}
@@ -8399,7 +8757,7 @@
           <!-- Where the track is held, as on the library rows: the menu is the
                place a download would be asked for, and the badge is what says
                whether one is needed. -->
-          <TrackBadge {track} cached={cachedFileIds.has(track.fileId)} pending={pending.has(track.fileId)} />
+          <TrackBadge {track} cached={cachedFileIds.has(track.fileId)} pending={pending.has(track.fileId)} away={offlineMode} />
           <button class="track-more" onclick={() => openActions(track)} aria-label={$t("Track options")}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle class="filled" cx="12" cy="5.6" r="1.5" /><circle class="filled" cx="12" cy="12" r="1.5" /><circle class="filled" cx="12" cy="18.4" r="1.5" />
@@ -8569,6 +8927,28 @@
         </p>
       </div>
 
+      <!-- What this phone does with nothing to talk to, and what it keeps for it.
+           Its own section because both rows are about the offline case rather than
+           about what is fetched while a computer is answering. -->
+      <div class="settings-section">
+        <p>{$t("Offline")}</p>
+        <button class="settings-row" onclick={() => chooseOfflineMode(!manualOffline)} aria-pressed={manualOffline}>
+          <span>{$t("Offline mode")}</span>
+          <small>
+            {manualOffline
+              ? $t("On: only what this phone holds")
+              : offlineMode
+                ? $t("On: no computer is answering")
+                : $t("Off: use the computers when they answer")}
+          </small>
+        </button>
+        <p class="settings-note">{$t("Offline mode draws the library from what this phone has cached, and a track that is not here says so instead of waiting for a computer that cannot answer. It turns itself on when the phone has no network and when no computer is answering.")}</p>
+        <button class="settings-row" onclick={() => void openCacheSheet()}>
+          <span>{$t("Audio cache")}</span>
+          <small>{cacheStats ? readableBytes(cacheStats.bytes) : $t("See what this phone keeps")}</small>
+        </button>
+      </div>
+
       <!-- Its own section because it is about what happens while nothing is being
            asked for, which is the opposite of the quality rows above it. -->
       <div class="settings-section">
@@ -8623,6 +9003,48 @@
       <div class="settings-section language-section">
         <LanguageSelect />
       </div>
+    </div>
+  </div>
+{/if}
+
+<!-- What this phone keeps for listening with no network, and how much it may
+     keep. A screen of its own rather than a settings row that unfolds: it is a
+     number to come and look at, and it is only worth anything read when asked. -->
+{#if showCacheSheet}
+  <div class="settings-view" role="dialog" aria-modal="true" aria-label={$t("Audio cache")}>
+    <header class="view-head">
+      <h1>{$t("Audio cache")}</h1>
+      <button class="view-icon" onclick={() => (showCacheSheet = false)} aria-label={$t("Close")}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5 17.5 17.5" /><path d="M17.5 6.5 6.5 17.5" /></svg>
+      </button>
+    </header>
+    <div class="settings-scroll">
+      <div class="settings-section">
+        <p>{$t("On this phone")}</p>
+        <p class="cache-total">
+          {$t(cacheStats?.tracks === 1 ? "{p0} track" : "{p0} tracks", { p0: String(cacheStats?.tracks ?? 0) })}
+          · {readableBytes(cacheStats?.bytes ?? 0)}
+        </p>
+        <p class="settings-note">{$t("These are the tracks that play with no network at all. Everything else comes from a computer, which has to be reachable.")}</p>
+      </div>
+      <div class="settings-section">
+        <p>{$t("Keep up to")}</p>
+        <div class="preload-panel">
+          <div class="preload-chips" role="group" aria-label={$t("Keep up to")}>
+            {#each CACHE_SIZE_CHOICES as choice (choice.bytes)}
+              <button
+                class="preload-chip"
+                class:on={cacheStats?.budgetBytes === choice.bytes}
+                aria-pressed={cacheStats?.budgetBytes === choice.bytes}
+                disabled={cacheBusy}
+                onclick={() => void chooseCacheBudget(choice.bytes)}
+              >{choice.label}</button>
+            {/each}
+          </div>
+        </div>
+        <p class="settings-note">{$t("Over its size, the tracks that have not been played for longest go first. The track playing and the ones fetched behind it are never removed.")}</p>
+      </div>
+      {#if cacheError}<p class="settings-note settings-error">{cacheError}</p>{/if}
     </div>
   </div>
 {/if}
@@ -8860,7 +9282,7 @@
               <strong>{title(row)}</strong>
               <small>{artist(row)}{row.album ? ` · ${row.album}` : ''}</small>
             </span>
-            <TrackBadge track={row} cached={cachedFileIds.has(row.fileId)} pending={pending.has(row.fileId)} />
+            <TrackBadge track={row} cached={cachedFileIds.has(row.fileId)} pending={pending.has(row.fileId)} away={offlineMode} />
             <!-- Inside the button, because the icon is part of what the row does:
                  a toggle beside the press target is a toggle that does not work. -->
             <i class="picker-toggle" class:on={already} aria-hidden="true">

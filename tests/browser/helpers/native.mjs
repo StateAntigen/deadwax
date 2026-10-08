@@ -33,7 +33,9 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
       // how a spec asks for it, and every `remote_*` call answers the way the
       // real channel would - with a failure.
       connected: paired && window.desktopReachable !== false && (!homeRow() || hostOnline(homeRow())),
-      connecting: false,
+      // A phone with no network keeps trying, so `connecting` is true for as long as
+      // it does: `window.statusConnecting` is how a spec asks for that state.
+      connecting: Boolean(window.statusConnecting),
       desktopName: homeRow()?.desktopName ?? 'Music computer',
       streamOnly: Boolean(window.streamOnly),
       // The rights beside the older flag. A spec that lends only some of them
@@ -162,6 +164,17 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
         `http://${protocol}.localhost/${encodeURIComponent(path)}`,
       invoke: async (cmd, args = {}) => {
         window.calls.push({ cmd, args });
+        // One `remote_` command is not a request to the computer at all: the
+        // phone's own side answers for art it already holds, out of its own disk
+        // and its own loopback server. That is why a cover is still drawn with the
+        // computer out of reach, and why a row can be drawn from an album whose
+        // file is not here either. Whatever it does not hold is the computer's to
+        // fetch, and an unreachable computer cannot.
+        if (cmd === 'remote_art') {
+          const url = (window.heldArt ?? {})[args.hash];
+          if (!url) throw 'Not held';
+          return { hash: args.hash, url };
+        }
         // An unreachable computer fails every request to it, exactly as the
         // phone's own channel does - and the phone's local commands keep working,
         // which is the whole point of the state.
@@ -250,6 +263,35 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
             // offline is queued from.
             const rows = window.cachedLibrary ?? (paired ? [track] : []);
             return { ...status(), tracks: rows, total: rows.length };
+          }
+          case 'search_cached_library': {
+            // Searching what this phone holds, which is the whole of an offline
+            // search. The rule is the host's own: every word has to appear in the
+            // title, the artist or the album.
+            const words = String(args.query ?? '')
+              .toLowerCase()
+              .split(/\s+/)
+              .filter(Boolean);
+            const rows = window.cachedLibrary ?? (paired ? [track] : []);
+            return rows.filter((row) => {
+              const haystack = `${row.title}\n${row.artist}\n${row.album}`.toLowerCase();
+              return words.length > 0 && words.every((word) => haystack.includes(word));
+            });
+          }
+          case 'audio_cache_stats':
+            return (
+              window.cacheStats ?? {
+                tracks: (window.cachedLibrary ?? [track]).length,
+                bytes: 1_200_000,
+                budgetBytes: 2 * 1024 * 1024 * 1024
+              }
+            );
+          case 'set_audio_cache_budget': {
+            // The store the phone answers with is the one it was just told to
+            // keep, so a spec watches the write the way it watches the answer.
+            const current = window.cacheStats ?? { tracks: 1, bytes: 1_200_000, budgetBytes: 0 };
+            window.cacheStats = { ...current, budgetBytes: args.bytes };
+            return window.cacheStats;
           }
           case 'remote_library': {
             // The whole library unless a page is asked for, which is what the

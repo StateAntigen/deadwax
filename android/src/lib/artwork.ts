@@ -687,6 +687,26 @@ export function clearCoverCache() {
  * the artwork hue, because the colour of an album's artwork is a question about that
  * artwork - see `coverHueOf` - and this answers a different one.
  */
+/**
+ * Whether this phone already holds a picture for this track's album.
+ *
+ * Synchronous, and only about what is on this phone. It exists for one question a
+ * list row has to answer before it draws anything: which of a playlist's members to
+ * take its face from. That question cannot be waited on - a row is drawn once - and
+ * the answer does not need the host: a picture fetched here is still here when the
+ * host's own copy has gone.
+ *
+ * `heldArt` only fills in as albums are asked about, so what was written down has
+ * to be read before the question can be answered, which is why this reads it rather
+ * than only looking in the map.
+ */
+export function holdsArtFor(track: RemoteTrack): boolean {
+  const key = coverKey(track.artist ?? '', track.album ?? '');
+  if (!key) return false;
+  if (!heldArt.has(key)) readStoredCover(key);
+  return heldHashes(key).length > 0;
+}
+
 export function placeholderHue(fileId: string) {
   return Number.parseInt(fileId.slice(0, 6) || '5632aa', 16) % 360;
 }
