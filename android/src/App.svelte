@@ -26,7 +26,8 @@
   import { meteredNow, onlineNow, watchNetwork } from './lib/network';
   import { CACHE_SIZE_CHOICES, readOfflineMode, readableBytes, storeOfflineMode } from './lib/offline';
   import appIcon from '../src-tauri/icons/icon.png';
-  import { coverFor, coverHueOf, coverHueRevision, coverKey, holdsArtFor, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverHue, type AlbumCover } from './lib/artwork';
+  import { coverAccentOf, coverFor, coverHueOf, coverHueRevision, coverKey, holdsArtFor, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverColours, type AlbumCover } from './lib/artwork';
+  import { colourOf } from './lib/palette';
   import { reportReasons } from './lib/types';
   import { hostHue } from './lib/hosts';
   import type { AudiobookLibraryPage, CachedAudio, CarryReport, CompanionStatus, CoverReport, LibraryPage, NostrIdentity, PlaybackCommand, PlaylistPage, PodcastDownload, PodcastEpisode, PodcastFeed, ReadOnlyTicketOffer, RemoteAudiobook, RemoteAudiobookSummary, RemoteDiscussionMessage, RemoteHost, RemotePlaybackState, RemotePlaylist, RemotePlaylistCoordinate, RemotePlaylistSummary, RemotePlaylistTrack, RemoteRepeat, RemoteTrack, RemoteTransfer, ReportReason } from './lib/types';
@@ -1158,6 +1159,32 @@
     void $coverHueRevision;
     return coverHueOf(shownTrack?.fileId ?? '') ?? 247;
   });
+  /**
+   * The colour the player is painted with, out of the cover this track is wearing.
+   *
+   * The swatch with the most colour in it, from the k-means palette read off that
+   * cover's own pixels - or nothing, which is the answer for a sleeve that is black
+   * and white and for one whose pixels nobody could read. Nothing is not a colour: it
+   * leaves the hue-based colour above in place instead of painting the player grey.
+   */
+  let shownAccent = $derived.by(() => {
+    void $coverHueRevision;
+    return coverAccentOf(shownTrack?.fileId ?? '');
+  });
+  /** The custom property the played part of the shape is filled with, inert when none. */
+  let accentStyle = $derived(shownAccent ? `--cover-accent:${colourOf(shownAccent)}` : '');
+  /**
+   * The bar's progress, in the same colour.
+   *
+   * A wash rather than a solid: the bar has the track's own artwork blurred behind it
+   * and a scrim over that, and what has been played is a footnote to the bar rather
+   * than a bar in its own right.
+   */
+  let barFillStyle = $derived(
+    shownAccent
+      ? `--bar-fill: rgba(${Math.round(shownAccent[0])}, ${Math.round(shownAccent[1])}, ${Math.round(shownAccent[2])}, 0.22)`
+      : ''
+  );
   /** The same question for the album view's glow, which is behind that album's art. */
   let albumHue = $derived.by(() => {
     void $coverHueRevision;
@@ -8088,7 +8115,7 @@
                     alt=""
                     aria-hidden="true"
                     crossorigin="anonymous"
-                    onload={(event) => rememberCoverHue(playlistArtOf, event.currentTarget as HTMLImageElement)}
+                    onload={(event) => rememberCoverColours(playlistArtOf, event.currentTarget as HTMLImageElement)}
                   />
                 {/if}
                 {#if playlistArt && playlistArt !== playlistThumb}
@@ -8416,7 +8443,7 @@
       <!-- The compact bar is the phone's player; a pinned desktop column replaces it. -->
       <section
         class:dragging={barDragging}
-        style={`--bar-shift:${barShift}px; --bar-opacity:${barFade}; --bar-progress:${barProgress}; ${barArtStyle}`}
+        style={`--bar-shift:${barShift}px; --bar-opacity:${barFade}; --bar-progress:${barProgress}; ${barArtStyle}; ${barFillStyle}`}
         class:empty={barEmpty}
         class="now-playing"
       >
@@ -8463,7 +8490,7 @@
         class:closing={sheetClosing}
         class:dragging={sheetDragging}
         bind:this={sheetElement}
-        style={`--sheet-drag:${sheetDragY}px; --cover-hue:${sheetHue}`}
+        style={`--sheet-drag:${sheetDragY}px; --cover-hue:${sheetHue}; ${accentStyle}`}
         role={pinned ? 'complementary' : 'dialog'}
         aria-modal={pinned ? undefined : 'true'}
         tabindex="-1"
@@ -8513,7 +8540,7 @@
                 alt=""
                 aria-hidden="true"
                 crossorigin="anonymous"
-                onload={(event) => rememberCoverHue(thumbArtOf, event.currentTarget as HTMLImageElement)}
+                onload={(event) => rememberCoverColours(thumbArtOf, event.currentTarget as HTMLImageElement)}
               />
             {/if}
             <!-- A publisher who gave one rendition gave nothing to fade to, and
@@ -8530,7 +8557,7 @@
                 crossorigin="anonymous"
                 onload={(event) => {
                   sheetArtLoaded = art;
-                  rememberCoverHue(fullArtOf, event.currentTarget as HTMLImageElement);
+                  rememberCoverColours(fullArtOf, event.currentTarget as HTMLImageElement);
                 }}
                 onerror={() => (nowArtFailed = true)}
               />
@@ -9126,7 +9153,7 @@
             alt=""
             aria-hidden="true"
             crossorigin="anonymous"
-            onload={(event) => rememberCoverHue(albumArtOf, event.currentTarget as HTMLImageElement)}
+            onload={(event) => rememberCoverColours(albumArtOf, event.currentTarget as HTMLImageElement)}
           />
         {/if}
         {#if albumView.art && albumView.art !== albumView.thumb}

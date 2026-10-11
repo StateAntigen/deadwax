@@ -183,7 +183,7 @@ audio { display: none; }
 .now-title-row.marquee > span { padding-right: 30px; animation: marquee 13s linear infinite; }
 .now-copy small { overflow: hidden; color: #aabbbb; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .now-fill { position: absolute; z-index: 1; top: 0; right: 0; bottom: 0; left: var(--art-size); pointer-events: none; }
-.now-fill::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: calc(100% * var(--bar-progress, 0)); background: rgba(122,222,206,.20); }.now-copy strong, .now-copy small { display: block; }.now-copy strong { font-size: 14px; }.now-copy small { margin-top: 3px; color: #aabbbb; font-size: 11px; }.now-play { grid-column: 3; position: relative; z-index: 1; padding: 0; display: grid; place-items: center; color: #eef7f7; background: transparent; border: 0; font-size: 24px; }.now-play:disabled { color: #5d6b6d; }
+.now-fill::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: calc(100% * var(--bar-progress, 0)); background: var(--bar-fill, rgba(122,222,206,.20)); }.now-copy strong, .now-copy small { display: block; }.now-copy strong { font-size: 14px; }.now-copy small { margin-top: 3px; color: #aabbbb; font-size: 11px; }.now-play { grid-column: 3; position: relative; z-index: 1; padding: 0; display: grid; place-items: center; color: #eef7f7; background: transparent; border: 0; font-size: 24px; }.now-play:disabled { color: #5d6b6d; }
 .icon-play { display: block; width: 0; height: 0; border-left: 0.6em solid currentColor; border-top: 0.35em solid transparent; border-bottom: 0.35em solid transparent; }
 .icon-pause { display: block; width: 0.6em; height: 0.72em; border-right: 0.19em solid currentColor; border-left: 0.19em solid currentColor; }
 .icon-busy { display: block; width: 0.6em; height: 0.6em; border: 0.08em solid rgba(255,255,255,.25); border-top-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -405,7 +405,7 @@ audio { display: none; }
    so the edge between played and unplayed reads whatever the album's colours are, and
    the fallback is the purple the track-discussion card uses. */
 .now-sheet-wave path { fill: rgba(255,255,255,.14); }
-.now-sheet-wave path.played { fill: hsl(var(--cover-hue, 247) 100% 64%); }
+.now-sheet-wave path.played { fill: var(--cover-accent, hsl(var(--cover-hue, 247) 100% 64%)); }
 /* The exact edge, where the played colour meets the rest. */
 .now-sheet-wave .head { stroke: rgba(255,255,255,.9); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .now-sheet-timeline.waves input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; }

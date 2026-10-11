@@ -57,8 +57,8 @@ export function hueOfPixels(pixels: Uint8ClampedArray): number | null {
 }
 
 /**
- * The hue of a picture that has already been decoded: a number, null when the
- * picture has no colour to name, or undefined when its pixels could not be read.
+ * The pixels of a picture that has already been decoded: 48 x 48 of it by default,
+ * or undefined when they could not be read at all.
  *
  * Drawing it small is the whole of the work: 48 x 48 of a cover is a fair sample of
  * its colours and costs nothing. What goes wrong is the read: a picture drawn from
@@ -67,8 +67,11 @@ export function hueOfPixels(pixels: Uint8ClampedArray): number | null {
  * canvas throws. That is reported as its own answer rather than as null, because a
  * picture nobody could look at and a picture of grey are not the same thing - and
  * calling the first one grey is how a whole app ends up tinted one colour.
+ *
+ * Here rather than in the callers because a cover's hue and its palette are two
+ * answers to one read, and reading it twice would draw the same picture twice.
  */
-export function hueOfImage(image: HTMLImageElement, size = 48): number | null | undefined {
+export function pixelsOfImage(image: HTMLImageElement, size = 48): Uint8ClampedArray | undefined {
   try {
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -76,8 +79,18 @@ export function hueOfImage(image: HTMLImageElement, size = 48): number | null | 
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return undefined;
     context.drawImage(image, 0, 0, size, size);
-    return hueOfPixels(context.getImageData(0, 0, size, size).data);
+    return context.getImageData(0, 0, size, size).data;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The hue of a picture that has already been decoded: a number, null when the
+ * picture has no colour to name, or undefined when its pixels could not be read.
+ */
+export function hueOfImage(image: HTMLImageElement, size = 48): number | null | undefined {
+  const pixels = pixelsOfImage(image, size);
+  if (!pixels) return undefined;
+  return hueOfPixels(pixels);
 }

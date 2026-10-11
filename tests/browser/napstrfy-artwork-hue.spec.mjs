@@ -17,6 +17,12 @@ import { mockNative, serveAudio } from './helpers/native.mjs';
 // input, and the hue the drawer ends up with is the output. Red is at the top of
 // the colour wheel (hue 5); grey names no colour at all, which has to leave the
 // app's own colour in place rather than invent one.
+//
+// The player is painted from the palette read off those same pixels rather than from
+// the hue: one colour for a tint is not the same question as which colours are in the
+// picture, and a sleeve that is four fifths dark background still has a colour in it.
+// The hue is still what the wash and the placeholder tiles are built from, so both
+// answers are asserted here.
 
 const id = (letter) => letter.repeat(64);
 
@@ -126,6 +132,16 @@ const sheetHue = (page) =>
 const drawnFill = (page) =>
   page.evaluate(() => getComputedStyle(document.querySelector('.now-sheet-wave path.played')).fill);
 
+/** The swatch the player is painted with, out of the cover's own palette. */
+const sheetAccent = (page) =>
+  page.evaluate(() =>
+    getComputedStyle(document.querySelector('.now-sheet')).getPropertyValue('--cover-accent').trim()
+  );
+
+/** The wash the minimised bar's progress is drawn in. */
+const barFill = (page) =>
+  page.evaluate(() => getComputedStyle(document.querySelector('.now-fill'), '::before').backgroundColor);
+
 /**
  * What the browser makes of a colour, so the comparison is between colours rather
  * than between two spellings of one.
@@ -147,7 +163,19 @@ test('the drawer takes its colour from the cover, not from the track', async ({ 
   // Red, and specifically not the app's own colour, which is what a cover with no
   // readable pixels leaves behind.
   await expect.poll(() => sheetHue(page)).toBe('5');
-  expect(await drawnFill(page)).toBe(await paintOf(page, 'hsl(5 100% 64%)'));
+
+  // The palette's answer for the same pixels: one pixel of one colour is one swatch,
+  // so the colour the player is painted with is that pixel's colour exactly - not a
+  // tint worked out from its hue, which is what the app used to paint with.
+  await expect.poll(() => sheetAccent(page)).toMatch(/^rgb\(/);
+  const [red, green, blue] = (await sheetAccent(page)).match(/\d+/g).map(Number);
+  expect(red).toBeGreaterThan(150);
+  expect(red).toBeGreaterThan(green + 100);
+  expect(red).toBeGreaterThan(blue + 100);
+  expect(await drawnFill(page)).toBe(await paintOf(page, `rgb(${red}, ${green}, ${blue})`));
+
+  // And the bar's progress is a wash of that colour rather than the teal it was.
+  expect(await barFill(page)).toBe(await paintOf(page, `rgba(${red}, ${green}, ${blue}, 0.22)`));
 });
 
 test('a cover with no colour in it leaves the app’s own colour in place', async ({ page }) => {
@@ -158,4 +186,9 @@ test('a cover with no colour in it leaves the app’s own colour in place', asyn
   // fallback is its own, which is the violet it uses for everything else.
   await expect.poll(() => sheetHue(page)).toBe('247');
   expect(await drawnFill(page)).toBe(await paintOf(page, 'hsl(247 100% 64%)'));
+
+  // Nothing to paint with, so nothing is painted with it: no swatch, and the bar keeps
+  // the colour it has always had rather than being tinted grey by a grey sleeve.
+  expect(await sheetAccent(page)).toBe('');
+  expect(await barFill(page)).toBe(await paintOf(page, 'rgba(122, 222, 206, .2)'));
 });

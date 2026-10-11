@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { writable } from 'svelte/store';
 import { recordCoverEvent } from './coverDebug';
-import { hueOfImage } from './hue';
+import { hueOfPixels, pixelsOfImage } from './hue';
+import { accentOf, colourOf, paletteOfPixels, type Swatch } from './palette';
 import type { RemoteTrack } from './types';
 
 /**
@@ -728,16 +729,45 @@ export function coverHueOf(fileId: string): number | null | undefined {
 }
 
 /**
- * Read the hue out of a picture that has already been decoded.
+ * What colours each cover turned out to hold, by the file whose track it is.
+ *
+ * Kept beside the hue rather than instead of it, because the two are answers to
+ * different questions: the hue is what a wash and a placeholder are tinted with, and
+ * these are the colours the player is painted with.
+ */
+const coverPalettes = new Map<string, Swatch[] | null>();
+
+/** The colours in a cover, `null` for one with nothing to give, absent for unread. */
+export function coverPaletteOf(fileId: string): Swatch[] | null | undefined {
+  return coverPalettes.get(fileId);
+}
+
+/**
+ * The colour to paint the player with, read off a cover: the swatch with the most
+ * colour in it, or nothing at all - which is the answer for a sleeve that is
+ * black and white, and for one whose pixels nobody could read.
+ *
+ * Nothing is deliberately not a colour: it lets a caller keep whatever it would
+ * otherwise have used, which is better than a grey invented from a grey sleeve.
+ */
+export function coverAccentOf(fileId: string): [number, number, number] | null {
+  const palette = coverPalettes.get(fileId);
+  return palette ? accentOf(palette) : null;
+}
+
+/**
+ * Read the hue and the colours out of a picture that has already been decoded.
  *
  * Called when a cover's own image element loads, so nothing is fetched twice: the
- * picture is already in hand and drawing it small is instant.
+ * picture is already in hand, drawing it small is instant, and both answers come off
+ * the one read.
  *
  * Each pixel votes for a hue, weighted by how colourful it is and by how far it is
  * from black and from white - so a pixel that is nearly grey abstains rather than
  * voting for a hue it does not have. A monochrome sleeve therefore produces almost
  * no votes, and few enough votes is `null`: the app's own colour is a better answer
- * than an invented one.
+ * than an invented one. The colours are clustered separately, in Lab, and are what
+ * the player is painted with.
  *
  * The picture has to have been fetched as a CORS request for any of that to be
  * possible, which is what `crossorigin` on the image elements that call this is for;
@@ -747,13 +777,27 @@ export function coverHueOf(fileId: string): number | null | undefined {
  * silent and total: a picture nobody could read answers "no colour", and every
  * screen in the app is then tinted the same colour with nothing to say why.
  */
-export function rememberCoverHue(fileId: string, image: HTMLImageElement) {
+export function rememberCoverColours(fileId: string, image: HTMLImageElement) {
   if (!fileId || coverHues.has(fileId)) return;
-  const read = hueOfImage(image);
+  const pixels = pixelsOfImage(image);
   const name = fileId.slice(0, 8);
-  if (read === undefined) recordCoverEvent('hue', `${name}: picture could not be read`);
-  else if (read === null) recordCoverEvent('hue', `${name}: picture has no colour`);
+  if (!pixels) {
+    recordCoverEvent('hue', `${name}: picture could not be read`);
+    coverHues.set(fileId, null);
+    coverPalettes.set(fileId, null);
+    coverHueRevision.update((value) => value + 1);
+    return;
+  }
+  const read = hueOfPixels(pixels);
+  const palette = paletteOfPixels(pixels);
+  const accent = accentOf(palette);
+  if (read === null) recordCoverEvent('hue', `${name}: picture has no colour`);
   else recordCoverEvent('hue', `${name}: hue ${read}`);
+  recordCoverEvent(
+    'hue',
+    `${name}: ${palette.length} colours, accent ${accent ? colourOf(accent) : 'none'}`
+  );
   coverHues.set(fileId, read ?? null);
+  coverPalettes.set(fileId, palette);
   coverHueRevision.update((value) => value + 1);
 }
