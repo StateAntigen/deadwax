@@ -107,6 +107,28 @@
     { label: 'Covers', icon: '▨' }
   ];
 
+  /**
+   * One 24×24 stroked path per view.
+   *
+   * The rail used to be text glyphs, and a glyph is drawn by whichever font
+   * happens to have it: `⌕` came out as a circle with a slash, and the ten
+   * icons were not even the same size. A path is the same shape everywhere.
+   */
+  const viewIcons: Record<View, string> = {
+    Search: 'M11 4.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM15.9 15.9 20.5 20.5',
+    Network: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM4.4 12h15.2M12 4c2.4 2.2 3.7 5 3.7 8s-1.3 5.8-3.7 8c-2.4-2.2-3.7-5-3.7-8s1.3-5.8 3.7-8z',
+    Downloads: 'M12 4v10M8 11.2l4 4 4-4M4.5 19.5h15',
+    Shared: 'M4 8.2 12 4l8 4.2-8 4.2-8-4.2zM4 12.4l8 4.2 8-4.2M4 16.6l8 4.2 8-4.2',
+    Playlists: 'M4 7h11M4 12h11M4 17h7M16 12.6l4.4 2.6-4.4 2.6z',
+    Profile: 'M12 4.4a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2zM4.8 20c1.2-3.6 3.9-5.4 7.2-5.4s6 1.8 7.2 5.4',
+    Settings: 'M12 8.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8zM12 3.6V6M12 18v2.4M3.6 12H6M18 12h2.4M6.1 6.1l1.7 1.7M16.2 16.2l1.7 1.7M17.9 6.1l-1.7 1.7M7.8 16.2l-1.7 1.7',
+    Trollbox: 'M4.5 6h15v9.6H9.4L4.5 19V6z',
+    Deadwax: 'M9.2 3h5.6v18H9.2zM12 18.2h.01',
+    Covers: 'M4 4h6.6v6.6H4zM13.4 4H20v6.6h-6.6zM4 13.4h6.6V20H4zM13.4 13.4H20V20h-6.6z'
+  };
+  const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
+  const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
+
   type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string };
   type NativeTransfer = { id: number; fileId: string; filename: string; size: number; progress: number; status: string; speed: string; destination: string };
   type NativeSettings = { napstrFolder: string; nostrRelays: string; displayName: string; profileAbout: string; profilePicture: string };
@@ -209,6 +231,16 @@
   type PlaylistRow = PlaylistSummary & { state: PlaylistRowState; withdrawable: boolean };
 
   let activeView: View = 'Search';
+  /**
+   * Whether the rail shows its labels. The icons alone are the default because a
+   * window this size (1180 wide by default) has more use for the width, and the
+   * choice is remembered per machine rather than per window.
+   */
+  let railExpanded = false;
+  function toggleRail() {
+    railExpanded = !railExpanded;
+    try { window.localStorage.setItem('deadwax-rail', railExpanded ? '1' : '0'); } catch { /* a blocked store is not a reason to fail */ }
+  }
   let results: Result[] = [];
   let resultPage = 0;
   let query = '';
@@ -1531,10 +1563,16 @@
     coverLoading = true;
     coverError = '';
     try {
-      coverStatus = await invoke<CoverStatus>('cover_status');
-      if (allowedArtHosts === allowedArtHostsSaved) {
-        allowedArtHosts = coverStatus.allowedArtHosts;
-        allowedArtHostsSaved = allowedArtHosts;
+      // A host that cannot answer this yet (an older build, or a test harness
+      // without the command) leaves the tab empty rather than painting an error
+      // across it: nothing here is the button the person came to press.
+      const status = await invoke<CoverStatus | null>('cover_status');
+      if (status) {
+        coverStatus = status;
+        if (allowedArtHosts === allowedArtHostsSaved) {
+          allowedArtHosts = status.allowedArtHosts;
+          allowedArtHostsSaved = allowedArtHosts;
+        }
       }
       coverQueue = await invoke<CoverCandidate[]>('cover_candidates', { limit: COVER_QUEUE_PREVIEW });
       // The two diagnostic lists are read with the same call that refreshes the
@@ -1574,9 +1612,12 @@
   async function saveAllowedArtHosts(hosts: string) {
     coverError = '';
     try {
-      coverStatus = await invoke<CoverStatus>('set_allowed_art_hosts', { hosts });
-      allowedArtHosts = coverStatus.allowedArtHosts;
-      allowedArtHostsSaved = allowedArtHosts;
+      const status = await invoke<CoverStatus | null>('set_allowed_art_hosts', { hosts });
+      if (status) {
+        coverStatus = status;
+        allowedArtHosts = status.allowedArtHosts;
+        allowedArtHostsSaved = allowedArtHosts;
+      }
       lastCoverRevisionAt = 0;
       refreshCoverArtwork();
     } catch (error) {
@@ -3450,6 +3491,10 @@
   onMount(() => initializeLocale(() => osLocale()));
 
   onMount(() => {
+    try { railExpanded = window.localStorage.getItem('deadwax-rail') === '1'; } catch { /* a blocked store leaves the rail closed */ }
+  });
+
+  onMount(() => {
     desktopRuntime = '__TAURI_INTERNALS__' in window;
     if (!desktopRuntime) return;
     const savedPlayerMode = readStoredPreference('napstr-player-mode');
@@ -3630,7 +3675,7 @@
 
 {#if desktopRuntime}
 <main class="desktop">
-  <section class="app-window" style={`--transfer-height: ${transferPaneHeight}px`} aria-label={$t("Deadwax application window")}>
+  <section class="app-window" class:rail-expanded={railExpanded} style={`--transfer-height: ${transferPaneHeight}px`} aria-label={$t("Deadwax application window")}>
     <button class="window-resize-handle resize-n" aria-label={$t("Resize window from top")} onpointerdown={(event) => beginWindowResize(event, 'North')}></button>
     <button class="window-resize-handle resize-e" aria-label={$t("Resize window from right")} onpointerdown={(event) => beginWindowResize(event, 'East')}></button>
     <button class="window-resize-handle resize-s" aria-label={$t("Resize window from bottom")} onpointerdown={(event) => beginWindowResize(event, 'South')}></button>
@@ -3640,43 +3685,46 @@
     <button class="window-resize-handle resize-sw" aria-label={$t("Resize window from bottom left")} onpointerdown={(event) => beginWindowResize(event, 'SouthWest')}></button>
     <button class="window-resize-handle resize-nw" aria-label={$t("Resize window from top left")} onpointerdown={(event) => beginWindowResize(event, 'NorthWest')}></button>
 
-    <header class="titlebar" data-tauri-drag-region>
-      <div class="title-left"><span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span><span>{$t("Deadwax - own your music again")}</span></div>
-      <div class="window-controls" aria-hidden="true">
-        <button tabindex="-1" onclick={() => windowCommand('minimise_window')}>_</button><button tabindex="-1" onclick={() => windowCommand('toggle_maximise')}>□</button><button tabindex="-1" onclick={() => windowCommand('close_window')}>×</button>
-      </div>
-    </header>
-
-    <div class="toolbar">
-      <div class="toolbar-brand" title={$t("Deadwax home")}>
-        <img src="/deadwax-logo.png" alt="Deadwax" />
-      </div>
-      <div class="toolbar-separator"></div>
+    <nav class="rail" aria-label={$t("Views")}>
+      <div class="rail-mark" title="Deadwax"><img src="/deadwax-logo-mark.png" alt="" /></div>
       {#each views as view}
-        <button class:active={activeView === view.label} class="tool-button" onclick={() => activateView(view.label)}>
-          <span class="tool-icon icon-{view.label.toLowerCase()}">{view.icon}</span>
-          <span>{$t(view.label)}</span>
+        <button class:active={activeView === view.label} class="tool-button rail-button" title={$t(view.label)} onclick={() => activateView(view.label)}>
+          <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={viewIcons[view.label]} /></svg>
+          <span class="rail-label">{$t(view.label)}</span>
         </button>
       {/each}
-      <div class="toolbar-spacer"></div>
-      {#if newRelease}
-        <button class="release-button" onclick={openNewRelease} title={$t("Open Deadwax {p0} on GitHub", { p0: newRelease.version })}>
-          <span class="release-arrow">⇧</span>
-          <span><strong>{$t("New release")}</strong><small>{newRelease.version} {$t("available")}</small></span>
-        </button>
-      {/if}
-      <button class="connection-box" onclick={connectNetwork} title={torError || networkError || $t("Reconnect Nostr and Tor")}>
-        <span class="connection-status"><i class:amber={!networkConnected} class="led"></i><strong>{networkConnected ? $t("Nostr connected") : $t("Connect Nostr")}</strong></span>
-        <span class="connection-status"><i class:amber={!torRunning} class:error={Boolean(torError)} class="led"></i><strong>{$t(torStatusLabel())}</strong></span>
+      <div class="rail-spacer"></div>
+      <div class="rail-divider"></div>
+      <button class="rail-button rail-about" title={$t("About")} onclick={() => (aboutOpen = true)}>
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={aboutIcon} /></svg>
+        <span class="rail-label">{$t("About")}</span>
       </button>
-      <button class="tool-button help-button" onclick={() => (aboutOpen = true)}><span class="tool-icon">?</span><span>{$t("About")}</span></button>
-    </div>
+      <button class="rail-button rail-toggle" aria-expanded={railExpanded} title={railExpanded ? $t("Collapse the rail") : $t("Expand the rail")} onclick={toggleRail}>
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={railExpanded ? railChevron.open : railChevron.closed} /></svg>
+        <span class="rail-label">{$t(railExpanded ? "Collapse" : "Expand")}</span>
+      </button>
+    </nav>
 
-    <div class="network-strip">
-      <span class="network-pulse">▥</span>
-      <span>{$t(activityMessage)}</span>
-      <span class="strip-right"><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button> <i class:amber={!nativeReady} class="led"></i></span>
-    </div>
+    <div class="console-main">
+      <header class="topbar" data-tauri-drag-region>
+        <div class="wordmark">
+          <b>deadwax</b><span class="caret" aria-hidden="true"></span><span class="wordmark-section">{$t(activeView)}</span>
+        </div>
+        <div class="topbar-grow"></div>
+        {#if newRelease}
+          <button class="ghost release-button" onclick={openNewRelease} title={$t("Open Deadwax {p0} on GitHub", { p0: newRelease.version })}>
+            <span class="release-arrow">⇧</span><span>{$t("New release")} {newRelease.version}</span>
+          </button>
+        {/if}
+        <button class="ghost connection-box" onclick={connectNetwork} title={torError || networkError || $t("Reconnect Nostr and Tor")}>
+          <span class="connection-status"><i class:amber={!networkConnected} class="led"></i><span>{networkConnected ? $t("Nostr connected") : $t("Connect Nostr")}</span></span>
+          <span class="connection-status"><i class:amber={!torRunning} class:error={Boolean(torError)} class="led"></i><span>{$t(torStatusLabel())}</span></span>
+        </button>
+        <button class="ghost user-chip" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button>
+        <div class="window-controls" aria-hidden="true">
+          <button tabindex="-1" onclick={() => windowCommand('minimise_window')}>_</button><button tabindex="-1" onclick={() => windowCommand('toggle_maximise')}>□</button><button tabindex="-1" onclick={() => windowCommand('close_window')}>×</button>
+        </div>
+      </header>
 
     <section class="player-bar" aria-label={$t("Deadwax audio player")}>
       <div class="player-display">
@@ -4492,7 +4540,8 @@
       </div>
     </section>
 
-    <footer class="statusbar"><span>{$t(activityMessage)}</span><span><i class:amber={!networkConnected} class="led"></i> Nostr {networkConnected ? $t("online") : $t("offline")}</span><span title={torError}>{$t("♜ Tor:")} {torRunning ? $t("ready") : torError ? $t("failed") : torStarting && torProgress > 0 ? `${torProgress}%` : $t("starting")}</span><span class="status-clock">{new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(clockNow)}</span></footer>
+    <footer class="statusbar"><span class="prompt">›</span><span class="status-message">{$t(activityMessage)}</span><span class="grow"></span><span class="status-clock">{new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(clockNow)}</span></footer>
+    </div>
   </section>
 
   {#if aboutOpen}

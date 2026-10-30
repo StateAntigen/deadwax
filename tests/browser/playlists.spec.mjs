@@ -18,7 +18,7 @@ const NEW_ID = '22222222-2222-4222-8222-222222222222';
 async function openPlaylists(page) {
   await mockNative(page, { platform: 'linux' });
   await page.goto('http://127.0.0.1:15173');
-  await page.locator('.toolbar .tool-button').filter({ hasText: 'Playlists' }).click();
+  await page.locator('.rail .tool-button').filter({ hasText: 'Playlists' }).click();
   await expect(page.locator('.playlist-view')).toBeVisible();
 }
 
