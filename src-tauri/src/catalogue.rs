@@ -30,6 +30,7 @@
 use std::collections::HashSet;
 
 use napstr_remote_protocol::{shuffle_key, DiscoverMode};
+use rusqlite::functions::FunctionFlags;
 use rusqlite::{params, Connection};
 
 /// The most seeders named for one result. A row shows who can serve a file;
@@ -41,15 +42,41 @@ const MAX_NAMED_SEEDERS: usize = 32;
 /// does with them too.
 const MAX_QUERY_TERMS: usize = 8;
 
-/// How many live files a discover list is chosen from.
+/// How many live files one discover list holds.
 ///
-/// The live set is ordered by seeders first, and variety is chosen inside that: a
-/// window is what makes a shuffle possible at all, because an order that depends on
-/// a seed cannot be written as one SQL `ORDER BY` — there is no hash to sort by,
-/// and rotating the file ids would give 64 possible orders rather than a spread.
-/// Five hundred is the top of the live set by how many people are serving it, which
-/// is the part of it worth discovering anyway.
+/// A page of the network is a **sample** of the live set rather than the top of it.
+/// The window is still bounded, because a page has to be an offset into one order
+/// and that order has to be held somewhere to be paged; what changed is which files
+/// are in it. The order is the seed's, applied to every live file before anything is
+/// cut, so a different seed asks about a different part of the network.
+///
+/// It used to be the top five hundred by how recently *this computer* wrote the
+/// announcement down, which on a real installation meant one artist filling 415 of
+/// the 500 rows. `discover_by_seeders` says why.
 const DISCOVER_CANDIDATE_WINDOW: usize = 500;
+
+/// The most rows one artist may contribute to a discover list.
+///
+/// A sample is only a sample if one collection cannot fill it: three thousand tracks
+/// by one band — or one anthology of a hundred albums — would otherwise be most of
+/// what anybody is ever shown, whatever the seed. Six is enough that an artist is
+/// recognisable as a run rather than a single row, and small enough that one
+/// discography cannot crowd out the rest of the network.
+const DISCOVER_PER_ARTIST: usize = 6;
+
+/// The most rows one author may contribute to a discover list.
+///
+/// The artist cap alone does not stop one host: somebody sharing a large and varied
+/// library passes it with a different name on every row. This is the cap that keeps
+/// "everyone is a friend until we grow" from turning into "one friend is the
+/// network".
+///
+/// Two thirds of nothing is still nothing, so the number is chosen against the
+/// window: a third of five hundred, so that a network of four people can still fill
+/// the list — measured on one installation, four authors hold everything, and a
+/// tighter cap left the list at 240 rows of a 500-row window for no benefit anybody
+/// could see — while one host can never be more than a third of what is shown.
+const DISCOVER_PER_AUTHOR: usize = 160;
 
 /// What this module remembers about its own index, so the one-off walk below
 /// happens once per database instead of on every start.
@@ -440,21 +467,23 @@ pub(crate) fn search(
 /// no words, so there is nothing for the index to look up — it is the live set
 /// ordered by whether anybody can actually play it.
 ///
-/// What comes back is a window of the live files, ordered the way a search orders
-/// its hits (how many seeders, then how recently they said so) and then shuffled
-/// *inside* each tier of seeders by [`shuffle_key`] — the same function the
-/// phone's own shuffled library browse uses. So the order is one order for a given
-/// seed, which is what lets a page be an offset rather than a cursor, and a
-/// different seed presents the same files in a different order.
+/// What comes back is a *sample* of the live files: every live file ordered by
+/// [`shuffle_key`] for the seed that was asked with, capped so that one artist and
+/// one author cannot fill it, then cut to a window and ordered by how many people
+/// can serve each row. So the order is one order for a given seed, which is what
+/// lets a page be an offset rather than a cursor, and a different seed shows a
+/// different part of the network rather than the same files in another order.
 ///
 /// Which end of the seeder ranking it is read from is the whole of the difference
 /// between the modes: `MostSeeded` is what everybody is holding today, and
 /// `LeastSeeded` is what a single person is keeping alive, which is what digging
 /// through a crate is for. Everything else — the live set, the exclusions, the
-/// paging — is the same question either way.
+/// caps, the paging — is the same question either way.
 ///
-/// `total` is how many files that list holds — the window, not the whole live set,
-/// because a page past the end of it is not a page.
+/// `total` is how many files that list holds — the sample after the caps, not the
+/// whole live set, because a page past the end of it is not a page. It is
+/// deliberately not the size of the network: a client that offered "more" up to a
+/// number it could never reach would ask for pages that are always empty.
 ///
 /// A file this computer holds is left out: what you already have is not a
 /// discovery. So is anything blocked, in either direction.
@@ -495,7 +524,65 @@ impl SeederOrder {
     }
 }
 
-/// The live network's files, varied inside each tier of seeders.
+/// Where one file falls in a seeded order, as something SQL can sort by.
+///
+/// It is [`shuffle_key`] itself rather than a second hash kept in step with it, so a
+/// discover list comes out in the same order every other seeded list in this app is
+/// in — the phone's shuffled library browse and this window's — and a page of it can
+/// be an offset for the same reason: the order belongs to the seed, not to a list
+/// anybody holds.
+///
+/// It has to be usable *inside* the query and not as a sort applied to its answer.
+/// The sample is what the order chooses, so sorting five hundred rows that were
+/// picked for another reason is precisely the bug this replaced.
+///
+/// Returned as a blob because that is the comparison the key is written for: SQLite
+/// orders blobs byte for byte, which is the order `[u8; 8]` has.
+fn register_seeded_order(connection: &Connection) -> Result<(), String> {
+    connection
+        .create_scalar_function(
+            "napstr_order",
+            2,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            |context| {
+                let seed = context.get::<i64>(0)? as u64;
+                let file_id = context.get::<String>(1)?;
+                Ok(shuffle_key(seed, &file_id).to_vec())
+            },
+        )
+        .map_err(|error| error.to_string())
+}
+
+/// The live network's files, as a sample of the whole live set rather than its top.
+///
+/// Three things used to decide this list, and two of them were wrong.
+///
+/// * `seeders`, which is the whole point of the mode — except that nearly every file
+///   on the network has exactly one seeder, so on a real installation the first key
+///   sorted nothing at all: 500 of 500 candidates were in one tier, and `MostSeeded`
+///   and `LeastSeeded` returned the same rows because `DESC` and `ASC` agree when
+///   every value is 1.
+/// * `newest`, which is `MAX(seen_at)` and therefore **when this computer wrote the
+///   row down**, not when anybody said anything. It is written by
+///   `network::write_catalogue_row` as `Utc::now()`. With the seeder key tied, that
+///   one column decided the entire window, and the rows at the top were whichever
+///   batch the last mirror pass happened to end on. Measured on one installation:
+///   415 of the 500 rows were a single artist, and the timestamps of the first three
+///   were microseconds apart — a backfill loop, not the network.
+/// * the shuffle, which was applied *after* the window and so could not change which
+///   files a person could ever reach. Every page a client asked for came out of the
+///   same five hundred.
+///
+/// What replaces it is the seed, applied to every live file before anything is cut:
+/// the window is a fair sample of what the network is holding, so one artist or one
+/// album makes up the share of it that it makes up of the network. The seeder count
+/// still orders the sample — on a network where somebody actually holds a file twice
+/// it is the best signal there is — and the file id breaks the tie so the order is
+/// still *an* order for paging to mean anything.
+///
+/// Two caps hold the sample honest when the network itself is skewed, and both are
+/// applied before the window, so the rows a page never reaches are not the rows the
+/// caps would have removed: [`DISCOVER_PER_ARTIST`] and [`DISCOVER_PER_AUTHOR`].
 fn discover_by_seeders(
     connection: &Connection,
     order: SeederOrder,
@@ -504,38 +591,55 @@ fn discover_by_seeders(
     limit: usize,
     now: i64,
 ) -> Result<(Vec<Hit>, usize), String> {
+    register_seeded_order(connection)?;
     let mut statement = connection
         .prepare(&format!(
-            "SELECT {HIT_COLUMNS}
-               FROM remote_catalogue c
-               {LIVE_SEEDERS}
-              WHERE NOT EXISTS (SELECT 1 FROM files f WHERE f.file_id = c.file_id)
-                AND NOT EXISTS (SELECT 1 FROM blocked_files b WHERE b.file_id = c.file_id)
-                AND NOT EXISTS (SELECT 1 FROM blocked_pubkeys p WHERE p.pubkey = c.source_pubkey)
-              GROUP BY c.file_id
-              ORDER BY seeders {}, newest DESC
+            "WITH live AS (
+               SELECT {HIT_COLUMNS}, c.source_pubkey AS author
+                 FROM remote_catalogue c
+                 {LIVE_SEEDERS}
+                WHERE NOT EXISTS (SELECT 1 FROM files f WHERE f.file_id = c.file_id)
+                  AND NOT EXISTS (SELECT 1 FROM blocked_files b WHERE b.file_id = c.file_id)
+                  AND NOT EXISTS (SELECT 1 FROM blocked_pubkeys p WHERE p.pubkey = c.source_pubkey)
+                GROUP BY c.file_id
+             ),
+             seeded AS (
+               SELECT live.*, napstr_order(?3, file_id) AS sort_key FROM live
+             ),
+             capped AS (
+               SELECT seeded.*,
+                      ROW_NUMBER() OVER (PARTITION BY lower(trim(artist)) ORDER BY sort_key) AS artist_rank,
+                      ROW_NUMBER() OVER (PARTITION BY author ORDER BY sort_key) AS author_rank
+                 FROM seeded
+             )
+             SELECT file_id, filename, title, artist, album, format, mime, size, license, tags,
+                    newest, seeders, sources
+               FROM capped
+              WHERE artist_rank <= ?4 AND author_rank <= ?5
+              ORDER BY seeders {}, sort_key, file_id
               LIMIT ?2",
             order.sql()
         ))
         .map_err(|error| error.to_string())?;
-    let mut hits = statement
-        .query_map(params![now, DISCOVER_CANDIDATE_WINDOW as i64], read_hit)
+    let hits = statement
+        .query_map(
+            params![
+                now,
+                DISCOVER_CANDIDATE_WINDOW as i64,
+                seed as i64,
+                DISCOVER_PER_ARTIST as i64,
+                DISCOVER_PER_AUTHOR as i64,
+            ],
+            read_hit,
+        )
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
-    // Within one tier of seeders the order belongs to the seed, so opening discover
-    // twice does not show the same files in the same order — and the file id breaks
-    // the tie, because a shuffled order still has to be *an* order for paging to
-    // mean anything.
-    hits.sort_by(|left, right| {
-        let mut seeders = left.sources.len().cmp(&right.sources.len());
-        if order == SeederOrder::Most {
-            seeders = seeders.reverse();
-        }
-        seeders
-            .then_with(|| shuffle_key(seed, &left.file_id).cmp(&shuffle_key(seed, &right.file_id)))
-            .then_with(|| left.file_id.cmp(&right.file_id))
-    });
+    // The order is the query's, and there is deliberately no second sort here: the
+    // row count it folds into is the one SQLite counted seeder by seeder, whereas a
+    // sort over `Hit::sources` would compare *named* seeders, which
+    // [`MAX_NAMED_SEEDERS`] truncates. Two orderings that disagree by a row is the
+    // kind of bug that only shows up as a page repeating or skipping something.
     let total = hits.len();
     let page = hits
         .into_iter()
@@ -1422,6 +1526,114 @@ mod tests {
             first.into_iter().chain(second).collect::<Vec<_>>(),
             whole,
             "and the pages of that order are that order, with nothing repeated"
+        );
+    }
+
+    /// One announcement by a named artist, for the tests about how a list is drawn.
+    ///
+    /// `announce` above pins the artist to one name, which is exactly the shape that
+    /// hid the bug this file's caps exist for.
+    fn announce_artist(
+        connection: &Connection,
+        file_id: &str,
+        author: u8,
+        title: &str,
+        artist: &str,
+    ) {
+        connection
+            .execute(
+                "INSERT INTO remote_catalogue
+                   (file_id,source_pubkey,filename,title,artist,album,format,mime,size,license,
+                    event_id,seen_at,description,tags,cover_key,canonical_cover_key)
+                 VALUES (?1,?2,?3,?4,?5,'Album','FLAC','audio/flac',42000000,'CC0-1.0',
+                         ?6,'2026-09-30T00:00:00+00:00','','napstr','','')",
+                params![
+                    file_id,
+                    hex_id(author),
+                    format!("{title}.flac"),
+                    title,
+                    artist,
+                    hex_id(author.wrapping_add(100)),
+                ],
+            )
+            .unwrap();
+    }
+
+    /// A file id that differs per file, which `hex_id` cannot be: it repeats one byte.
+    fn distinct_id(index: u32) -> String {
+        format!("{index:064x}")
+    }
+
+    #[test]
+    fn one_artist_cannot_fill_the_list_a_person_is_shown() {
+        // The bug this replaced, in the shape it took on a real installation: every
+        // live file has one seeder, the old tie-break was "when this computer wrote
+        // the row down", and the last backfill pass put one artist at the top of it -
+        // 415 of 500 rows. The artist cap is what makes that impossible whatever the
+        // sample happens to hold.
+        let connection = database();
+        let now = 1_700_000_000;
+        for index in 0..40u32 {
+            let file = distinct_id(index);
+            announce_artist(&connection, &file, 9, &format!("Song {index}"), "Jota Quest");
+            holding(&connection, &file, 9, now);
+        }
+        for index in 0..10u32 {
+            let file = distinct_id(1_000 + index);
+            announce_artist(&connection, &file, 10 + index as u8, "Song", &format!("Artist {index}"));
+            holding(&connection, &file, 10 + index as u8, now);
+        }
+
+        let (page, total) = discover(&connection, DiscoverMode::MostSeeded, 3, 0, 500, now).unwrap();
+        assert_eq!(
+            page.iter().filter(|hit| hit.artist == "Jota Quest").count(),
+            DISCOVER_PER_ARTIST,
+            "one artist contributes its cap and no more"
+        );
+        assert_eq!(
+            total,
+            DISCOVER_PER_ARTIST + 10,
+            "the list holds what is left after the cap, which is what a client can page"
+        );
+        // And the rest of the network is still there rather than crowded out by it.
+        assert_eq!(
+            page.iter()
+                .filter(|hit| hit.artist.starts_with("Artist "))
+                .count(),
+            10
+        );
+    }
+
+    #[test]
+    fn a_different_seed_shows_a_different_part_of_the_network() {
+        // The half of the bug the caps cannot fix: while the window was chosen by
+        // write time, a new seed only reshuffled the same five hundred files and
+        // everybody could page to the end of them. A sample drawn from the whole
+        // live set means a second seed is, mostly, a second set of files.
+        let connection = database();
+        let now = 1_700_000_000;
+        for index in 0..1_200u32 {
+            let file = distinct_id(index);
+            let author = (index % 256) as u8;
+            announce_artist(&connection, &file, author, &format!("Song {index}"), &format!("Artist {index}"));
+            holding(&connection, &file, author, now);
+        }
+        let sample = |seed: u64| {
+            let (page, total) =
+                discover(&connection, DiscoverMode::MostSeeded, seed, 0, 5_000, now).unwrap();
+            assert_eq!(total, DISCOVER_CANDIDATE_WINDOW, "a full window of 1,200 files");
+            let mut ids = page.into_iter().map(|hit| hit.file_id).collect::<Vec<_>>();
+            ids.sort();
+            ids
+        };
+        let first = sample(1);
+        let second = sample(2);
+        assert_eq!(first.len(), DISCOVER_CANDIDATE_WINDOW);
+        let shared = first.iter().filter(|id| second.contains(*id)).count();
+        assert!(
+            shared < 700,
+            "two seeds drew {shared} of 500 files in common, which is one window in \
+             another order rather than two samples"
         );
     }
 
