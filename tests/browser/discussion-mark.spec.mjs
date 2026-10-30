@@ -51,18 +51,22 @@ test('Deadwax marks the results people have been talking about', async ({ page }
   await search(page);
   const rows = page.locator('.search-results-table tbody tr');
   const marked = rows.filter({ hasText: 'Talked about' }).locator('.discussion-mark');
-  await expect(marked).toHaveText('3');
+  // The mark counts messages, not people: the panel behind it lists messages, and
+  // a mark reading "1" over a conversation of seven was the number of people who
+  // had spoken. The tooltip is still the only place that says how many they were.
+  await expect(marked).toHaveText('7');
   await expect(marked).toHaveAttribute('title', '3 people commented in the last 30 days');
   // A file nobody has said anything about carries nothing at all, rather than a
   // zero, so the eye is not drawn to rows that have no conversation.
   await expect(rows.filter({ hasText: 'Quiet' }).locator('.discussion-mark')).toHaveCount(0);
 
-  // The thumbnail view is the same answer drawn differently.
+  // The thumbnail view is the same answer drawn differently: the same count, as a
+  // chip inside the tile's own scrim so it cannot change the shape of the art.
   await page.locator('.view-toggle').last().click();
   const cards = page.locator('.result-card');
   await expect(cards).toHaveCount(2);
-  await expect(cards.filter({ hasText: 'Talked about' }).locator('.discussion-mark')).toHaveText('3');
-  await expect(cards.filter({ hasText: 'Quiet' }).locator('.discussion-mark')).toHaveCount(0);
+  await expect(cards.filter({ hasText: 'Talked about' }).locator('.result-chat')).toHaveText('7');
+  await expect(cards.filter({ hasText: 'Quiet' }).locator('.result-chat')).toHaveCount(0);
 
   // All of that cost one question, naming every row on screen at once, and none of
   // the re-renders that followed asked about them again. (A question before this

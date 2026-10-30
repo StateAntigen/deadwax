@@ -2574,6 +2574,26 @@ fn set_mobile_device_rights(
     state.mobile.set_rights(&endpoint_id, rights)
 }
 
+/// Write one client's likes and dislikes to a file the person chose.
+#[tauri::command]
+async fn export_client_data(
+    endpoint_id: String,
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<mobile::ClientBackup, String> {
+    state.mobile.export_client(&endpoint_id, std::path::Path::new(&path))
+}
+
+/// Read one client's likes and dislikes back out of a file.
+#[tauri::command]
+async fn import_client_data(
+    endpoint_id: String,
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<mobile::ClientBackup, String> {
+    state.mobile.import_client(&endpoint_id, std::path::Path::new(&path))
+}
+
 #[tauri::command]
 async fn block_file(file_id: String, state: State<'_, AppState>) -> Result<(), String> {
     if hex::decode(&file_id)
@@ -3337,6 +3357,8 @@ pub fn run() {
             create_mobile_pairing,
             revoke_mobile_device,
             set_mobile_device_rights,
+            export_client_data,
+            import_client_data,
             block_file,
             block_user,
             report_catalogue,

@@ -298,7 +298,7 @@
   .art-picker-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(4, 6, 10, 0.72);
+    background: var(--scrim);
     display: grid;
     place-items: center;
     z-index: 200;
@@ -308,11 +308,11 @@
     width: min(860px, 100%);
     max-height: min(760px, 88vh);
     overflow: auto;
-    background: #10141c;
-    border: 1px solid #2a3446;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: 14px 16px 18px;
-    color: #d7deea;
+    color: var(--text);
     font-size: 13px;
   }
   .art-picker-head {
@@ -327,7 +327,7 @@
     font-size: 15px;
   }
   .art-picker-head small {
-    color: #8d9ab0;
+    color: var(--muted);
   }
   .art-picker-query {
     display: grid;
@@ -337,25 +337,25 @@
     margin-top: 10px;
   }
   .art-picker-query label {
-    color: #8d9ab0;
+    color: var(--muted);
   }
   .art-picker-query input {
-    background: #0a0e14;
-    border: 1px solid #2a3446;
+    background: var(--sunken);
+    border: 1px solid var(--line);
     border-radius: 6px;
-    color: #e6ebf3;
+    color: var(--text);
     padding: 7px 9px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
   }
   .art-picker-hint {
-    color: #8d9ab0;
+    color: var(--muted);
     font-size: 12px;
     margin: 8px 0 0;
   }
   .art-picker-hint code,
   .art-picker-meta code {
-    color: #9fb3d1;
+    color: var(--dim);
     font-size: 11px;
   }
   .art-picker-error,
@@ -366,14 +366,14 @@
     font-size: 12px;
   }
   .art-picker-error {
-    background: rgba(190, 60, 60, 0.16);
-    border: 1px solid rgba(190, 60, 60, 0.5);
-    color: #f0b6b6;
+    background: var(--danger-soft);
+    border: 1px solid var(--danger-line);
+    color: var(--danger);
   }
   .art-picker-note {
-    background: rgba(60, 130, 90, 0.14);
-    border: 1px solid rgba(60, 130, 90, 0.45);
-    color: #b6e0c6;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    color: var(--accent);
   }
   /* The pasted link, shown before it is filed: a person pasting a URL is
      judging a picture, and judging it from a filename is not judging it. */
@@ -388,11 +388,11 @@
     height: 96px;
     object-fit: cover;
     border-radius: 6px;
-    border: 1px solid #222b3a;
-    background: #06090d;
+    border: 1px solid var(--line);
+    background: var(--sunken);
   }
   .art-picker-preview small {
-    color: #8d9ab0;
+    color: var(--muted);
     font-size: 12px;
   }
   .art-picker-results {
@@ -406,19 +406,19 @@
     align-items: center;
     gap: 12px;
     padding: 8px;
-    border: 1px solid #222b3a;
+    border: 1px solid var(--line);
     border-radius: 8px;
-    background: #0c1017;
+    background: var(--panel);
   }
   .art-picker-hit.applied {
-    border-color: #3c825a;
+    border-color: var(--accent-line);
   }
   .art-picker-art {
     width: 64px;
     height: 64px;
     display: grid;
     place-items: center;
-    background: #06090d;
+    background: var(--sunken);
     border-radius: 6px;
     overflow: hidden;
   }
@@ -429,7 +429,7 @@
     display: block;
   }
   .art-picker-empty {
-    color: #46536a;
+    color: var(--dim);
     font-size: 22px;
   }
   .art-picker-meta {
@@ -443,13 +443,13 @@
   }
   .art-picker-meta small {
     display: block;
-    color: #8d9ab0;
+    color: var(--muted);
     margin: 2px 0;
   }
   /* Amber, not the green of the panel's own notice: this is not good news, it
      is the reason a row that is obviously the right record has no picture. */
   .art-picker-meta small.art-picker-why {
-    color: #e0c07a;
+    color: var(--warn);
   }
   .art-picker-meta code {
     display: block;
@@ -464,8 +464,8 @@
   }
   .art-picker-chosen {
     font-size: 11px;
-    color: #9fb3d1;
-    border: 1px solid #2a3446;
+    color: var(--dim);
+    border: 1px solid var(--line);
     border-radius: 999px;
     padding: 2px 8px;
   }

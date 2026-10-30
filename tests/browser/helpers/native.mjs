@@ -186,6 +186,25 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           case 'plugin:app|version': return '0.2.2';
           case 'plugin:event|listen': return 1;
           case 'plugin:event|unlisten': return;
+          // The dialog plugin, which is a native window and not this computer's
+          // own command. A spec seeds the path a person would have picked; with
+          // nothing seeded, the person cancelled and nothing is written.
+          case 'plugin:dialog|save': return window.savePath ?? null;
+          case 'plugin:dialog|open': return window.openPath ?? null;
+          // One client's own marks, as Backup writes them and Restore reads them.
+          // The counts are what the note under the buttons repeats back, so they
+          // are deliberately not equal to each other.
+          case 'export_client_data':
+          case 'import_client_data':
+            return {
+              version: 1,
+              endpointId: args.endpointId,
+              name: 'Ada’s phone',
+              pubkey: 'd'.repeat(64),
+              exportedAt: '2026-10-30T10:00:00Z',
+              likes: ['1'.repeat(64), '2'.repeat(64)],
+              dislikes: ['3'.repeat(64)]
+            };
           case 'get_snapshot':
           case 'save_settings': return { native: true, indexedBytes: track.size, files: [track], audiobooks: [], transfers, settings: { napstrFolder: '/music', nostrRelays: '', displayName: 'Original user', profileAbout: 'Original profile', profilePicture: '' } };
           case 'get_transfers': return transfers;

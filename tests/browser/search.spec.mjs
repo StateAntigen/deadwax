@@ -36,6 +36,7 @@ for (const code of ['en', 'zh', 'ar']) {
         if (cmd === 'resolve_catalogue_user' || cmd === 'search_catalog') return [];
         if (cmd === 'get_transfers') return window.downloads;
         if (cmd === 'request_network_download') {
+          window.requestedDownloads = (window.requestedDownloads ?? 0) + 1;
           window.downloads = [{ ...track(200, 'New'), id: -1, progress: 100, status: 'Downloading', speed: '1 MB/s', destination: '' }];
           return 'request';
         }
@@ -55,11 +56,15 @@ for (const code of ['en', 'zh', 'ar']) {
     await page.locator('.search-button').click();
     await expect(rows).toHaveCount(2);
     await expect(rows.first()).toContainText('New 200');
-    await expect(rows.first().locator('td').nth(4)).toHaveText('Tor');
+    // Column 7 is the Tor/Local answer: the track arrives over Tor, and the same
+    // row says Local once this computer holds it.
+    await expect(rows.first().locator('td').nth(6)).toHaveText('Tor');
     await page.locator('.detail-actions button.primary').click();
-    await expect(page.locator('.mini-row')).toHaveCount(1);
+    // The queue is the Downloads page now, so the request is what this page can
+    // see; the row here only has to turn from Tor into Local once it lands.
+    await expect.poll(async () => page.evaluate(() => window.requestedDownloads ?? 0)).toBe(1);
     await page.evaluate(() => window.finishDownload());
-    await expect(rows.first().locator('td').nth(4)).toHaveText(catalogs[code].Local);
+    await expect(rows.first().locator('td').nth(6)).toHaveText(catalogs[code].Local);
     await expect(page.locator('.detail-actions button.primary')).toHaveText(catalogs[code]['▶ Play']);
     // The shared library uses the same helper pattern: an event must update it
     // in place, and its pager must actually replace the displayed rows.
@@ -100,7 +105,7 @@ for (const code of ['en', 'zh', 'ar']) {
     await expect(page.locator('.surprise-button')).toBeEnabled();
     await page.locator('#search-query').fill('An unrelated old search');
     await page.locator('.advanced-toggle').click();
-    await page.locator('.advanced-row input[type="number"]').fill('99');
+    await page.locator('.advanced-row input[type="number"]').first().fill('99');
     await page.locator('.advanced-row input:not([type])').fill('1 B');
     await page.locator('.surprise-button').click();
     const rows = page.locator('.results-pane tbody tr');

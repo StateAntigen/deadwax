@@ -9,7 +9,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { open } from '@tauri-apps/plugin-dialog';
+  import { open, save } from '@tauri-apps/plugin-dialog';
   import CoverArt from '$lib/CoverArt.svelte';
   import CoverPicker from '$lib/CoverPicker.svelte';
   import CoverReport from '$lib/CoverReport.svelte';
@@ -80,6 +80,8 @@
     description?: string;
     tags?: string;
     audiobook?: Audiobook;
+    /** Known only where this computer read the file itself. */
+    bitrateKbps?: number;
   };
   type CatalogueUser = { pubkey: string; npub: string; displayName: string };
   type SourceDetail = { pubkey: string; npub: string; displayName: string; relay: string; about: string; picture: string; eventId: string };
@@ -129,7 +131,7 @@
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
   const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
 
-  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string };
+  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string; bitrateKbps?: number };
   type NativeTransfer = { id: number; fileId: string; filename: string; size: number; progress: number; status: string; speed: string; destination: string };
   type NativeSettings = { napstrFolder: string; nostrRelays: string; displayName: string; profileAbout: string; profilePicture: string };
   type AudiobookChapter = { position: number; fileId: string; filename: string; title: string; format: string; mime: string; size: number };
@@ -340,6 +342,7 @@
   let trollboxRefreshAgain = false;
   let trollboxHasMore = true;
   let mobileStatusValue: MobileStatus | null = null;
+  let clientNote = '';
   let catalogueStats: CatalogueStats | null = null;
   let catalogueStatsPending = false;
   let catalogueStatsError: string | Message = '';
@@ -388,10 +391,9 @@
   let browseTotalAvailable = 0;
   let rescanPending = false;
   let indexing = false;
-  let downloadLibraryPage = 0;
+  let selectedShared: NativeFile | null = null;
   let sharedLibraryPage = 0;
   let selectedSource = 0;
-  let selectedShared: NativeFile | null = null;
   let selectedTagFile: NativeFile | null = null;
   let tagDraft = '';
   let tagSaving = false;
@@ -438,8 +440,6 @@
   let pushedPlayerVolume = false;
   let playerEnded = false;
   let lastPlayerError = '';
-  let transferPaneHeight = 119;
-  let stopTransferResize = () => {};
   let transfers: Transfer[] = [];
   let localAudiobooks: Audiobook[] = [];
   let audiobookEditorOpen = false;
@@ -463,7 +463,8 @@
   function mapFiles(files: NativeFile[]): Result[] {
     return files.map((file, index) => ({
       id: index + 1, name: file.title || file.filename, format: file.format, size: readableSize(file.size), sources: 1,
-      speed: 'Local', length: '—', fileId: file.fileId, artist: file.artist, album: file.album, license: file.license, description: file.description, tags: file.tags
+      speed: 'Local', length: '—', fileId: file.fileId, artist: file.artist, album: file.album, license: file.license, description: file.description, tags: file.tags,
+      bitrateKbps: file.bitrateKbps ?? 0
     }));
   }
 
@@ -711,11 +712,6 @@
     return Math.max(1, Math.ceil(files.length / LOCAL_PAGE_SIZE));
   }
 
-  function paginatedTagFiles(files: NativeFile[], page: number) {
-    const start = page * LOCAL_PAGE_SIZE;
-    return files.slice(start, start + LOCAL_PAGE_SIZE);
-  }
-
   function paginatedSharedFiles(files = visibleSharedFiles(), page = sharedLibraryPage) {
     const start = page * LOCAL_PAGE_SIZE;
     return files.slice(start, start + LOCAL_PAGE_SIZE);
@@ -725,10 +721,6 @@
     if (!total) return '0';
     const start = page * LOCAL_PAGE_SIZE + 1;
     return `${start}–${Math.min(start + LOCAL_PAGE_SIZE - 1, total)}`;
-  }
-
-  function changeDownloadLibraryPage(nextPage: number) {
-    downloadLibraryPage = Math.max(0, Math.min(nextPage, localPageCount(sharedFiles) - 1));
   }
 
   function changeSharedLibraryPage(nextPage: number) {
@@ -802,16 +794,79 @@
     return Math.max(source.length, totalAvailable);
   }
 
+  /**
+   * The advanced filters, applied to what came back.
+   *
+   * `format` is exact: every announcement names its own format. Bitrate is only
+   * known where this computer read the file itself - a peer's announcement never
+   * carries one - so a row with no bitrate is kept rather than dropped, and the
+   * field says so.
+   */
+  let advancedFormat = 'Any';
+  let minimumBitrate = 0;
+  const ADVANCED_FORMATS = ['Any', 'FLAC', 'WAV', 'MP3', 'OPUS', 'M4A'];
+
+  function passesAdvancedFilters(result: Result) {
+    if (advancedFormat !== 'Any' && result.format.toUpperCase() !== advancedFormat) return false;
+    if (minimumBitrate > 0 && result.bitrateKbps && result.bitrateKbps < minimumBitrate) return false;
+    return true;
+  }
+
+  /**
+   * The order the list view is in.
+   *
+   * Size is compared in bytes rather than in the words on screen, because "900 KB"
+   * sorts before "1.2 MB" only if you look at the number.
+   */
+  type ResultSort = 'name' | 'artist' | 'album' | 'format' | 'size' | 'sources';
+  let resultSort: ResultSort = 'name';
+  let resultSortAsc = true;
+
+  function sortResultsBy(key: ResultSort) {
+    if (resultSort === key) {
+      resultSortAsc = !resultSortAsc;
+      return;
+    }
+    resultSort = key;
+    resultSortAsc = true;
+  }
+
+  function sizeInBytes(text: string) {
+    const match = text.match(/([\d.]+)\s*(B|KB|MB|GB|TB)/i);
+    if (!match) return 0;
+    const scale = { B: 1, KB: 1e3, MB: 1e6, GB: 1e9, TB: 1e12 }[match[2].toUpperCase() as 'B'] ?? 1;
+    return Number(match[1]) * scale;
+  }
+
+  function orderedResults(source: Result[]) {
+    const direction = resultSortAsc ? 1 : -1;
+    const value = (result: Result) => {
+      if (resultSort === 'size') return sizeInBytes(result.size);
+      if (resultSort === 'sources') return result.sources;
+      if (resultSort === 'artist') return (result.artist ?? '').toLowerCase();
+      if (resultSort === 'album') return (result.album ?? '').toLowerCase();
+      if (resultSort === 'format') return result.format.toLowerCase();
+      return result.name.toLowerCase();
+    };
+    return [...source].sort((left, right) => {
+      const a = value(left);
+      const b = value(right);
+      if (typeof a === 'number' && typeof b === 'number') return (a - b) * direction;
+      return String(a).localeCompare(String(b)) * direction;
+    });
+  }
+
   // What the template reads. Each derivation names the state it comes from, so
   // each one re-runs when that state changes.
-  $: resultPageTotal = resultPageCount(results);
-  $: resultPageItems = paginatedResults(results, resultPage);
+  $: shownResults = results.filter(passesAdvancedFilters);
+  $: resultPageTotal = resultPageCount(orderedResults(shownResults));
+  $: resultPageItems = paginatedResults(orderedResults(shownResults), resultPage);
   $: resultPageRange = resultPageItems.map((item) => item.fileId);
   // The rows on screen are what get asked about, once each: a discussion read is
   // a question to the relays, and a page of them is the size of the question.
   $: if (nativeReady && networkConnected && resultPageRange.length) void refreshDiscussionActivity(resultPageRange);
-  $: resultRangeLabel = resultRange(results, resultPage);
-  $: resultAvailableTotal = availableResultTotal(results, browseTotalAvailable);
+  $: resultRangeLabel = resultRange(shownResults, resultPage);
+  $: resultAvailableTotal = availableResultTotal(shownResults, browseTotalAvailable);
   $: sharedVisible = visibleSharedFiles(sharedFiles, libraryFolderView);
   $: sharedRows = paginatedSharedFiles(sharedVisible, sharedLibraryPage);
   $: sharedPageCount = localPageCount(sharedVisible);
@@ -823,7 +878,6 @@
   // files under a caption that had already said "Page 2 of 2", and the audiobook
   // preview kept the previous folder's chapters. Naming the state in a `$:` and
   // passing it in is what makes it a dependency.
-  $: tagFiles = paginatedTagFiles(sharedFiles, downloadLibraryPage);
   $: audiobookChapters = audiobookFolderFiles(libraryFolderView, sharedFiles);
   $: folderAudiobook = currentFolderAudiobook(localAudiobooks, libraryFolderView);
   $: selectedAudiobookIsComplete = selectedAudiobookComplete(selected?.audiobook, localFileIds);
@@ -850,6 +904,18 @@
   function selectTagFile(file: NativeFile) {
     selectedTagFile = { ...file };
     tagDraft = file.tags;
+  }
+
+  /**
+   * Pick a shared track, for playing from the list and for its tags.
+   *
+   * The tag editor and the shared list are one list now, so one click has to do
+   * both jobs: the row that is selected is the row whose tags are on screen, and
+   * there is no second table to keep in step with it.
+   */
+  function selectSharedRow(file: NativeFile) {
+    selectedShared = { ...file };
+    selectTagFile(file);
   }
 
   async function saveTags() {
@@ -926,17 +992,18 @@
         selectResult(results[index]);
       }
     } else if (playerOrigin === 'downloads') {
-      const index = sharedFiles.findIndex((item) => item.fileId === track.fileId);
-      if (index >= 0) {
-        downloadLibraryPage = Math.floor(index / LOCAL_PAGE_SIZE);
-        selectTagFile(sharedFiles[index]);
+      const file = sharedFiles.find((item) => item.fileId === track.fileId);
+      if (file) {
+        const index = visibleSharedFiles().findIndex((item) => item.fileId === track.fileId);
+        if (index >= 0) sharedLibraryPage = Math.floor(index / LOCAL_PAGE_SIZE);
+        selectSharedRow(file);
       }
     } else if (playerOrigin === 'shared') {
       const file = sharedFiles.find((item) => item.fileId === track.fileId);
       if (file) {
         const index = visibleSharedFiles().findIndex((item) => item.fileId === track.fileId);
         if (index >= 0) sharedLibraryPage = Math.floor(index / LOCAL_PAGE_SIZE);
-        selectedShared = { ...file };
+        selectSharedRow(file);
       }
     }
   }
@@ -1296,7 +1363,7 @@
     localAudiobooks = snapshot.audiobooks;
     sharedFiles = snapshot.files.map((file) => ({ ...file, name: file.filename, readableSize: readableSize(file.size), peers: 0 }));
     localFileIds = new Set(snapshot.files.map((file) => file.fileId));
-    downloadLibraryPage = Math.min(downloadLibraryPage, localPageCount(snapshot.files) - 1);
+    sharedLibraryPage = Math.min(sharedLibraryPage, localPageCount(visibleSharedFiles()) - 1);
     sharedLibraryPage = Math.min(sharedLibraryPage, localPageCount(visibleSharedFiles()) - 1);
     if (selectedShared) selectedShared = snapshot.files.find((file) => file.fileId === selectedShared?.fileId) ?? null;
     resultUser = null;
@@ -2577,6 +2644,73 @@
     }
   }
 
+  /**
+   * Save one client's likes and dislikes to a file the person chooses.
+   *
+   * The lists are what a client built up on this computer, so they are the part
+   * worth carrying to a new install; the pairing and the rights are not, because
+   * restoring a file must not be a way of letting a client back in.
+   */
+  async function backupClientData(device: MobileDevice) {
+    if (mobileLoading) return;
+    mobileError = '';
+    clientNote = '';
+    try {
+      const chosen = await save({
+        title: $t("Save {p0}’s marks", { p0: device.name }),
+        defaultPath: `${device.name.replace(/[^a-z0-9 _.-]/gi, '') || 'client'}-deadwax-backup.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      });
+      if (!chosen) return;
+      mobileLoading = true;
+      const written = await invoke<{ likes: string[]; dislikes: string[] }>('export_client_data', {
+        endpointId: device.endpointId,
+        path: chosen
+      });
+      clientNote = $t("Saved {p0} likes and {p1} dislikes for {p2}.", {
+        p0: written.likes.length,
+        p1: written.dislikes.length,
+        p2: device.name
+      });
+      await refreshMobileStatus();
+    } catch (error) {
+      mobileError = String(error);
+    } finally {
+      mobileLoading = false;
+    }
+  }
+
+  /** Put those lists back, from a file the person chooses. */
+  async function restoreClientData(device: MobileDevice) {
+    if (mobileLoading) return;
+    mobileError = '';
+    clientNote = '';
+    try {
+      const chosen = await open({
+        title: $t("Choose {p0}’s backup", { p0: device.name }),
+        multiple: false,
+        directory: false,
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      });
+      if (!chosen || Array.isArray(chosen)) return;
+      mobileLoading = true;
+      const restored = await invoke<{ likes: string[]; dislikes: string[] }>('import_client_data', {
+        endpointId: device.endpointId,
+        path: chosen
+      });
+      clientNote = $t("Restored {p0} likes and {p1} dislikes for {p2}.", {
+        p0: restored.likes.length,
+        p1: restored.dislikes.length,
+        p2: device.name
+      });
+      await refreshMobileStatus();
+    } catch (error) {
+      mobileError = String(error);
+    } finally {
+      mobileLoading = false;
+    }
+  }
+
   function mobileLastSeen(value: string) {
     const time = Date.parse(value);
     if (!Number.isFinite(time)) return $t("Never");
@@ -2806,7 +2940,6 @@
       const removedCurrentTrack = currentTrack && !nextFiles.some((file) => file.fileId === currentTrack?.fileId);
       sharedFiles = nextFiles;
       localFileIds = new Set(nextFiles.map((file) => file.fileId));
-      downloadLibraryPage = Math.min(downloadLibraryPage, localPageCount(nextFiles) - 1);
       sharedLibraryPage = Math.min(sharedLibraryPage, localPageCount(visibleSharedFiles()) - 1);
       if (selectedShared) selectedShared = nextFiles.find((file) => file.fileId === selectedShared?.fileId) ?? null;
       if (selectedTagFile && !nextFiles.some((file) => file.fileId === selectedTagFile?.fileId)) {
@@ -3647,46 +3780,6 @@
     getCurrentWindow().startResizeDragging(direction).catch(() => {});
   }
 
-  function transferPaneMaximum() {
-    return typeof window === 'undefined' ? 300 : Math.max(80, window.innerHeight - 395);
-  }
-
-  function setTransferPaneHeight(height: number, remember = false) {
-    transferPaneHeight = Math.round(Math.min(transferPaneMaximum(), Math.max(48, height)));
-    if (remember) window.localStorage.setItem('napstr-transfer-pane-height', String(transferPaneHeight));
-  }
-
-  function beginTransferResize(event: PointerEvent) {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    stopTransferResize();
-    const startY = event.clientY;
-    const startHeight = transferPaneHeight;
-    const move = (next: PointerEvent) => setTransferPaneHeight(startHeight + startY - next.clientY);
-    const stop = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', stop);
-      window.removeEventListener('pointercancel', stop);
-      document.body.classList.remove('resizing-transfer-pane');
-      window.localStorage.setItem('napstr-transfer-pane-height', String(transferPaneHeight));
-      stopTransferResize = () => {};
-    };
-    stopTransferResize = stop;
-    document.body.classList.add('resizing-transfer-pane');
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', stop);
-    window.addEventListener('pointercancel', stop);
-  }
-
-  function resizeTransferWithKeyboard(event: KeyboardEvent) {
-    if (event.key === 'ArrowUp') setTransferPaneHeight(transferPaneHeight + 20, true);
-    else if (event.key === 'ArrowDown') setTransferPaneHeight(transferPaneHeight - 20, true);
-    else if (event.key === 'Home') setTransferPaneHeight(48, true);
-    else if (event.key === 'End') setTransferPaneHeight(transferPaneMaximum(), true);
-    else return;
-    event.preventDefault();
-  }
-
   onMount(() => initializeLocale(() => osLocale()));
 
   onMount(() => {
@@ -3713,10 +3806,6 @@
     if (savedPlayerMode === 'single' || savedPlayerMode === 'folder' || savedPlayerMode === 'all') playerMode = savedPlayerMode;
     const savedPlayerVolume = Number(readStoredPreference('napstr-player-volume'));
     if (Number.isFinite(savedPlayerVolume) && savedPlayerVolume >= 0 && savedPlayerVolume <= 1) playerVolume = savedPlayerVolume;
-    const savedTransferHeight = Number(readStoredPreference('napstr-transfer-pane-height'));
-    setTransferPaneHeight(Number.isFinite(savedTransferHeight) && savedTransferHeight > 0 ? savedTransferHeight : window.innerHeight < 700 ? 94 : 119);
-    const clampTransferPane = () => setTransferPaneHeight(transferPaneHeight);
-    window.addEventListener('resize', clampTransferPane);
     if (window.localStorage.getItem(RESULTS_VIEW_KEY) === 'thumb') resultsView = 'thumb';
     refreshSnapshot().then(connectNetwork);
     // The two cover switches live in the database, so the window can show their
@@ -3873,10 +3962,8 @@
       clearInterval(transferTimer);
       clearInterval(playerTimer);
       clearInterval(mobileTimer);
-      window.removeEventListener('resize', clampTransferPane);
       window.removeEventListener('focus', foregrounded);
       document.removeEventListener('visibilitychange', foregrounded);
-      stopTransferResize();
       if (nativeReady && currentTrack) invoke<PlaybackStatus>('stop_audio').catch(() => {});
     };
   });
@@ -3886,7 +3973,7 @@
 
 {#if desktopRuntime}
 <main class="desktop">
-  <section class="app-window" class:rail-expanded={railExpanded} style={`--transfer-height: ${transferPaneHeight}px`} aria-label={$t("Deadwax application window")}>
+  <section class="app-window" class:rail-expanded={railExpanded} aria-label={$t("Deadwax application window")}>
     <button class="window-resize-handle resize-n" aria-label={$t("Resize window from top")} onpointerdown={(event) => beginWindowResize(event, 'North')}></button>
     <button class="window-resize-handle resize-e" aria-label={$t("Resize window from right")} onpointerdown={(event) => beginWindowResize(event, 'East')}></button>
     <button class="window-resize-handle resize-s" aria-label={$t("Resize window from bottom")} onpointerdown={(event) => beginWindowResize(event, 'South')}></button>
@@ -3975,7 +4062,7 @@
           {/if}
           <button class="advanced-toggle" onclick={() => (advanced = !advanced)}><span>{advanced ? '▼' : '▶'}</span> {advanced ? $t("Hide advanced search options") : $t("Show advanced search options")}</button>
           {#if advanced}
-            <div class="advanced-row"><label>{$t("Minimum seeders:")} <input type="number" bind:value={minimumSources} min="1" /></label><label>{$t("Maximum size:")} <input bind:value={maximumSize} placeholder={$t("e.g. 2 GB")} /></label><label><input type="checkbox" checked disabled /> {$t("Online seeders only")}</label></div>
+            <div class="advanced-row"><label>{$t("Minimum seeders:")} <input type="number" bind:value={minimumSources} min="1" /></label><label>{$t("Maximum size:")} <input bind:value={maximumSize} placeholder={$t("e.g. 2 GB")} /></label><label>{$t("File type:")} <select bind:value={advancedFormat} onchange={() => (resultPage = 0)}>{#each ADVANCED_FORMATS as option}<option value={option}>{option}</option>{/each}</select></label><label title={$t("Only known for files this computer has itself")}>{$t("Minimum bitrate (kbps):")} <input type="number" value={minimumBitrate || ''} min="0" step="32" placeholder={$t("any")} oninput={(event) => { minimumBitrate = Number(event.currentTarget.value) || 0; resultPage = 0; }} /></label><label><input type="checkbox" checked disabled /> {$t("Online seeders only")}</label></div>
           {/if}
         </section>
 
@@ -3984,7 +4071,7 @@
             <div class="section-caption">
               <span>{$t("Results for “{p0}”", { p0: ["All audio", "All audiobooks", "local catalogue", "Surprise me"].includes(searchedQuery) ? $t(searchedQuery) : searchedQuery })}</span>
               <div class="results-caption-tools">
-                <small>{format === 'Audiobooks' ? $t("Audiobooks found: {p0}", { p0: results.length }) : browseTotalAvailable ? $t("{p0} loaded of {p1} available", { p0: results.length, p1: resultAvailableTotal }) : $t("{p0} file IDs found", { p0: results.length })}</small>
+                <small>{format === 'Audiobooks' ? $t("Audiobooks found: {p0}", { p0: shownResults.length }) : browseTotalAvailable ? $t("{p0} loaded of {p1} available", { p0: shownResults.length, p1: resultAvailableTotal }) : $t("{p0} file IDs found", { p0: shownResults.length })}</small>
                 <button type="button" class="view-toggle" class:active={resultsView === 'list'} title={$t("Show these results as a list")} aria-pressed={resultsView === 'list'} onclick={() => setResultsView('list')}>▤</button>
                 <button type="button" class="view-toggle" class:active={resultsView === 'thumb'} title={$t("Show these results as thumbnails, with album art")} aria-pressed={resultsView === 'thumb'} onclick={() => setResultsView('thumb')}>▦</button>
               </div>
@@ -4009,29 +4096,34 @@
                       <span class="result-overlay">
                         <b title={item.name}>{item.name}</b>
                         <small title={[item.artist, item.album].filter(Boolean).join(' · ') || undefined}>{item.artist || $t('Unknown artist')}{item.album ? ` · ${item.album}` : ''}</small>
-                        <span class="result-card-meta"><i class="source-dot"></i>{item.sources} {item.sources === 1 ? $t('seeder') : $t('seeders')} · {item.size}</span>
+                        <span class="result-card-meta"><i class="source-dot"></i>{item.sources} {item.sources === 1 ? $t('seeder') : $t('seeders')} · {item.size}{#if discussionActivity[item.fileId]}<span class="result-chat" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</span>
                       </span>
+                      {#if isLocalFile(item.fileId)}<span class="host-mark on-art" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}
                     </span>
-                    {#if discussionActivity[item.fileId]}
-                      <span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].authors}
-                      </span>
-                    {/if}
                   </button>
                 {/each}
-                {#if results.length === 0}<p class="empty-state">{$t("Nothing to show yet.")}</p>{/if}
+                {#if shownResults.length === 0}<p class="empty-state">{$t("Nothing to show yet.")}</p>{/if}
               </div>
             {:else}
             <div class="table-wrap">
               <table class="file-table search-results-table">
-                <thead><tr><th class="name-col">{$t("Name")}</th><th>{$t("Type")}</th><th class="number">{$t("Size")}</th><th class="number">{$t("Seeders")}</th><th>{$t("Line speed")}</th><th>{$t("Length")}</th></tr></thead>
+                <thead><tr>
+                  <th class="name-col"><button type="button" class="sort-head" onclick={() => sortResultsBy('name')}>{$t("Name")}{resultSort === 'name' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th><button type="button" class="sort-head" onclick={() => sortResultsBy('artist')}>{$t("Artist")}{resultSort === 'artist' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th><button type="button" class="sort-head" onclick={() => sortResultsBy('album')}>{$t("Album")}{resultSort === 'album' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th><button type="button" class="sort-head" onclick={() => sortResultsBy('format')}>{$t("Type")}{resultSort === 'format' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th class="number"><button type="button" class="sort-head" onclick={() => sortResultsBy('size')}>{$t("Size")}{resultSort === 'size' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th class="number"><button type="button" class="sort-head" onclick={() => sortResultsBy('sources')}>{$t("Seeders")}{resultSort === 'sources' ? (resultSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                  <th>{$t("Line speed")}</th>
+                </tr></thead>
                 <tbody>
                   {#each resultPageItems as item}
                     <tr class:selected={selectedResultIds.has(item.fileId)} aria-selected={selectedResultIds.has(item.fileId)} tabindex="0"
                       onclick={(event) => selectResultRange(item, event)}
                       onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event); } }}
                       ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}>
-                      <td>{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].authors}</span>{/if}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td><td>{item.length}</td>
+                      <td>{#if isLocalFile(item.fileId)}<span class="host-mark" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</td>
+                      <td>{item.artist || '—'}</td><td>{item.album || '—'}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td>
                     </tr>
                   {/each}
                 </tbody>
@@ -4107,9 +4199,8 @@
                   {/if}
                 </div>
               </fieldset>
-              <div class="detail-actions">{#if !isLocalFile(selected.fileId)}<button class="classic-button primary" disabled={startingDownloads.has(selected.fileId)} onclick={() => startDownload()}>{startingDownloads.has(selected.fileId) ? $t("… Requesting") : $t("⇩ Download")}</button><button class="classic-button" onclick={() => (sourceProfile = selected?.sourceDetails?.[selectedSource] ?? null)}>{$t("View profile")}</button>{:else}<button class="classic-button primary" onclick={playSelectedAudio}>{$t("▶ Play")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button>{/if}</div>
+              <div class="detail-actions">{#if !isLocalFile(selected.fileId)}<button class="classic-button primary" disabled={startingDownloads.has(selected.fileId)} title={$t("Transfer will use the seeder’s private, app-session Tor onion service.")} onclick={() => startDownload()}>{startingDownloads.has(selected.fileId) ? $t("… Requesting") : $t("⇩ Download")}</button><button class="classic-button" onclick={() => (sourceProfile = selected?.sourceDetails?.[selectedSource] ?? null)}>{$t("View profile")}</button>{:else}<button class="classic-button primary" title={$t("Downloaded and verified · ready to play from your Deadwax folder.")} onclick={playSelectedAudio}>{$t("▶ Play")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button>{/if}</div>
               {#if !isLocalFile(selected.fileId)}<div class="detail-actions moderation-actions"><button class="classic-button" onclick={blockSelectedFile}>{$t("Block file")}</button><button class="classic-button" onclick={blockSelectedUser}>{$t("Block user")}</button></div>{/if}
-              {#if !isLocalFile(selected.fileId)}<p class="privacy-note"><span>♜</span> {$t("Transfer will use the seeder’s private, app-session Tor onion service.")}</p>{:else}<p class="privacy-note"><span>♬</span> {$t("Downloaded and verified · ready to play from your Deadwax folder.")}</p>{/if}
               <section class="track-discussion" aria-label={$t("Discussion for {p0}", { p0: selected.name })}>
                 <div class="track-discussion-title"><b>{$t("Track discussion")}</b><small>{$t(trackDiscussionLoading ? "Loading…" : "Public · Nostr")}</small></div>
                 <div class="track-discussion-log" use:openChatLog bind:this={trackDiscussionLog} aria-live="polite" aria-busy={trackDiscussionLoading} onscroll={(event) => { if (event.currentTarget.scrollTop < 32) void refreshTrackDiscussion(selected?.fileId, false, true); }}>
@@ -4144,22 +4235,6 @@
             </tbody></table>
             {#if transfers.length === 0}<p class="empty-state compact">{$t("There are no downloads in the queue.")}</p>{/if}
           </div>
-          <div class="panel-title"><span></span><b>{$t("Track Tags")}</b><span></span></div>
-          <div class="tag-editor">
-            <b>{selectedTagFile?.filename ?? $t("Select a local track below")}</b>
-            <input bind:value={tagDraft} disabled={!selectedTagFile || tagSaving} maxlength="256" placeholder={$t("punk, live, audiobook")} onkeydown={(event) => { if (event.key === 'Enter') saveTags(); }} />
-            <button class="classic-button primary" onclick={saveTags} disabled={!selectedTagFile || tagSaving}>{tagSaving ? $t("Saving…") : $t("Save tags")}</button>
-            <small>{$t("Comma-separated · published with your signed catalogue")}</small>
-          </div>
-          <div class="tag-library">
-            <table class="file-table tags-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Tags")}</th></tr></thead><tbody>
-              {#each tagFiles as file}
-                <tr class:selected={selectedTagFile?.fileId === file.fileId} onclick={() => selectTagFile(file)} ondblclick={() => playAudio(file.fileId, file.filename, playerMode, 'downloads')}><td><button type="button" class="file-icon file-play-button" title={$t("Play {p0}", { p0: file.filename })} aria-label={$t("Play {p0}", { p0: file.filename })} onclick={(event) => { event.stopPropagation(); selectTagFile(file); playAudio(file.fileId, file.filename, playerMode, 'downloads'); }}>▶</button>{file.filename}</td><td>{folderName(file.folder)}</td><td>{file.tags || '—'}</td></tr>
-              {/each}
-            </tbody></table>
-            {#if sharedFiles.length === 0}<p class="empty-state compact">{$t("Downloaded and shared tracks will appear here.")}</p>{/if}
-          </div>
-          {#if sharedFiles.length > LOCAL_PAGE_SIZE}<div class="results-pager"><button disabled={downloadLibraryPage === 0} onclick={() => changeDownloadLibraryPage(downloadLibraryPage - 1)}>{$t("◀ Previous")}</button><span>{$t("Showing {range} of {count} loaded", { range: localPageRange(downloadLibraryPage, sharedFiles.length), count: sharedFiles.length })} · {$t("Page {page} of {pages}", { page: downloadLibraryPage + 1, pages: localPageCount(sharedFiles) })}</span><button disabled={downloadLibraryPage + 1 >= localPageCount(sharedFiles)} onclick={() => changeDownloadLibraryPage(downloadLibraryPage + 1)}>{$t("Next ▶")}</button></div>{/if}
         </section>
       {:else if activeView === 'Shared'}
         <section class="full-panel">
@@ -4185,8 +4260,15 @@
           </div>
           {#if !folderAudiobook && libraryFolderView.toLowerCase().includes('audiobook') && audiobookChapters.length >= 1}<div class="audiobook-folder-banner"><span class="audiobook-glyph">▥</span><div><b>{$t("Possible audiobook detected")}</b><small>{$t("Review the natural chapter order before making the collection public.")}</small></div><button class="classic-button primary" onclick={openAudiobookEditor}>{$t("Group as audiobook…")}</button></div>{/if}
           {#if folderAudiobook}<div class="audiobook-folder-banner"><span class="audiobook-glyph">▥</span><div><b>{folderAudiobook?.title}</b><small>{folderAudiobook?.author || $t("Unknown author")} · {folderAudiobook?.chapters.length} {$t("ordered chapters · published as one audiobook")}</small></div><button class="classic-button primary" onclick={() => playAudiobook(folderAudiobook!)}>{$t("▶ Play book")}</button></div>{/if}
-          <table class="file-table shared-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Size")}</th><th>{$t("Catalogue")}</th><th>{$t("Active peers")}</th></tr></thead><tbody>{#each sharedRows as file}<tr class:selected={selectedShared?.fileId === file.fileId} onclick={() => (selectedShared = { ...file })} ondblclick={() => playAudio(file.fileId, file.name, playerMode, 'shared')}><td><span class="file-icon">▶</span>{file.name}</td><td>{folderName(file.folder)}</td><td>{file.readableSize}</td><td><span class:amber={!networkConnected} class="led"></span>{networkConnected ? $t("Published") : $t("Indexed")}</td><td>{file.peers}</td></tr>{/each}</tbody></table>
+          <table class="file-table shared-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Size")}</th><th>{$t("Catalogue")}</th><th>{$t("Active peers")}</th></tr></thead><tbody>{#each sharedRows as file}<tr class:selected={selectedShared?.fileId === file.fileId} onclick={() => selectSharedRow(file)} ondblclick={() => playAudio(file.fileId, file.name, playerMode, 'shared')}><td>{file.name}</td><td>{folderName(file.folder)}</td><td>{file.readableSize}</td><td><span class:amber={!networkConnected} class="led"></span>{networkConnected ? $t("Published") : $t("Indexed")}</td><td>{file.peers}</td></tr>{/each}</tbody></table>
           {#if sharedVisible.length > LOCAL_PAGE_SIZE}<div class="results-pager"><button disabled={sharedLibraryPage === 0} onclick={() => changeSharedLibraryPage(sharedLibraryPage - 1)}>{$t("◀ Previous")}</button><span>{$t("Showing {range} of {count} loaded", { range: localPageRange(sharedLibraryPage, sharedVisible.length), count: sharedVisible.length })} · {$t("Page {page} of {pages}", { page: sharedLibraryPage + 1, pages: sharedPageCount })}</span><button disabled={sharedLibraryPage + 1 >= sharedPageCount} onclick={() => changeSharedLibraryPage(sharedLibraryPage + 1)}>{$t("Next ▶")}</button></div>{/if}
+          <div class="panel-title"><span></span><b>{$t("Track Tags")}</b><span></span></div>
+          <div class="tag-editor">
+            <b>{selectedTagFile?.filename ?? $t("Select a track above")}</b>
+            <input bind:value={tagDraft} disabled={!selectedTagFile || tagSaving} maxlength="256" placeholder={$t("punk, live, audiobook")} onkeydown={(event) => { if (event.key === 'Enter') saveTags(); }} />
+            <button class="classic-button primary" onclick={saveTags} disabled={!selectedTagFile || tagSaving}>{tagSaving ? $t("Saving…") : $t("Save tags")}</button>
+            <small>{$t("Comma-separated · published with your signed catalogue")}</small>
+          </div>
           <p class="privacy-note wide"><span>♜</span> {$t("Only validated MP3, FLAC, WAV, Ogg Vorbis, and Opus audio is indexed recursively. Put book folders or complete one-file books inside Audiobooks for automatic grouping. Existing contents are never replaced. Folder names remain local and embedded cover artwork is allowed.")}</p>
         </section>
       {:else if activeView === 'Trollbox'}
@@ -4530,10 +4612,10 @@
             <small>{$t("Deadwax stays in control of discovery and Tor downloads.")}</small>
           </div>
           {#if mobileError}<div class="trollbox-error">{$t(mobileError)}</div>{/if}
+          {#if clientNote}<div class="client-note">{clientNote}</div>{/if}
           <div class="mobile-connect-grid">
             <section class="pair-phone-card">
               <h2>{$t("Pair a client")}</h2>
-              <p>{$t("The code below gives the new client read-only access: it can browse, listen, and keep copies for offline listening, but it cannot ask this computer to download anything.")}</p>
               <p>{$t("Scan in")} <a href="https://deadwax.rip/mobile.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
               {#if mobileStreamPairing}
                 <div class="pairing-qr" aria-label={$t("Read-only Deadwax pairing QR code")}>{@html mobileStreamPairing.qrSvg}</div>
@@ -4570,6 +4652,11 @@
                       <span class="playlist-badge">{device.playlists} {$t("Playlists")}</span>
                       <span class="playlist-badge" title={device.pubkey}>{device.pubkey ? shortKey(device.pubkey) : $t("No key proved")}</span>
                       <span class="playlist-badge">{$t("Paired")} {new Date(device.pairedAt).toLocaleDateString($locale)}</span>
+                    </div>
+                    <div class="device-transfer">
+                      <button class="classic-button" title={$t("Save this client’s likes and dislikes to a file")} disabled={mobileLoading} onclick={() => void backupClientData(device)}>{$t("Backup…")}</button>
+                      <button class="classic-button" title={$t("Put likes and dislikes back from a file")} disabled={mobileLoading} onclick={() => void restoreClientData(device)}>{$t("Restore…")}</button>
+                      <small>{$t("A backup holds the marks this client made here, and nothing that lets it connect.")}</small>
                     </div>
                     <div class="device-rights" role="group" aria-label={$t("What {p0} may do", { p0: device.name })}>
                       {#each deviceRightChoices() as choice}
@@ -4723,27 +4810,6 @@
         </section>
       {/if}
     </div>
-
-    <section class="transfer-dock">
-      <button
-        type="button"
-        class="dock-resizer"
-        aria-label={$t("Resize Transfer Manager")}
-        title={$t("Drag to resize Transfer Manager · double-click to reset")}
-        onpointerdown={beginTransferResize}
-        onkeydown={resizeTransferWithKeyboard}
-        ondblclick={() => setTransferPaneHeight(window.innerHeight < 700 ? 94 : 119, true)}
-      ></button>
-      <div class="dock-title"><span></span><b>{$t("Transfer Manager")}</b><span></span><button class="dock-clear" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="dock-clear" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><button onclick={() => (activeView = 'Downloads')} title={$t("Open Download Manager")}>□</button></div>
-      <div class="mini-transfers">
-        {#each audiobookDownloads as book}
-          <div class="mini-row audiobook-mini-row"><span class="audiobook-glyph">▥</span><span class="mini-name">{book.title} {$t("· chapter")} {Math.min(book.nextIndex + 1, book.chapters.length)} {$t("of")} {book.chapters.length}</span><div class="progress"><span style={`width:${book.chapters.length ? (book.nextIndex / book.chapters.length) * 100 : 0}%`}></span></div><span class="mini-size">{readableSize(book.chapters.reduce((sum, chapter) => sum + chapter.size, 0))}</span><span class="mini-status">{$t("Book")}</span></div>
-        {/each}
-        {#each transfers as transfer}
-          <div class:transfer-complete={isCompleteTransfer(transfer)} class="mini-row"><button class="mini-play" disabled={!isCompleteTransfer(transfer)} onclick={() => playAudio(transfer.fileId, transfer.name, playerMode, 'downloads')} title={$t("Play verified audio")} aria-label={$t("Play verified audio")}>▶</button><span class="mini-name">{transfer.name}</span><div class="progress"><span style={`width:${transfer.progress}%`}></span></div><span class="mini-size">{transfer.size}</span><span class="mini-status" title={isCompleteTransfer(transfer) ? $t("Ready") : transfer.status}>{isCompleteTransfer(transfer) ? $t("Ready") : transfer.speed}</span><button class="tiny-button mini-cancel" onclick={() => removeTransfer(transfer.id)} disabled={clearingTransfers || removingTransfers.has(transfer.id)} aria-label={`${isActiveTransfer(transfer) ? 'Cancel download' : 'Clear entry'}: ${transfer.name}`} title={isActiveTransfer(transfer) ? $t("Cancel download and remove partial file") : $t("Clear entry; keep completed audio")}>×</button></div>
-        {/each}
-      </div>
-    </section>
 
     <footer class="statusbar"><span class="prompt">›</span><span class="status-message">{$t(activityMessage)}</span><span class="grow"></span><span class="status-clock">{new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(clockNow)}</span></footer>
 

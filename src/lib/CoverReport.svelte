@@ -106,7 +106,7 @@
   .cover-report-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(4, 6, 10, 0.72);
+    background: var(--scrim);
     display: grid;
     place-items: center;
     z-index: 200;
@@ -116,11 +116,11 @@
     width: min(520px, 100%);
     max-height: min(760px, 88vh);
     overflow: auto;
-    background: #10141c;
-    border: 1px solid #2a3446;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: 14px 16px 18px;
-    color: #d7deea;
+    color: var(--text);
     font-size: 13px;
   }
   .cover-report-head {
@@ -135,20 +135,20 @@
   }
   .cover-report-head small {
     display: block;
-    color: #8d9ab0;
+    color: var(--muted);
     margin: 2px 0;
   }
   .cover-report-head code {
-    color: #9fb3d1;
+    color: var(--dim);
     font-size: 11px;
   }
   .cover-report-hint {
-    color: #8d9ab0;
+    color: var(--muted);
     font-size: 12px;
     margin: 10px 0 0;
   }
   .cover-report-hint em {
-    color: #c3cfe2;
+    color: var(--text);
     font-style: normal;
   }
   .cover-report-reasons {
@@ -163,19 +163,19 @@
     gap: 10px;
     width: 100%;
     text-align: left;
-    background: #0c1017;
-    border: 1px solid #222b3a;
+    background: var(--sunken);
+    border: 1px solid var(--line);
     border-radius: 7px;
-    color: #d7deea;
+    color: var(--text);
     padding: 9px 11px;
     cursor: pointer;
   }
   .cover-report-reason.chosen {
-    border-color: #9fb3d1;
-    background: #141a24;
+    border-color: var(--dim);
+    background: var(--accent-soft);
   }
   .cover-report-reason small {
-    color: #9fb3d1;
+    color: var(--dim);
     font-size: 11px;
   }
   .cover-report-note {
@@ -184,17 +184,17 @@
   }
   .cover-report-note span {
     display: block;
-    color: #8d9ab0;
+    color: var(--muted);
     font-size: 12px;
     margin-bottom: 5px;
   }
   .cover-report-note textarea {
     width: 100%;
     box-sizing: border-box;
-    background: #0a0e14;
-    border: 1px solid #2a3446;
+    background: var(--sunken);
+    border: 1px solid var(--line);
     border-radius: 6px;
-    color: #e6ebf3;
+    color: var(--text);
     padding: 8px 9px;
     font: inherit;
     resize: vertical;
@@ -204,9 +204,9 @@
     padding: 8px 10px;
     border-radius: 6px;
     font-size: 12px;
-    background: rgba(190, 60, 60, 0.16);
-    border: 1px solid rgba(190, 60, 60, 0.5);
-    color: #f0b6b6;
+    background: var(--danger-soft);
+    border: 1px solid var(--danger-line);
+    color: var(--danger);
   }
   .cover-report-actions {
     margin-top: 14px;

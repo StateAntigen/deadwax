@@ -16,7 +16,7 @@ use napstr_remote_protocol::{
 };
 use qrcode::{render::svg, QrCode};
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -25,6 +25,9 @@ use std::{
 };
 use tokio::io::AsyncReadExt;
 
+/// The layout of a client backup file. A number so a file written by a later
+/// version is refused by name instead of half-read.
+const CLIENT_BACKUP_VERSION: u32 = 1;
 const PAIRING_LIFETIME_SECONDS: i64 = 5 * 60;
 /// What a comment may be: the same ceiling the desktop's own composer enforces,
 /// because both write the same kind of event into the same conversation.
@@ -57,6 +60,23 @@ pub struct PairedDevice {
     likes: i64,
     dislikes: i64,
     playlists: i64,
+}
+
+/// One client's marks, as written by Backup and read back by Restore.
+///
+/// The key is in the file on purpose: likes and dislikes are kept against the key
+/// a client proved, not against the pairing, so that key is the only way to know
+/// whose lists these are when they come back.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientBackup {
+    version: u32,
+    endpoint_id: String,
+    name: String,
+    pubkey: String,
+    exported_at: String,
+    likes: Vec<String>,
+    dislikes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -356,13 +376,91 @@ impl MobileService {
         set_device_rights(&self.db_path, endpoint_id, rights)
     }
 
+    /// Write one client's own marks to a file the person picked.
+    ///
+    /// Only what the client itself put on this computer travels: the ids it liked,
+    /// the ids it never wants played, and the key those lists hang off. Nothing
+    /// about the pairing, the rights, or this computer's library is in here, so a
+    /// restored file can neither grant access nor change what is shared.
+    pub fn export_client(&self, endpoint_id: &str, path: &Path) -> Result<ClientBackup, String> {
+        let name: Option<String> = open_connection(&self.db_path)?
+            .query_row(
+                "SELECT name FROM mobile_devices WHERE endpoint_id=?1",
+                [endpoint_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let Some(name) = name else {
+            return Err("This client is not paired with Deadwax".into());
+        };
+        let pubkey =
+            crate::device_account::proved_key(&self.db_path, endpoint_id)?.unwrap_or_default();
+        let (likes, dislikes) = if pubkey.is_empty() {
+            (Vec::new(), Vec::new())
+        } else {
+            (
+                crate::device_account::likes(&self.db_path, &pubkey)?,
+                crate::device_account::dislikes(&self.db_path, &pubkey)?,
+            )
+        };
+        let backup = ClientBackup {
+            version: CLIENT_BACKUP_VERSION,
+            endpoint_id: endpoint_id.to_string(),
+            name,
+            pubkey,
+            exported_at: Utc::now().to_rfc3339(),
+            likes,
+            dislikes,
+        };
+        let json = serde_json::to_string_pretty(&backup).map_err(|error| error.to_string())?;
+        fs::write(path, format!("{json}\n")).map_err(|error| error.to_string())?;
+        Ok(backup)
+    }
+
+    /// Put a backup's lists back, and answer with what was written.
+    ///
+    /// The lists hang off a client key, not off a pairing, so a backup only lands
+    /// on a client that has either proved no key of its own yet or proved this very
+    /// one. Two different keys in one row would be two people's marks in one place,
+    /// and a backup is not a way to take over a client somebody else already proved.
+    pub fn import_client(&self, endpoint_id: &str, path: &Path) -> Result<ClientBackup, String> {
+        let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let backup: ClientBackup = serde_json::from_str(&text)
+            .map_err(|_| "That file is not a Deadwax client backup".to_string())?;
+        if backup.version != CLIENT_BACKUP_VERSION {
+            return Err("That backup was written by another version of Deadwax".into());
+        }
+        if backup.pubkey.is_empty() {
+            return Err("That backup holds no client key, so there is nothing to restore".into());
+        }
+        let paired: Option<i64> = open_connection(&self.db_path)?
+            .query_row(
+                "SELECT 1 FROM mobile_devices WHERE endpoint_id=?1",
+                [endpoint_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        if paired.is_none() {
+            return Err("This client is not paired with Deadwax".into());
+        }
+        let proved =
+            crate::device_account::proved_key(&self.db_path, endpoint_id)?.unwrap_or_default();
+        if !proved.is_empty() && proved != backup.pubkey {
+            return Err("That backup belongs to a different client".into());
+        }
+        crate::device_account::set_likes(&self.db_path, &backup.pubkey, &backup.likes)?;
+        crate::device_account::set_dislikes(&self.db_path, &backup.pubkey, &backup.dislikes)?;
+        Ok(backup)
+    }
+
     /// The name shown to a phone. One place, so every answer agrees.
     fn desktop_name(&self) -> String {
         open_connection(&self.db_path)
             .and_then(|connection| crate::get_setting(&connection, "display_name"))
             .unwrap_or_else(|_| "Deadwax".into())
     }
-
     fn remember_error(&self, message: String) -> String {
         crate::diag::note(&message);
         if let Ok(mut status) = self.status.lock() {

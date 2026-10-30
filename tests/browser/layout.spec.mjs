@@ -31,21 +31,8 @@ for (const language of ['en', 'fr', 'ar']) {
       await page.setViewportSize({ width, height });
       for (const [index, view] of views.entries()) {
         await page.locator('.tool-button').nth(index).click();
-        await expect(page.locator('.mini-row')).toHaveCount(3);
-        const misplaced = await page.locator('.mini-row').evaluateAll((rows) => rows.flatMap((row, index) => {
-          const box = row.getBoundingClientRect();
-          return [...row.children].filter((child) => {
-            const rect = child.getBoundingClientRect();
-            return rect.width && rect.height && (rect.top < box.top - 1 || rect.bottom > box.bottom + 1 || rect.left < box.left - 1 || rect.right > box.right + 1);
-          }).map((child) => ({ index, item: child.className }));
-        }));
-        expect(misplaced, `${language} ${view} ${width}x${height}: transfer cells stay on one row`).toEqual([]);
-        for (const row of await page.locator('.mini-row').all()) {
-          await expect(row.locator('.mini-status')).toBeVisible();
-          await expect(row.locator('.mini-cancel')).toBeVisible();
-        }
         const overflow = await page.evaluate(() => {
-          const selectors = ['.player-bar', '.search-form', '.results-pager', '.details-pane', '.full-panel', '.mini-transfers', '.statusbar', '.folder-path', '.actionbar', '.tag-editor', '.profile-card', '.settings-view fieldset', '.mobile-connect-grid'];
+          const selectors = ['.player-bar', '.search-form', '.results-pager', '.details-pane', '.full-panel', '.download-table', '.statusbar', '.folder-path', '.actionbar', '.tag-editor', '.profile-card', '.settings-view fieldset', '.mobile-connect-grid'];
           return selectors.flatMap((selector) => [...document.querySelectorAll(selector)].flatMap((node) => {
             const box = node.getBoundingClientRect();
             return box.width && box.height && (node.scrollWidth > node.clientWidth + 2 || box.left < -1 || box.right > innerWidth + 1)
@@ -53,7 +40,7 @@ for (const language of ['en', 'fr', 'ar']) {
           }));
         });
         expect(overflow, `${language} ${view} ${width}x${height}: no horizontal clipping`).toEqual([]);
-        const reachable = view === 'Downloads' ? '.tag-editor button' : view === 'Trollbox' ? '.trollbox-compose input'
+        const reachable = view === 'Shared' ? '.tag-editor button' : view === 'Trollbox' ? '.trollbox-compose input'
           : view === 'Settings' ? '.settings-actions button:last-child' : view === 'Profile' ? '.edit-profile button'
           : view === 'Deadwax' ? '.paired-devices-card' : null;
         if (reachable) {

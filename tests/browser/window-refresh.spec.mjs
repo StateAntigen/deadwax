@@ -86,13 +86,14 @@ async function chooseFolder(page, folder) {
   await page.locator('.folder-picker-menu button[role="option"]', { hasText: folder }).click();
 }
 
-test('the Downloads library draws the page the pager says it is on', async ({ page }) => {
+test('the Shared library draws the page the pager says it is on', async ({ page }) => {
   await seedBigLibrary(page);
   // Named rather than counted: adding a view to the tool row must not silently
-  // move this test to a different screen.
-  await page.locator('.tool-button').filter({ hasText: 'Downloads' }).click();
+  // move this test to a different screen. The library lives on Shared now - it is
+  // the list the tag editor edits, and it is the only paged list of local files.
+  await page.locator('.tool-button').filter({ hasText: 'Shared' }).click();
 
-  const rows = page.locator('.tags-table tbody tr');
+  const rows = page.locator('.shared-table tbody tr');
   await expect(rows).toHaveCount(100);
   await expect(rows.first()).toContainText('Track 001');
   await expect(page.locator('.results-pager')).toContainText('Page 1 of 2');

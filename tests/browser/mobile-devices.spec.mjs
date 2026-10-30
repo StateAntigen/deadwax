@@ -79,3 +79,32 @@ test('the list names each right instead of calling every device read-only', asyn
   await expect(page.locator('.device-rights label').nth(1)).not.toHaveClass(/on/);
   await expect(page.locator('.device-rights label').nth(4)).not.toHaveClass(/on/);
 });
+
+test('a backup writes this client’s marks, and a restore reads them back', async ({ page }) => {
+  await mockNative(page, { app: 'napstr' });
+  await page.addInitScript((rows) => {
+    window.mobileDevices = rows;
+    window.savePath = '/tmp/ada-backup.json';
+    window.openPath = '/tmp/ada-backup.json';
+  }, [device()]);
+  await page.goto('http://127.0.0.1:15173');
+  await expect(page.locator('.search-button')).toBeEnabled();
+  await page.getByRole('button', { name: 'Clients' }).click();
+
+  // The two buttons are the whole of the feature, so they come first: what a
+  // backup cannot do is let a client back in, which is why it is not a pairing.
+  await expect(page.locator('.device-transfer')).toBeVisible();
+  await page.locator('.device-transfer').getByRole('button', { name: 'Backup…' }).click();
+
+  await expect.poll(async () => (await callsTo(page, 'export_client_data')).length).toBe(1);
+  const [written] = await callsTo(page, 'export_client_data');
+  expect(written.args.endpointId).toBe(device().endpointId);
+  expect(written.args.path).toBe('/tmp/ada-backup.json');
+  await expect(page.locator('.client-note')).toContainText('Saved 2 likes and 1 dislikes');
+
+  await page.locator('.device-transfer').getByRole('button', { name: 'Restore…' }).click();
+  await expect.poll(async () => (await callsTo(page, 'import_client_data')).length).toBe(1);
+  const [read] = await callsTo(page, 'import_client_data');
+  expect(read.args.path).toBe('/tmp/ada-backup.json');
+  await expect(page.locator('.client-note')).toContainText('Restored 2 likes and 1 dislikes');
+});
