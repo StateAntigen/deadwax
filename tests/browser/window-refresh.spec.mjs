@@ -88,8 +88,9 @@ async function chooseFolder(page, folder) {
 
 test('the Downloads library draws the page the pager says it is on', async ({ page }) => {
   await seedBigLibrary(page);
-  // Index 1 of the tool row is Downloads.
-  await page.locator('.tool-button').nth(1).click();
+  // Named rather than counted: adding a view to the tool row must not silently
+  // move this test to a different screen.
+  await page.locator('.tool-button').filter({ hasText: 'Downloads' }).click();
 
   const rows = page.locator('.tags-table tbody tr');
   await expect(rows).toHaveCount(100);
@@ -113,8 +114,7 @@ test('the Downloads library draws the page the pager says it is on', async ({ pa
 
 test('the Shared pane describes the audiobook of the folder that is chosen', async ({ page }) => {
   await seedAudiobookFolders(page);
-  // Index 2 of the tool row is Shared.
-  await page.locator('.tool-button').nth(2).click();
+  await page.locator('.tool-button').filter({ hasText: 'Shared' }).click();
 
   const banner = page.locator('.audiobook-folder-banner');
   // Nothing is chosen yet, and the banner belongs to a chosen folder.

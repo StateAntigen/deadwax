@@ -189,6 +189,20 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           case 'get_snapshot':
           case 'save_settings': return { native: true, indexedBytes: track.size, files: [track], audiobooks: [], transfers, settings: { napstrFolder: '/music', nostrRelays: '', displayName: 'Original user', profileAbout: 'Original profile', profilePicture: '' } };
           case 'get_transfers': return transfers;
+          // The Network page's figures. A spec that cares seeds
+          // `window.catalogueStats`, merged over this plausible catalogue.
+          case 'catalogue_status': return {
+            announced: 75698, indexed: 75698, publishers: 118,
+            liveFiles: 22322, livePeers: 5, describedLive: 20511, held: 3189,
+            lastWrite: '2026-10-30T04:49:35.114193300+00:00',
+            formats: [{ label: 'MP3', count: 14039 }, { label: 'FLAC', count: 6470 }, { label: 'OPUS', count: 1 }],
+            artists: [{ label: 'Deep Purple', count: 1077 }, { label: 'Frank Sinatra', count: 840 }],
+            publishersTop: [
+              { pubkey: 'a'.repeat(64), announced: 25630, live: 1400 },
+              { pubkey: 'b'.repeat(64), announced: 13136, live: 0 }
+            ],
+            ...(window.catalogueStats ?? {})
+          };
           case 'start_network':
           case 'network_status': return { connected: true, pubkey: 'c'.repeat(64), npub: 'npub1test', relayCount: 1, torRunning: true, torStarting: false, torProgress: 100, torError: '', error: '' };
           case 'network_browse': return { results: [track], cursor: null, totalAvailable: 1 };

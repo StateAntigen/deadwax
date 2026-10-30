@@ -21,7 +21,24 @@
   const CHAT_PAGE_SIZE = 100;
   const VISIBLE_SEEDER_LIMIT = 100;
 
-  type View = 'Search' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Deadwax' | 'Covers';
+  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Deadwax' | 'Covers';
+
+  /** One count with the thing counted beside it, as the host sends it. */
+  type CatalogueCount = { label: string; count: number };
+  /** The figures behind the Network page (`catalogue::NetworkStats`). */
+  type CatalogueStats = {
+    announced: number;
+    indexed: number;
+    publishers: number;
+    liveFiles: number;
+    livePeers: number;
+    describedLive: number;
+    held: number;
+    lastWrite: string;
+    formats: CatalogueCount[];
+    artists: CatalogueCount[];
+    publishersTop: { pubkey: string; announced: number; live: number }[];
+  };
   type PlayerMode = 'single' | 'folder' | 'all';
   type PlayerOrigin = 'search' | 'downloads' | 'shared' | 'audiobook' | 'direct';
   /** Repeat, as the phone offers it and this window now plays it. */
@@ -79,6 +96,7 @@
 
   const views: { label: View; icon: string }[] = [
     { label: 'Search', icon: '⌕' },
+    { label: 'Network', icon: '▦' },
     { label: 'Downloads', icon: '⇩' },
     { label: 'Shared', icon: '▤' },
     { label: 'Playlists', icon: '♫' },
@@ -251,6 +269,9 @@
   let trollboxRefreshAgain = false;
   let trollboxHasMore = true;
   let mobileStatusValue: MobileStatus | null = null;
+  let catalogueStats: CatalogueStats | null = null;
+  let catalogueStatsPending = false;
+  let catalogueStatsError: string | Message = '';
   let mobilePairing: MobilePairingOffer | null = null;
   let mobileStreamPairing: MobilePairingOffer | null = null;
   let mobileStreamOnly = false;
@@ -2171,6 +2192,7 @@
     if (view === 'Deadwax') void openMobileConnect();
     if (view === 'Covers') void refreshCovers();
     if (view === 'Playlists') void refreshPlaylists();
+    if (view === 'Network') void refreshCatalogueStats();
   }
 
   async function openMobileConnect() {
@@ -2198,6 +2220,40 @@
     } finally {
       mobileStatusPending = false;
     }
+  }
+
+  /**
+   * The numbers behind the Network page.
+   *
+   * Read when the page is opened or asked to refresh, never on a timer: the
+   * queries walk the whole mirror, and to somebody reading the page a catalogue
+   * a minute old looks exactly like one a second old.
+   */
+  async function refreshCatalogueStats() {
+    if (!nativeReady || catalogueStatsPending) return;
+    catalogueStatsPending = true;
+    catalogueStatsError = '';
+    try {
+      catalogueStats = await invoke<CatalogueStats>('catalogue_status');
+    } catch (error) {
+      catalogueStatsError = String(error);
+    } finally {
+      catalogueStatsPending = false;
+    }
+  }
+
+  const countFormat = new Intl.NumberFormat();
+  function counted(value: number) { return countFormat.format(value); }
+  function shortKey(pubkey: string) { return `${pubkey.slice(0, 10)}…${pubkey.slice(-4)}`; }
+  /**
+   * When the mirror last wrote an announcement down. This is a fact about *this*
+   * computer, not about the network — an announcement written an hour ago can
+   * describe something published a minute ago — so it is labelled as the mirror's
+   * own clock rather than as when the network last spoke.
+   */
+  function mirrorWritten(written: string) {
+    const then = Date.parse(written);
+    return Number.isFinite(then) ? new Date(then).toLocaleString($locale, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
   }
 
   async function createMobilePairing(streamOnly = false) {
@@ -4313,10 +4369,94 @@
             </section>
           </div>
         </section>
+      {:else if activeView === 'Network'}
+        <section class="full-panel network-view">
+          <header class="net-head">
+            <div>
+              <h2>{$t("Network")}</h2>
+              <p>{$t("What this computer can see of the catalogue")}</p>
+            </div>
+            <button class="net-refresh" onclick={() => void refreshCatalogueStats()} disabled={catalogueStatsPending}>
+              {catalogueStatsPending ? $t("Reading…") : $t("Refresh")}
+            </button>
+          </header>
+          {#if catalogueStatsError}<p class="net-error">{$t(catalogueStatsError)}</p>{/if}
+          {#if catalogueStats}
+            {@const behind = catalogueStats.indexed < catalogueStats.announced}
+            <div class="net-kpis">
+              <article class="net-kpi live">
+                <span class="net-label">{$t("Playable now")}</span>
+                <b class="net-value">{counted(catalogueStats.liveFiles)}</b>
+                <span class="net-under">{$t("{p0} publishers saying so", { p0: counted(catalogueStats.livePeers) })}</span>
+              </article>
+              <article class="net-kpi" class:behind>
+                <span class="net-label">{$t("Ever announced")}</span>
+                <b class="net-value">{counted(catalogueStats.announced)}</b>
+                <span class="net-under">{$t("{p0} indexed", { p0: counted(catalogueStats.indexed) })}</span>
+              </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Publishers")}</span>
+                <b class="net-value">{counted(catalogueStats.publishers)}</b>
+              </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Your library")}</span>
+                <b class="net-value">{counted(catalogueStats.held)}</b>
+              </article>
+            </div>
+            {#if behind}
+              <p class="net-warn">{$t("The index is behind the mirror, so a search may be missing something.")}</p>
+            {/if}
+            <div class="net-columns">
+              <section class="net-panel">
+                <h3>{$t("Formats")}</h3>
+                {#each catalogueStats.formats as format}
+                  <div class="net-bar-row">
+                    <span class="net-bar-label">{format.label}</span>
+                    <span class="net-bar-track"><i style={`width: ${Math.max(2, Math.round((format.count / Math.max(1, catalogueStats.formats[0]?.count ?? 1)) * 100))}%`}></i></span>
+                    <span class="net-bar-value">{counted(format.count)}</span>
+                  </div>
+                {/each}
+                {#if catalogueStats.formats.length === 0}<p class="net-empty">{$t("Nothing is playable right now.")}</p>{/if}
+              </section>
+              <section class="net-panel">
+                <h3>{$t("Busiest artists")}</h3>
+                {#each catalogueStats.artists as artist}
+                  <div class="net-bar-row">
+                    <span class="net-bar-label" title={artist.label}>{artist.label}</span>
+                    <span class="net-bar-track"><i style={`width: ${Math.max(2, Math.round((artist.count / Math.max(1, catalogueStats.artists[0]?.count ?? 1)) * 100))}%`}></i></span>
+                    <span class="net-bar-value">{counted(artist.count)}</span>
+                  </div>
+                {/each}
+                {#if catalogueStats.artists.length === 0}<p class="net-empty">{$t("Nothing is playable right now.")}</p>{/if}
+              </section>
+            </div>
+            <section class="net-panel net-publishers">
+              <h3>{$t("Top publishers")}</h3>
+              <table>
+                <thead><tr><th>{$t("Publisher")}</th><th class="num">{$t("Announced")}</th><th class="num">{$t("Live")}</th></tr></thead>
+                <tbody>
+                  {#each catalogueStats.publishersTop as publisher (publisher.pubkey)}
+                    <tr>
+                      <td><code title={publisher.pubkey}>{shortKey(publisher.pubkey)}</code></td>
+                      <td class="num">{counted(publisher.announced)}</td>
+                      <td class="num" class:quiet={publisher.live === 0}>{counted(publisher.live)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </section>
+            <footer class="net-foot">
+              <span>{$t("Last mirror write {p0}", { p0: mirrorWritten(catalogueStats.lastWrite) })}</span>
+              <span>{$t("These are this computer's own counts, not the network's totals.")}</span>
+            </footer>
+          {:else if !catalogueStatsPending}
+            <p class="net-empty">{$t("No figures yet.")}</p>
+          {/if}
+        </section>
       {:else if activeView === 'Profile'}
         <section class="full-panel profile-view">
           <div class="panel-title"><span></span><b>{$t("Deadwax Profile")}</b><span></span></div>
-          <div class="profile-card"><div class="avatar"><img src="/deadwax-logo.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
+          <div class="profile-card"><div class="avatar"><img src="/deadwax-logo-mark.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
           <fieldset class="edit-profile"><legend>{$t("Profile")}</legend><label>{$t("Display name")} <input bind:value={displayName} /></label><label>{$t("About")} <input bind:value={profileAbout} /></label><label>{$t("Picture URL")} <input bind:value={profilePicture} placeholder="https://…" /></label><button class="classic-button primary" onclick={persistSettings}>{$t("Save profile")}</button></fieldset>
           <p class="privacy-note wide"><span>i</span> {$t("Your profile and shared catalogue are public on Nostr. Transfer addresses and credentials are never published.")}</p>
         </section>
@@ -4360,7 +4500,7 @@
       <dialog class="dialog" open aria-label={$t("About Deadwax")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') aboutOpen = false; }}>
         <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span><span>{$t("About Deadwax")}</span></div><div class="window-controls"><button onclick={() => (aboutOpen = false)}>×</button></div></header>
         <div class="dialog-body about-dialog-body">
-          <div class="about-summary"><div class="about-logo"><img src="/deadwax-logo.png" alt="" /></div><div><h2>Deadwax</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
+          <div class="about-summary"><div class="about-logo"><img src="/deadwax-logo-mark.png" alt="" /></div><div><h2>Deadwax</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
           <p class="about-donation">{$t("donations welcome!")}<br /><code>bc1qwgms685z3j69qtgalyjtrfuqg5f6pt302z0k60</code></p>
         </div>
         <div class="dialog-actions"><button class="classic-button primary" onclick={() => (aboutOpen = false)}>{$t("OK")}</button></div>

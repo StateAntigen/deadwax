@@ -2154,6 +2154,15 @@ fn open_napstr_folder(state: State<'_, AppState>) -> Result<(), String> {
     open_with_system(&folder, "Deadwax folder")
 }
 
+/// What the status page shows: this computer's own view of the catalogue, the
+/// heartbeats it can still see, and the library beside them. Distinct from
+/// `network_status`, which reports the relay and Tor connection.
+#[tauri::command]
+fn catalogue_status(state: State<'_, AppState>) -> Result<catalogue::NetworkStats, String> {
+    let connection = open_db(&state)?;
+    catalogue::network_stats(&connection, Utc::now().timestamp())
+}
+
 fn playable_audio_path(connection: &Connection, file_id: &str) -> Result<PathBuf, String> {
     let blocked: bool = connection
         .query_row(
@@ -3184,6 +3193,7 @@ pub fn run() {
             remove_transfer,
             get_transfers,
             open_napstr_folder,
+            catalogue_status,
             open_release_url,
             open_napstrfy_website,
             player::play_audio,

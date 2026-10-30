@@ -939,6 +939,186 @@ pub(crate) fn prune(connection: &Connection, now: i64) -> Result<usize, String> 
     Ok(seeders)
 }
 
+/// The most rows one list on the status page shows.
+const STATUS_LIST_LIMIT: i64 = 8;
+
+/// A count with the thing it counted beside it, for the status page's lists.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct LabelledCount {
+    pub label: String,
+    pub count: u64,
+}
+
+/// One author, as the status page lists them.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct PublisherStat {
+    pub pubkey: String,
+    pub announced: u64,
+    pub live: u64,
+}
+
+/// What this computer can see of the network, for the status page.
+///
+/// Every figure counts rows held *here* — announcements the mirror has written
+/// down, heartbeats that have not expired, the local library — so this is a
+/// picture of the catalogue rather than a claim about the network at large.
+///
+/// `indexed` beside `announced` is the pair worth watching: the full-text index is
+/// derived from that table, and when it holds fewer documents than the table holds
+/// rows, searches are answering from an index that is behind. The two are counted
+/// from different places on purpose — a bare `COUNT(*)` over an external-content
+/// FTS5 table counts the *content* table and would agree with `announced` no
+/// matter what the index contained.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct NetworkStats {
+    pub announced: u64,
+    pub indexed: u64,
+    pub publishers: u64,
+    pub live_files: u64,
+    pub live_peers: u64,
+    pub described_live: u64,
+    pub held: u64,
+    pub last_write: String,
+    pub formats: Vec<LabelledCount>,
+    pub artists: Vec<LabelledCount>,
+    pub publishers_top: Vec<PublisherStat>,
+}
+
+pub(crate) fn network_stats(connection: &Connection, now: i64) -> Result<NetworkStats, String> {
+    let (announced, indexed, publishers, live_files, live_peers, described_live, held, last_write) =
+        connection
+            .query_row(
+                "SELECT
+                   (SELECT COUNT(*) FROM remote_catalogue),
+                   (SELECT COUNT(*) FROM remote_catalogue_fts_docsize),
+                   (SELECT COUNT(DISTINCT source_pubkey) FROM remote_catalogue),
+                   (SELECT COUNT(DISTINCT file_id) FROM catalogue_seeder WHERE expires_at > ?1),
+                   (SELECT COUNT(DISTINCT pubkey) FROM catalogue_seeder WHERE expires_at > ?1),
+                   (SELECT COUNT(*) FROM (SELECT DISTINCT file_id FROM catalogue_seeder WHERE expires_at > ?1) live
+                      WHERE EXISTS (SELECT 1 FROM remote_catalogue c WHERE c.file_id = live.file_id)),
+                   (SELECT COUNT(*) FROM files),
+                   (SELECT COALESCE(MAX(seen_at), '') FROM remote_catalogue)",
+                params![now],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, i64>(5)?,
+                        row.get::<_, i64>(6)?,
+                        row.get::<_, String>(7)?,
+                    ))
+                },
+            )
+            .map_err(|error| error.to_string())?;
+
+    // A file's row is one announcement, so several announcements of the same file
+    // are folded to one first: the formats and artists a person cares about are
+    // counts of *files*, not of how many people said so.
+    let live_files_sql = "SELECT DISTINCT file_id FROM catalogue_seeder WHERE expires_at > ?1";
+    let mut formats_statement = connection
+        .prepare(&format!(
+            "SELECT fmt, COUNT(*) FROM (
+               SELECT live.file_id, MIN(c.format) AS fmt
+                 FROM ({live_files_sql}) live
+                 JOIN remote_catalogue c ON c.file_id = live.file_id
+                GROUP BY live.file_id
+             )
+             GROUP BY fmt ORDER BY COUNT(*) DESC, fmt LIMIT ?2"
+        ))
+        .map_err(|error| error.to_string())?;
+    let formats = formats_statement
+        .query_map(params![now, STATUS_LIST_LIMIT], |row| {
+            Ok(LabelledCount {
+                label: row.get(0)?,
+                count: row.get::<_, i64>(1)?.max(0) as u64,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+
+    let mut artists_statement = connection
+        .prepare(&format!(
+            "SELECT artist, COUNT(*) FROM (
+               SELECT live.file_id, MIN(c.artist) AS artist
+                 FROM ({live_files_sql}) live
+                 JOIN remote_catalogue c ON c.file_id = live.file_id
+                GROUP BY live.file_id
+             )
+             WHERE artist <> ''
+             GROUP BY lower(artist) ORDER BY COUNT(*) DESC, artist LIMIT ?2"
+        ))
+        .map_err(|error| error.to_string())?;
+    let artists = artists_statement
+        .query_map(params![now, STATUS_LIST_LIMIT], |row| {
+            Ok(LabelledCount {
+                label: row.get(0)?,
+                count: row.get::<_, i64>(1)?.max(0) as u64,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+
+    // Who announced the most, and — separately — who is holding right now. The
+    // list is the first of those, because a publisher with no live heartbeat is
+    // still worth naming: they are where the catalogue came from.
+    let mut publisher_statement = connection
+        .prepare(
+            "SELECT source_pubkey, COUNT(*) AS n FROM remote_catalogue
+             GROUP BY source_pubkey ORDER BY n DESC, source_pubkey LIMIT ?1",
+        )
+        .map_err(|error| error.to_string())?;
+    let announced_by_publisher = publisher_statement
+        .query_map(params![STATUS_LIST_LIMIT], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?.max(0) as u64))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+
+    let mut holding_statement = connection
+        .prepare(
+            "SELECT pubkey, COUNT(*) AS n FROM catalogue_seeder
+             WHERE expires_at > ?1 GROUP BY pubkey",
+        )
+        .map_err(|error| error.to_string())?;
+    let holding = holding_statement
+        .query_map(params![now], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?.max(0) as u64))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<std::collections::HashMap<_, _>>>()
+        .map_err(|error| error.to_string())?;
+
+    let publishers_top = announced_by_publisher
+        .into_iter()
+        .map(|(pubkey, announced)| PublisherStat {
+            live: holding.get(&pubkey).copied().unwrap_or(0),
+            pubkey,
+            announced,
+        })
+        .collect();
+
+    Ok(NetworkStats {
+        announced: announced.max(0) as u64,
+        indexed: indexed.max(0) as u64,
+        publishers: publishers.max(0) as u64,
+        live_files: live_files.max(0) as u64,
+        live_peers: live_peers.max(0) as u64,
+        described_live: described_live.max(0) as u64,
+        held: held.max(0) as u64,
+        last_write,
+        formats,
+        artists,
+        publishers_top,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -997,6 +1177,58 @@ mod tests {
             now,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn the_status_page_counts_what_this_computer_can_see() {
+        let connection = database();
+        let now = 1_700_000_000;
+        announce(&connection, &hex_id(1), 9, "Midnight City", "Hurry Up");
+        announce(&connection, &hex_id(2), 9, "Ghost Song", "Album");
+        announce(&connection, &hex_id(3), 4, "Outro", "Album");
+        holding(&connection, &hex_id(1), 9, now);
+        holding(&connection, &hex_id(2), 4, now);
+        connection
+            .execute("INSERT INTO files (file_id) VALUES (?1)", params![hex_id(1)])
+            .unwrap();
+
+        let stats = network_stats(&connection, now).unwrap();
+        assert_eq!(stats.announced, 3);
+        assert_eq!(stats.indexed, 3);
+        assert_eq!(stats.publishers, 2);
+        // The third announcement is remembered by nobody who is still saying so.
+        assert_eq!(stats.live_files, 2);
+        assert_eq!(stats.live_peers, 2);
+        assert_eq!(stats.described_live, 2);
+        assert_eq!(stats.held, 1);
+        assert!(!stats.last_write.is_empty());
+        // Two live files, counted once each, whatever the announcements say.
+        assert_eq!(
+            stats.formats,
+            vec![LabelledCount { label: "FLAC".into(), count: 2 }]
+        );
+        assert_eq!(
+            stats.artists,
+            vec![LabelledCount { label: "M83".into(), count: 2 }]
+        );
+        assert_eq!(stats.publishers_top.len(), 2);
+        assert_eq!(stats.publishers_top[0].announced, 2);
+        assert_eq!(stats.publishers_top[0].live, 1);
+    }
+
+    #[test]
+    fn a_status_page_notices_an_index_that_is_behind() {
+        let connection = database();
+        announce(&connection, &hex_id(1), 9, "Midnight City", "Hurry Up");
+        // Emptying the index leaves the content table alone, which is exactly the
+        // state a bare COUNT(*) over the index cannot see.
+        connection
+            .execute("DELETE FROM remote_catalogue_fts", [])
+            .unwrap();
+
+        let stats = network_stats(&connection, 1_700_000_000).unwrap();
+        assert_eq!(stats.announced, 1);
+        assert_eq!(stats.indexed, 0);
     }
 
     #[test]
