@@ -195,7 +195,7 @@ audio { display: none; }
 /* Translated tab names are longer than "Music" and "Podcasts", so they wrap. */
 .bottom-nav button { overflow-wrap: anywhere; }
 
-/* Playlists: a list the Napstr computer keeps, and the editor that writes back
+/* Playlists: a list the Deadwax computer keeps, and the editor that writes back
    to it. Nothing here is stored on the phone, so every screen is drawn from
    what the computer answered. */
 .playlist-view { padding: 0 14px 108px; }

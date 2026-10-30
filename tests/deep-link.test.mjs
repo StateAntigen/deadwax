@@ -21,7 +21,7 @@ test('a track link that is not a SHA-256 is not a track to look for', () => {
     `napstrfy://track/${'z'.repeat(64)}`,
     `napstrfy://track/${ID}/extra`,
     `napstr://track/${ID}`,
-    `https://napstr.net/track/${ID}`,
+    `https://deadwax.rip/track/${ID}`,
     `napstrfy:/track/${ID}`
   ];
   for (const value of rejected) assert.equal(parseDeepLink(value), null, value);

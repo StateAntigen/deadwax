@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mockNative } from './helpers/native.mjs';
 
 for (const language of ['en', 'fr', 'ar']) {
-  test(`Napstr layout: compact panels and transfers remain usable in ${language}`, async ({ page }) => {
+  test(`Deadwax layout: compact panels and transfers remain usable in ${language}`, async ({ page }) => {
     test.setTimeout(90_000);
     await mockNative(page, { app: 'napstr', saved: language });
     await page.addInitScript(() => {
@@ -26,7 +26,7 @@ for (const language of ['en', 'fr', 'ar']) {
     });
     await page.goto('http://127.0.0.1:15173');
     await expect(page.locator('.search-button')).toBeEnabled();
-    const views = ['Search', 'Downloads', 'Shared', 'Playlists', 'Profile', 'Settings', 'Trollbox', 'Napstrfy'];
+    const views = ['Search', 'Downloads', 'Shared', 'Playlists', 'Profile', 'Settings', 'Trollbox', 'Deadwax'];
     for (const [width, height] of [[1180, 810], [851, 600], [850, 600], [651, 600], [650, 600], [560, 400]]) {
       await page.setViewportSize({ width, height });
       for (const [index, view] of views.entries()) {
@@ -55,7 +55,7 @@ for (const language of ['en', 'fr', 'ar']) {
         expect(overflow, `${language} ${view} ${width}x${height}: no horizontal clipping`).toEqual([]);
         const reachable = view === 'Downloads' ? '.tag-editor button' : view === 'Trollbox' ? '.trollbox-compose input'
           : view === 'Settings' ? '.settings-actions button:last-child' : view === 'Profile' ? '.edit-profile button'
-          : view === 'Napstrfy' ? '.paired-devices-card' : null;
+          : view === 'Deadwax' ? '.paired-devices-card' : null;
         if (reachable) {
           const target = page.locator(reachable);
           await target.scrollIntoViewIfNeeded();

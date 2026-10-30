@@ -11,7 +11,7 @@
    * archive holds for each, so a person can settle it in one look.
    *
    * The query box opens on the exact search the automatic lookup sends, so
-   * editing starts from what Napstr already asked rather than from nothing.
+   * editing starts from what Deadwax already asked rather than from nothing.
    */
   export let artist = '';
   export let album = '';
@@ -86,7 +86,7 @@
    * `source: 'hit'` is what tells the host this art came from a row it offered
    * itself, so the art domain list is not applied to it: that list exists to
    * guard links a person types and art other people publish, and a list that
-   * omitted the sources Napstr uses on purpose would break the feature it sits
+   * omitted the sources Deadwax uses on purpose would break the feature it sits
    * beside.
    */
   async function use(hit: Hit) {

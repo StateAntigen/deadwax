@@ -109,14 +109,14 @@ for (const [name, open, selector] of [
   ['the album preview', openAlbumView, '.album-view'],
   ['the playlist', openPlaylist, '.queue-view']
 ]) {
-  test(`Napstrfy desktop holds ${name} between the sidebar and the player`, async ({ page }) => {
+  test(`Deadwax desktop holds ${name} between the sidebar and the player`, async ({ page }) => {
     await page.setViewportSize({ width: 1180, height: 810 });
     await openDesktop(page);
     await open(page);
     await expectMiddleColumn(page, selector);
   });
 
-  test(`Napstrfy in a single column still lets ${name} cover the window`, async ({ page }) => {
+  test(`Deadwax in a single column still lets ${name} cover the window`, async ({ page }) => {
     await page.setViewportSize({ width: 1180, height: 810 });
     await openDesktop(page);
     // Opened wide, where the control that launches it is on screen -- the playlist

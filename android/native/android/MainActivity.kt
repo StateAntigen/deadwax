@@ -18,7 +18,7 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
-    // Keep Napstrfy visible until the user locks the phone or leaves the app.
+    // Keep Deadwax visible until the user locks the phone or leaves the app.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     // The page gets first refusal on back, then the press continues to the
     // system so back still leaves the app when nothing is open.

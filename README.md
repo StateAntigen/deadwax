@@ -1,23 +1,21 @@
-<img width="300" height="100" alt="napstr-logo-small" src="https://github.com/user-attachments/assets/83c9ccea-3241-4fce-a7cf-16c83629484b" />
+<img width="300" height="100" alt="deadwax-logo-small" src="https://github.com/user-attachments/assets/83c9ccea-3241-4fce-a7cf-16c83629484b" />
 
 <img height="400" alt="image" src="https://github.com/user-attachments/assets/95b4d9f8-a844-49e1-ba9a-6dd003c8acd3" />
 
-Napstr uses Nostr for discovery and Tor for private file sharing.
+Deadwax uses Nostr for discovery and Tor for private file sharing.
 
-https://napstr.net
+https://deadwax.rip
 
-The cross-platform Napstrfy phone companion lives in [`android/`](android/README.md).
+The cross-platform Deadwax phone companion lives in [`android/`](android/README.md).
 
 > **This is a fork, and it is mobile-first.** Releases here are built from this
 > repository, and what has actually been used is the Android companion: the phone
 > is where the work went. The desktop build shipped beside it works, but it has had
-> far less testing than upstream's — treat it as a preview, and keep the official
-> [lnbits/napstr](https://github.com/lnbits/napstr) build if you want the
-> well-trodden path.
+> far less testing than the code it forked from — treat it as a preview.
 
-## Build your own Napstr!
+## Build your own Deadwax!
 
-See the complete [Napstr protocol specification](PROTOCOL.md) for everything
+See the complete [Deadwax protocol specification](PROTOCOL.md) for everything
 needed to build an interoperable client.
 
 ## Build from source
@@ -27,15 +25,15 @@ Install [Node.js](https://nodejs.org/), [Rust](https://rustup.rs/), and the
 then:
 
 ```bash
-git clone https://github.com/lnbits/napstr.git
-cd napstr
+git clone https://github.com/StateAntigen/deadwax.git
+cd deadwax
 npm ci
 npm run desktop
 ```
 
 Development builds use `NAPSTR_TOR_PATH` when set, then a bundled Tor binary, then `tor` on `PATH`.
 
-On macOS, install Tor with Homebrew and start Napstr with:
+On macOS, install Tor with Homebrew and start Deadwax with:
 
 ```bash
 brew install tor
@@ -48,7 +46,7 @@ To create a package for your operating system with Tor included, run:
 npm run bundle
 ```
 
-Napstr automatically downloads and verifies the pinned official Tor Expert
+Deadwax automatically downloads and verifies the pinned official Tor Expert
 Bundle for your platform before building.
 
 On macOS, build a verified DMG and SHA-256 checksum with:
@@ -61,18 +59,18 @@ npm run macos-build:signed  # Developer ID signed, notarized, and stapled
 Both commands build for the current Mac's native architecture and include Tor.
 Signed builds read the private root `.env.macos-release` file. Neither command
 publishes a release. See [macOS release setup](docs/macos-releases.md) for
-credentials, output paths, verification, and the equivalent Napstrfy commands.
+credentials, output paths, verification, and the equivalent Deadwax commands.
 
-To request Napstr macOS installers from GitHub Actions, prefix your PR title with
+To request Deadwax macOS installers from GitHub Actions, prefix your PR title with
 `[build]`, for example `[build] Fix audio playback`. Adding the prefix to an
 existing PR also starts a build; new commits rebuild while the prefix is present.
 Same-repository PRs produce signed installers using the Apple signing secrets.
 Fork and Dependabot PRs produce artifacts ending in `-unsigned`.
-These builds use the existing **Build Napstr desktop and Napstrfy Android
+These builds use the existing **Build Deadwax desktop and Deadwax Android
 installers** workflow (`release.yml`). For a manual macOS test build, run that
 workflow on your branch with `release_tag` empty; providing a tag runs the full
 release process.
-Download `Napstr-macOS-Intel-signed` or `Napstr-macOS-Apple-Silicon-signed` from
+Download `Deadwax-macOS-Intel-signed` or `Deadwax-macOS-Apple-Silicon-signed` from
 the completed signed run to test on your Mac.
 
 GitHub release DMGs are signed and notarized for Apple Silicon and Intel.
@@ -81,22 +79,22 @@ Open Anyway** after the first blocked launch.
 
 ## Implemented architecture
 
-- On first launch, Napstr creates a Nostr identity and securely stores its private key using your operating system's credential store.
+- On first launch, Deadwax creates a Nostr identity and securely stores its private key using your operating system's credential store.
 - Nostr publishes the searchable catalogue, live seeders, NIP-C7 trollbox, and per-track discussions; NIP-17 handles private download negotiation.
-- Click a user name in seeder lists, profiles, or chat to browse that user's currently shared tracks in Search. Clear the name and search again to return to normal song searches. Exact names already discovered by Napstr and full public keys (`npub` or hex) can also be searched; duplicate names offer a choice of public keys.
+- Click a user name in seeder lists, profiles, or chat to browse that user's currently shared tracks in Search. Clear the name and search again to return to normal song searches. Exact names already discovered by Deadwax and full public keys (`npub` or hex) can also be searched; duplicate names offer a choice of public keys.
 - A bundled Tor process carries transfers without a direct-IP fallback.
-- The optional Napstrfy companion pairs by one-use QR and reaches the running desktop over encrypted Iroh.
-- The Napstrfy page has separate full-access and read-only QR codes, and every right a code gives can be changed afterwards from the paired-phone list. Read-only phones can play and cache the local catalogue for offline listening, but cannot request downloads on the host; a phone can also be lent downloads *without* the right to publish anything in your name. See [pairing details](android/README.md#build-and-install-a-debug-apk).
+- The optional Deadwax companion pairs by one-use QR and reaches the running desktop over encrypted Iroh.
+- The Deadwax page has separate full-access and read-only QR codes, and every right a code gives can be changed afterwards from the paired-phone list. Read-only phones can play and cache the local catalogue for offline listening, but cannot request downloads on the host; a phone can also be lent downloads *without* the right to publish anything in your name. See [pairing details](android/README.md#build-and-install-a-debug-apk).
 - One recursively watched folder contains both downloads and shared audio.
-- Napstr uses or creates a non-destructive `Audiobooks` drop zone: each child folder becomes an ordered book and each loose audio file becomes a one-file book. Existing contents are never replaced.
+- Deadwax uses or creates a non-destructive `Audiobooks` drop zone: each child folder becomes an ordered book and each loose audio file becomes a one-file book. Existing contents are never replaced.
 - Files are audio-validated and identified by SHA-256. Downloads use a responsive seeder, verify the complete hash, and are available in the built-in player.
 
 Profiles and catalogue metadata are public. Requests, transfer credentials, file contents, and peer IP addresses are not published. Tor use may still be visible to an ISP.
 
-## Where Napstr says what it did
+## Where Deadwax says what it did
 
 Both halves of a pairing keep their own record, because a fault is nearly always described from one side only: a phone says the computer stopped answering, and the only place that can say whether it was asked anything at all is the computer.
 
 The desktop writes `napstr.log` in its own data directory — `%APPDATA%\social.napstr.desktop` on Windows, `~/.local/share/social.napstr.desktop` on Linux, and the equivalent under `~/Library/Application Support` on macOS. Every line is stamped to the millisecond, the file is capped at a megabyte, and what was there before it is kept beside it as `napstr.log.1`. The requests a paired phone makes are in it by name — `asked for status`, `was answered in 19ms` — together with every refusal and its reason, which is what separates a phone that is being turned away from one that is not being heard.
 
-Napstrfy writes to the device log under the tag `Napstrfy` (`adb logcat -s Napstrfy`), using the same eight-character device names and the same word for the same request, so the two files can be read against each other.
+Deadwax writes to the device log under the tag `Deadwax` (`adb logcat -s Deadwax`), using the same eight-character device names and the same word for the same request, so the two files can be read against each other.

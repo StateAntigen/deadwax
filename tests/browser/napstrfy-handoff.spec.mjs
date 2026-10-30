@@ -39,7 +39,7 @@ const commands = (page, type) =>
 const audioPaused = (page) => page.evaluate(() => document.querySelector('audio')?.paused ?? true);
 const remotePlaying = (page) => page.evaluate(() => window.remotePlaying?.playing ?? false);
 
-test('Napstrfy hands the track, the queue and the second it had reached to the computer', async ({ page }) => {
+test('Deadwax hands the track, the queue and the second it had reached to the computer', async ({ page }) => {
   await openApp(page, { seed: { library: [first, second] } });
   // Play here first, then give it to the computer.
   await page.locator('.track-open').first().click();
@@ -61,7 +61,7 @@ test('Napstrfy hands the track, the queue and the second it had reached to the c
   await expect.poll(() => remotePlaying(page)).toBe(true);
 });
 
-test('Napstrfy takes playback over from the computer and stops it', async ({ page }) => {
+test('Deadwax takes playback over from the computer and stops it', async ({ page }) => {
   await openApp(page, { seed: { library: [first, second] } });
   // Play here first: the bar needs something loaded to open, and handing over to
   // the computer is how the computer comes to be the one playing.

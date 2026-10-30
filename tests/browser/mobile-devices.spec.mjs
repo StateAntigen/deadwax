@@ -25,7 +25,7 @@ async function openPairedPhones(page, devices) {
   await page.addInitScript((rows) => { window.mobileDevices = rows; }, devices);
   await page.goto('http://127.0.0.1:15173');
   await expect(page.locator('.search-button')).toBeEnabled();
-  await page.getByRole('button', { name: 'Napstrfy' }).click();
+  await page.getByRole('button', { name: 'Deadwax' }).click();
   await expect(page.locator('.paired-devices-card')).toBeVisible();
 }
 

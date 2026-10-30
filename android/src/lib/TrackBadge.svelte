@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Where a track actually is: in this phone's audio cache, on the paired
-   * Napstr computer, or only out on the network among its seeders.
+   * Deadwax computer, or only out on the network among its seeders.
    *
    * `local` on the wire means the host holds the file, so it is the middle
    * state; the phone's own cache has to be asked about separately.
@@ -36,7 +36,7 @@
 </script>
 
 {#if pending}
-  <span class="track-badge pending" role="img" aria-label="Downloading from Napstr">
+  <span class="track-badge pending" role="img" aria-label="Downloading from Deadwax">
     <i></i>
   </span>
 {:else if cached}
@@ -57,7 +57,7 @@
       ? `${hostName || 'Your computer'} cannot be reached, so this file is not on this phone`
       : host
         ? `Stored on ${hostName || 'another computer'}`
-        : 'Stored on your Napstr computer'}
+        : 'Stored on your Deadwax computer'}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2.2" />

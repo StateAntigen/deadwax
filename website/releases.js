@@ -31,8 +31,11 @@ export async function loadLatestRelease(t, locale) {
   }
 
   function matchAssets(assets) {
-    const companion = document.body.dataset.releaseProduct === 'napstrfy';
-    const safeAssets = assets.filter(validAsset).filter((asset) => /napstrfy|nostrfy/i.test(asset.name) === companion);
+    // There used to be two product names in every release; now both clients
+    // publish under one, so what separates them is the file, not the label: the
+    // phone takes the APK and the desktop takes everything else. The companion
+    // desktop builds ship beside the real ones, so they are not offered here.
+    const safeAssets = assets.filter(validAsset).filter((asset) => !/companion/i.test(asset.name));
 
     return {
       windows: safeAssets.find((asset) => /\.exe$/i.test(asset.name)),
@@ -100,7 +103,7 @@ export async function loadLatestRelease(t, locale) {
         .filter(([platform, asset]) => expectedPlatforms.includes(platform) && enableLinks(platform, asset))
         .map(([platform]) => platform);
 
-      const productName = napstrfyPage ? 'Napstrfy' : 'Napstr';
+      const productName = 'Deadwax';
       if (available.length === expectedPlatforms.length) {
         status.textContent = t('{product} {version} downloads are ready.', { product: productName, version });
       } else {
@@ -111,7 +114,7 @@ export async function loadLatestRelease(t, locale) {
         element.textContent = t('Unavailable');
       });
       status.textContent = t('The automatic download list is temporarily unavailable.');
-      console.warn('Could not load the latest Napstr release:', error);
+      console.warn('Could not load the latest Deadwax release:', error);
     }
   }
 

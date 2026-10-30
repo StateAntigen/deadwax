@@ -179,7 +179,7 @@ impl MobileService {
             status.endpoint_id = endpoint_id.clone();
             status.error.clear();
         }
-        crate::diag::note(&format!("Napstrfy listening as {endpoint_id}"));
+        crate::diag::note(&format!("Deadwax listening as {endpoint_id}"));
 
         let accept_service = self.clone();
         let accept_endpoint = endpoint.clone();
@@ -189,7 +189,7 @@ impl MobileService {
                     Ok(permit) => permit,
                     Err(_) => {
                         crate::diag::note(
-                            "every Napstrfy connection slot is busy; turned one away",
+                            "every Deadwax connection slot is busy; turned one away",
                         );
                         incoming.refuse();
                         continue;
@@ -201,9 +201,9 @@ impl MobileService {
                     match tokio::time::timeout(HANDSHAKE_TIMEOUT, incoming).await {
                         Ok(Ok(connection)) => service.handle_connection(connection).await,
                         Ok(Err(error)) => {
-                            crate::diag::note(&format!("a Napstrfy connection failed: {error}"))
+                            crate::diag::note(&format!("a Deadwax connection failed: {error}"))
                         }
-                        Err(_) => crate::diag::note("a Napstrfy handshake timed out"),
+                        Err(_) => crate::diag::note("a Deadwax handshake timed out"),
                     }
                 });
             }
@@ -221,7 +221,7 @@ impl MobileService {
 
     pub async fn stop(&self) {
         if let Some(endpoint) = self.endpoint.write().await.take() {
-            crate::diag::note("Napstrfy is stopping; closing its endpoint");
+            crate::diag::note("Deadwax is stopping; closing its endpoint");
             endpoint.close().await;
         }
         if let Ok(mut status) = self.status.lock() {
@@ -352,7 +352,7 @@ impl MobileService {
     fn desktop_name(&self) -> String {
         open_connection(&self.db_path)
             .and_then(|connection| crate::get_setting(&connection, "display_name"))
-            .unwrap_or_else(|_| "Napstr".into())
+            .unwrap_or_else(|_| "Deadwax".into())
     }
 
     fn remember_error(&self, message: String) -> String {
@@ -434,7 +434,7 @@ impl MobileService {
                             let _ = write_response(
                                 &mut send,
                                 &ServerResponse::Error {
-                                    message: "Napstrfy request timed out".into(),
+                                    message: "Deadwax request timed out".into(),
                                 },
                             )
                             .await;
@@ -815,7 +815,7 @@ impl MobileService {
                 if query.chars().count() > 120 {
                     return Err("Audiobook searches are limited to 120 characters".into());
                 }
-                // Legacy full response retained for older Napstrfy installs.
+                // Legacy full response retained for older Deadwax installs.
                 let audiobooks = self.audiobook_catalogue(query, rights).await?;
                 write_response(send, &ServerResponse::Audiobooks { audiobooks }).await
             }
@@ -853,7 +853,7 @@ impl MobileService {
                 .await
             }
             ClientRequest::Audiobook { audiobook_id } => {
-                // Napstrfy may retain a library summary while Napstr restarts or
+                // Deadwax may retain a library summary while Deadwax restarts or
                 // while another search replaces this process's detail cache.
                 // Local files and audiobook configuration are authoritative, so
                 // resolve those from the database before consulting the cache.
@@ -871,7 +871,7 @@ impl MobileService {
                 // out of the relays in the user's own name, which is reaching out
                 // to the network rather than reading this computer.
                 if !rights.may_download() {
-                    return Err("This audiobook is not in Napstr's local library".into());
+                    return Err("This audiobook is not in Deadwax's local library".into());
                 }
                 let mut audiobook = self
                     .audiobook_cache
@@ -1570,7 +1570,7 @@ fn device_rights(db_path: &Path, remote_id: &str) -> Result<DeviceRights, String
         .optional()
         .map_err(|error| error.to_string())?;
     match stored {
-        None => Err("This phone is not paired with Napstr".into()),
+        None => Err("This phone is not paired with Deadwax".into()),
         Some(None) => Ok(DeviceRights::read_only()),
         Some(Some(bits)) => Ok(DeviceRights::from_bits(bits as u32)),
     }
@@ -1599,7 +1599,7 @@ fn set_device_rights(
         )
         .map_err(|error| error.to_string())?;
     if changed == 0 {
-        return Err("That device is not paired with Napstr".into());
+        return Err("That device is not paired with Deadwax".into());
     }
     Ok(())
 }
@@ -1679,7 +1679,7 @@ fn check_request_permission(rights: DeviceRights, request: &ClientRequest) -> Re
         ClientRequest::Playback { .. } => require(
             rights,
             DeviceRights::CONTROL,
-            "This phone has read-only access, so it cannot control Napstr on the computer.",
+            "This phone has read-only access, so it cannot control Deadwax on the computer.",
         ),
         // A playlist a phone edits is the same playlist the author could edit on
         // the computer, so browsing access cannot reach most of these. Three are a
@@ -1724,7 +1724,7 @@ fn check_request_permission(rights: DeviceRights, request: &ClientRequest) -> Re
         ClientRequest::RequestDownload { .. } | ClientRequest::Transfers => require(
             rights,
             DeviceRights::DOWNLOAD,
-            "This phone may not ask Napstr to download from the network.",
+            "This phone may not ask Deadwax to download from the network.",
         ),
         // Pairing is answered before this is reached, and a code is not a grant,
         // so there is nothing here to weigh.
@@ -2170,7 +2170,7 @@ fn local_track(db_path: &Path, file_id: &str) -> Result<RemoteTrack, String> {
         .into_iter()
         .next()
         .map(remote_track)
-        .ok_or_else(|| "This track is no longer in the Napstr folder".into())
+        .ok_or_else(|| "This track is no longer in the Deadwax folder".into())
 }
 
 /// The same record, for callers that only want to describe what they are
@@ -2205,12 +2205,12 @@ fn secure_audio_path(db_path: &Path, file_id: &str) -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?;
     let root = PathBuf::from(root)
         .canonicalize()
-        .map_err(|_| "The Napstr folder is unavailable")?;
+        .map_err(|_| "The Deadwax folder is unavailable")?;
     let path = PathBuf::from(path.ok_or("This track is no longer available")?)
         .canonicalize()
         .map_err(|_| "This track is no longer available")?;
     if !path.starts_with(&root) || !path.is_file() {
-        return Err("Napstr refused a path outside the selected folder".into());
+        return Err("Deadwax refused a path outside the selected folder".into());
     }
     Ok(path)
 }
@@ -2238,7 +2238,7 @@ fn clean_device_name(value: &str) -> String {
         .collect::<String>();
     let cleaned = cleaned.trim();
     if cleaned.is_empty() {
-        "Napstrfy phone".into()
+        "Deadwax phone".into()
     } else {
         cleaned.into()
     }
@@ -2306,14 +2306,14 @@ async fn read_request(receive: &mut iroh::endpoint::RecvStream) -> Result<Client
         .map_err(|error| format!("could not read request length: {error}"))?;
     let length = u32::from_be_bytes(length) as usize;
     if length == 0 || length > MAX_CONTROL_FRAME_BYTES {
-        return Err("invalid Napstrfy request size".into());
+        return Err("invalid Deadwax request size".into());
     }
     let mut payload = vec![0u8; length];
     receive
         .read_exact(&mut payload)
         .await
         .map_err(|error| format!("could not read request: {error}"))?;
-    serde_json::from_slice(&payload).map_err(|_| "invalid Napstrfy request".into())
+    serde_json::from_slice(&payload).map_err(|_| "invalid Deadwax request".into())
 }
 
 async fn write_response(
@@ -2322,7 +2322,7 @@ async fn write_response(
 ) -> Result<(), String> {
     let payload = serde_json::to_vec(response).map_err(|error| error.to_string())?;
     if payload.len() > MAX_CONTROL_FRAME_BYTES {
-        return Err("Napstrfy response is too large".into());
+        return Err("Deadwax response is too large".into());
     }
     let mut frame = Vec::with_capacity(4 + payload.len());
     frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
@@ -2347,7 +2347,7 @@ async fn write_with_timeout<W: tokio::io::AsyncWrite + Unpin>(
 ) -> Result<(), String> {
     tokio::time::timeout(timeout, tokio::io::AsyncWriteExt::write_all(writer, bytes))
         .await
-        .map_err(|_| "Napstrfy stopped reading the response".to_string())?
+        .map_err(|_| "Deadwax stopped reading the response".to_string())?
         .map_err(|error| error.to_string())
 }
 
@@ -2823,7 +2823,7 @@ mod tests {
     #[test]
     fn device_names_cannot_include_control_characters() {
         assert_eq!(clean_device_name("  My\nPhone\u{202e}  "), "MyPhone");
-        assert_eq!(clean_device_name("\n\r"), "Napstrfy phone");
+        assert_eq!(clean_device_name("\n\r"), "Deadwax phone");
     }
 
     /// A device removes its own playlists, and the owner's only with the whole
@@ -2963,7 +2963,7 @@ mod tests {
         assert!(audiobook_chapter_ids.contains(&"33".repeat(32)));
 
         // Audiobook detail lookup must be reconstructable from the database.
-        // Napstrfy can retain summaries while the desktop process restarts, so
+        // Deadwax can retain summaries while the desktop process restarts, so
         // correctness cannot depend on an in-memory catalogue cache.
         let (audiobooks, _) = load_local_remote_audiobooks(&db_path).unwrap();
         assert_eq!(audiobooks.len(), 1);

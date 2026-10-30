@@ -2050,7 +2050,7 @@ impl NetworkService {
                 Tag::parse(["name", filename.as_str()]),
                 Tag::parse(["size", &size.to_string()]),
                 Tag::parse(["m", content.mime.as_str()]),
-                Tag::parse(["alt", "Napstr shared file catalogue entry"]),
+                Tag::parse(["alt", "Deadwax shared file catalogue entry"]),
             ]
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
@@ -2156,7 +2156,7 @@ impl NetworkService {
                 Tag::parse(["t", "napstr-audiobook"]),
                 Tag::parse(["x", book.audiobook_id.as_str()]),
                 Tag::parse(["title", book.title.as_str()]),
-                Tag::parse(["alt", "Napstr audiobook manifest"]),
+                Tag::parse(["alt", "Deadwax audiobook manifest"]),
             ]
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
@@ -2426,7 +2426,7 @@ impl NetworkService {
         self.send_public_chat_message(
             TROLLBOX_HASHTAG,
             content,
-            "Public message in the Napstr trollbox",
+            "Public message in the Deadwax trollbox",
             None,
         )
         .await
@@ -2448,7 +2448,7 @@ impl NetworkService {
         self.send_public_chat_message(
             &topic,
             content,
-            "Public message in a Napstr track discussion",
+            "Public message in a Deadwax track discussion",
             reply_to.as_deref(),
         )
         .await
@@ -2584,7 +2584,7 @@ impl NetworkService {
             .ok_or("Nostr is not connected")?;
         let mut tags = vec![
             Tag::parse(["t", topic]),
-            Tag::parse(["client", "Napstr"]),
+            Tag::parse(["client", "Deadwax"]),
             Tag::parse(["alt", alt]),
         ]
         .into_iter()
@@ -3912,7 +3912,7 @@ impl NetworkService {
         file_id: String,
         receivers: Vec<(String, PublicKey)>,
     ) -> Result<String, String> {
-        // A download can be requested by Napstrfy rather than by the desktop
+        // A download can be requested by Deadwax rather than by the desktop
         // UI. Wake the UI immediately so it discovers the new database row and
         // starts its normal high-frequency progress polling.
         let _ = self.app_handle.emit(TRANSFERS_CHANGED_EVENT, ());
@@ -4122,7 +4122,7 @@ impl NetworkService {
             Tag::parse(["p", source_pubkey.as_str(), report_type.as_str()]),
             Tag::parse(["e", event_id.as_str(), report_type.as_str()]),
             Tag::parse(["x", file_id.as_str(), report_type.as_str()]),
-            Tag::parse(["client", "Napstr"]),
+            Tag::parse(["client", "Deadwax"]),
         ]
         .into_iter()
         .collect::<Result<Vec<_>, _>>()
@@ -4565,7 +4565,7 @@ impl NetworkService {
             Tag::parse(["e", cover.event_id.as_str(), report_type.as_str()]),
             Tag::parse(["p", cover.author.as_str(), report_type.as_str()]),
             Tag::parse(["napstr-cover", key.as_str()]),
-            Tag::parse(["client", "Napstr"]),
+            Tag::parse(["client", "Deadwax"]),
         ]
         .into_iter()
         .collect::<Result<Vec<_>, _>>()
@@ -4660,7 +4660,7 @@ impl NetworkService {
                 )?;
                 let _ = self.app_handle.emit(TRANSFERS_CHANGED_EVENT, ());
             }
-            _ => return Err("unsupported Napstr signal".into()),
+            _ => return Err("unsupported Deadwax signal".into()),
         }
         Ok(())
     }
@@ -5910,7 +5910,7 @@ fn audio_claim_valid(filename: &str, format: &str, mime: &str) -> bool {
 fn signal_tags() -> Vec<Tag> {
     vec![
         Tag::expiration(Timestamp::from((Utc::now().timestamp() + 20 * 60) as u64)),
-        Tag::client("Napstr"),
+        Tag::client("Deadwax"),
     ]
 }
 
@@ -7716,7 +7716,7 @@ mod tests {
         let original = profile_fingerprint(
             alice.public_key(),
             "napstr-user",
-            "Sharing files privately with Napstr. napstr.net",
+            "Sharing files privately with Deadwax. deadwax.rip",
             "",
         );
         assert_eq!(
@@ -7724,7 +7724,7 @@ mod tests {
             profile_fingerprint(
                 alice.public_key(),
                 "napstr-user",
-                "Sharing files privately with Napstr. napstr.net",
+                "Sharing files privately with Deadwax. deadwax.rip",
                 "",
             )
         );
@@ -7737,7 +7737,7 @@ mod tests {
             profile_fingerprint(
                 bob.public_key(),
                 "napstr-user",
-                "Sharing files privately with Napstr. napstr.net",
+                "Sharing files privately with Deadwax. deadwax.rip",
                 "",
             )
         );

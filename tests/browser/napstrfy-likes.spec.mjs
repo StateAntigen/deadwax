@@ -43,8 +43,8 @@ const other = track(id('b'), 'Another Song');
 
 const full = { browse: true, fetch: true, control: true, download: true, privileged: true };
 
-const myComputer = { endpointId: 'endpoint', desktopName: 'My Napstr', rights: full, home: true, included: true, online: true, mayDownload: true };
-const second = { endpointId: id('f'), desktopName: 'Studio Napstr', rights: full, home: false, included: true, online: true, mayDownload: true };
+const myComputer = { endpointId: 'endpoint', desktopName: 'My Deadwax', rights: full, home: true, included: true, online: true, mayDownload: true };
+const second = { endpointId: id('f'), desktopName: 'Studio Deadwax', rights: full, home: false, included: true, online: true, mayDownload: true };
 
 async function openApp(page, { library = [mine, other], known = [myComputer], hostLikes = [], likes = [], orphans = [], synced = [], playlistRows = null, identity = null, carryFails = false } = {}) {
   await mockNative(page, { platform: 'android' });
@@ -181,8 +181,8 @@ test('choosing a new home computer carries this phone\'s lists across', async ({
   });
   await openSettings(page);
 
-  await page.locator('.computer-row', { hasText: 'Studio Napstr' })
-    .getByRole('button', { name: 'Make Studio Napstr the home computer' })
+  await page.locator('.computer-row', { hasText: 'Studio Deadwax' })
+    .getByRole('button', { name: 'Make Studio Deadwax the home computer' })
     .click();
 
   // Both computers are named, and the phone's own liked list travels with the
@@ -205,8 +205,8 @@ test('a carry that cannot reach the computer being left says nothing was lost', 
   });
   await openSettings(page);
 
-  await page.locator('.computer-row', { hasText: 'Studio Napstr' })
-    .getByRole('button', { name: 'Make Studio Napstr the home computer' })
+  await page.locator('.computer-row', { hasText: 'Studio Deadwax' })
+    .getByRole('button', { name: 'Make Studio Deadwax the home computer' })
     .click();
 
   // The failure is reported as a failure, and the thing a person would worry

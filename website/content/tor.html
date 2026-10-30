@@ -1,6 +1,6 @@
-<h1>How Napstr Uses Tor</h1>
+<h1>How Deadwax Uses Tor</h1>
             <p class="protocol-lead">
-              Tor carries every Napstr audio transfer. There is no direct-IP fallback: if a
+              Tor carries every Deadwax audio transfer. There is no direct-IP fallback: if a
               valid Tor v3 onion connection cannot be made, the download fails closed.
             </p>
 
@@ -8,7 +8,7 @@
               <h2>Tor Is Included</h2>
               <p>
                 Windows, Linux, and macOS releases package a pinned Tor Expert Bundle.
-                Napstr starts and manages it automatically while the application is open.
+                Deadwax starts and manages it automatically while the application is open.
                 Users do not need to install the Tor Browser or configure a separate Tor daemon.
               </p>
               <p class="small-print">
@@ -22,16 +22,16 @@
               <ol class="flow-list">
                 <li>The downloader requests an exact SHA-256 file ID through encrypted NIP-17.</li>
                 <li>The seeder validates the audio and opens a server on loopback only: <code>127.0.0.1</code>.</li>
-                <li>Napstr asks Tor to create a v3 onion that maps to that loopback server and lasts only for the current app session. Its private key is discarded.</li>
-                <li>Napstr creates a random 256-bit capability and sends it with the onion address inside NIP-17.</li>
-                <li>The downloader rejects non-onion destinations and races up to three offers through Napstr’s local Tor SOCKS port.</li>
+                <li>Deadwax asks Tor to create a v3 onion that maps to that loopback server and lasts only for the current app session. Its private key is discarded.</li>
+                <li>Deadwax creates a random 256-bit capability and sends it with the onion address inside NIP-17.</li>
+                <li>The downloader rejects non-onion destinations and races up to three offers through Deadwax’s local Tor SOCKS port.</li>
                 <li>The first valid, responsive seeder streams the complete file; the others remain available as fallbacks.</li>
                 <li>The seeder requires the capability and negotiated file ID before beginning the stream.</li>
                 <li>The complete audio file is accepted only when its SHA-256 matches the catalogue file ID.</li>
               </ol>
               <div class="privacy-box">
                 A capability expires after fifteen minutes, can authorize only its negotiated
-                file ID. The private onion service disappears when Napstr closes.
+                file ID. The private onion service disappears when Deadwax closes.
               </div>
             </section>
 

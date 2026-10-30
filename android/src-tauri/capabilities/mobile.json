@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile-capability",
-  "description": "Napstrfy mobile permissions",
+  "description": "Deadwax mobile permissions",
   "windows": [
     "main"
   ],

@@ -10,8 +10,8 @@ const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
   ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {});
 try {
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
-  for (const product of ['Napstr', 'Napstrfy']) {
-    const companion = product === 'Napstrfy';
+  for (const product of ['Deadwax', 'Deadwax']) {
+    const companion = product === 'Deadwax';
     await page.setContent(`<!doctype html><html lang="en"><meta charset="utf-8"><style>
       * { box-sizing: border-box; }
       body { margin: 0; width: 1200px; height: 630px; padding: 38px; background: #8995aa; font-family: Arial, sans-serif; }
@@ -30,7 +30,7 @@ try {
     </style><body><div class="window"><div class="bar"><span>${product}</span><span class="controls">− □ ×</span></div><main>
       <div class="brand">${companion ? `<img class="icon" src="data:image/png;base64,${icon}"><span class="wordmark">napstrfy</span>` : `<img class="logo" src="data:image/png;base64,${logo}">`}</div>
       <h1>${companion ? 'Your music. On your other devices.' : 'Own your music again.'}</h1>
-      <div class="bottom"><span class="services">${companion ? 'Your Napstr library · Connected by Iroh' : 'Music discovery · Nostr · Tor'}</span><span class="url">napstr.net</span></div>
+      <div class="bottom"><span class="services">${companion ? 'Your Deadwax library · Connected by Iroh' : 'Music discovery · Nostr · Tor'}</span><span class="url">deadwax.rip</span></div>
     </main></div></body></html>`);
     await page.locator('img').evaluateAll((images) => Promise.all(images.map((image) => image.decode())));
     await page.screenshot({ path: fileURLToPath(new URL(`./assets/${product.toLowerCase()}-share.png`, import.meta.url)) });

@@ -1,4 +1,4 @@
-name: Build Napstrfy desktop installers
+name: Build Deadwax desktop installers
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build:
-    name: Napstrfy ${{ matrix.name }}
+    name: Deadwax ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -129,7 +129,7 @@ jobs:
           set -e
           cat "$smoke_log"
           if [[ "$result" != 124 ]] || grep -Eqi 'EGL_BAD_PARAMETER|Unable to spawn|error while loading shared libraries|panicked at' "$smoke_log"; then
-            echo 'Napstrfy failed its AppImage startup check' >&2
+            echo 'Deadwax failed its AppImage startup check' >&2
             exit 1
           fi
       - name: Collect installers and checksums
@@ -155,7 +155,9 @@ jobs:
               const path = join(dir, entry.name);
               if (entry.isDirectory() && !entry.name.endsWith('.app') && !entry.name.endsWith('.AppDir')) collect(path);
               else if (entry.isFile() && /\.(AppImage|exe|dmg)$/.test(entry.name)) {
-                const name = basename(path);
+                // Both products are called Deadwax now; the release already holds
+                // the desktop builds under these names, so say which client this is.
+                const name = basename(path).replace(/^Deadwax(?![\w-])/, 'Deadwax-Companion');
                 copyFileSync(path, join(output, name));
                 const checksum = `${createHash('sha256').update(readFileSync(path)).digest('hex')}  ${name}\n`;
                 writeFileSync(join(output, `${name}.sha256`), checksum);
@@ -168,12 +170,12 @@ jobs:
           JS
       - uses: actions/upload-artifact@v4
         with:
-          name: Napstrfy-${{ matrix.name }}
+          name: Deadwax-Companion-${{ matrix.name }}
           path: android/installers/
           if-no-files-found: error
 
   release:
-    name: Attach Napstrfy desktop installers to release
+    name: Attach Deadwax desktop installers to release
     needs: build
     # Attach verified artifacts from successful platforms even if another fails.
     # The failed build still leaves the overall workflow red.
@@ -191,7 +193,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: Napstrfy-*
+          pattern: Deadwax-Companion-*
           path: installers
           merge-multiple: true
       - name: Create or reuse the draft release and attach installers
@@ -204,15 +206,15 @@ jobs:
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             notes="$RUNNER_TEMP/napstrfy-release-notes.md"
             cat > "$notes" <<'NOTES'
-          Napstr and Napstrfy installers.
+          Deadwax companion installers.
 
           Release macOS DMGs are Developer ID signed, notarized, and stapled. SHA-256 checksums accompany the installers.
           NOTES
-            create_args=(release create "$RELEASE_TAG" --verify-tag --draft --title "Napstr $RELEASE_TAG" --notes-file "$notes")
+            create_args=(release create "$RELEASE_TAG" --verify-tag --draft --title "Deadwax $RELEASE_TAG" --notes-file "$notes")
             if [[ "$RELEASE_TAG" == *-* ]]; then
               create_args+=(--prerelease)
             fi
-            # The existing Napstr/Android workflow may create the same draft
+            # The existing Deadwax/Android workflow may create the same draft
             # concurrently. Reuse it if its creation wins the race.
             gh "${create_args[@]}" || gh release view "$RELEASE_TAG" >/dev/null
           fi

@@ -215,12 +215,12 @@ impl PairingTicket {
         let encoded = value
             .strip_prefix(PAIRING_URI_PREFIX)
             .or_else(|| value.strip_prefix(LEGACY_PAIRING_URI_PREFIX))
-            .ok_or("This is not a Napstrfy pairing code")?;
+            .ok_or("This is not a Deadwax pairing code")?;
         let json = URL_SAFE_NO_PAD
             .decode(encoded)
-            .map_err(|_| "The Napstrfy pairing code is damaged")?;
+            .map_err(|_| "The Deadwax pairing code is damaged")?;
         let ticket: Self =
-            serde_json::from_slice(&json).map_err(|_| "The Napstrfy pairing code is invalid")?;
+            serde_json::from_slice(&json).map_err(|_| "The Deadwax pairing code is invalid")?;
         if ticket.version != PROTOCOL_VERSION {
             return Err("This pairing code uses an unsupported protocol version".into());
         }
@@ -1549,11 +1549,11 @@ mod tests {
         // the owner's own device.
         assert_eq!(
             serde_json::from_str::<ServerResponse>(
-                r#"{"type":"paired","desktopName":"Old Napstr"}"#
+                r#"{"type":"paired","desktopName":"Old Deadwax"}"#
             )
             .unwrap(),
             ServerResponse::Paired {
-                desktop_name: "Old Napstr".into(),
+                desktop_name: "Old Deadwax".into(),
                 stream_only: false,
                 rights: None
             }

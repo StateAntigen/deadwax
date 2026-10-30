@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds, signs and verifies an installable Napstrfy APK.
+    Builds, signs and verifies an installable Deadwax APK.
 
 .DESCRIPTION
     Four things have to line up on this machine, and three of them fail in ways
@@ -314,7 +314,7 @@ if (Test-Path -LiteralPath $configFile) {
         # A version this cannot read is not a reason to refuse to name the file.
     }
 }
-$final = Join-Path ([Environment]::GetFolderPath('Desktop')) "Napstrfy-$version-arm64.apk"
+$final = Join-Path ([Environment]::GetFolderPath('Desktop')) "Deadwax-$version-arm64.apk"
 $aligned = Join-Path $env:TEMP 'napstrfy-aligned.apk'
 
 # zipalign must run before signing, and the order is not interchangeable.

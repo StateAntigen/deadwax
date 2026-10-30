@@ -63,11 +63,11 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::Notify;
 
 /// MusicBrainz requires a descriptive user agent and roughly one request a
-/// second. Napstr says what it is rather than pretending to be a browser.
+/// second. Deadwax says what it is rather than pretending to be a browser.
 /// Shared with the artwork fetcher, because a picture host is owed the same
 /// answer as a metadata one.
 pub(crate) const USER_AGENT: &str = concat!(
-    "Napstr/",
+    "Deadwax/",
     env!("CARGO_PKG_VERSION"),
     " ( https://github.com/StateAntigen/deadwax )"
 );
@@ -141,7 +141,7 @@ const ITUNES_SEARCH_ENDPOINT: &str = "https://itunes.apple.com/search";
 const ITUNES_RESULT_LIMIT: usize = 25;
 /// iTunes publishes no rate limit. This is politeness, not compliance: a library
 /// of thousands is thousands of requests in one pass, and being throttled by a
-/// service Napstr has no documented agreement with is worse than being slow.
+/// service Deadwax has no documented agreement with is worse than being slow.
 const ITUNES_INTERVAL: Duration = Duration::from_millis(400);
 /// The rendition to ask Apple for. Its artwork URLs end in a size, and the whole
 /// picture is the same file path at a different one, so a cover that would
@@ -1016,7 +1016,7 @@ impl CoverPublisher {
                 )
             } else if status.backed_off > 0 {
                 format!(
-                    "{} · MusicBrainz asked Napstr to slow down {} time(s)",
+                    "{} · MusicBrainz asked Deadwax to slow down {} time(s)",
                     summarize(&status),
                     status.backed_off
                 )
@@ -1415,7 +1415,7 @@ fn classify(
     }
     // 503 is MusicBrainz's own back-pressure and 429 is the standard one. Any
     // other 5xx is the server having a bad day with one record rather than a
-    // request to slow down: read as back-pressure it makes Napstr wait out an
+    // request to slow down: read as back-pressure it makes Deadwax wait out an
     // album it could have resolved, and tells the person it was throttled when
     // it never was. The archive really does answer 500 for particular release
     // groups while serving everything else.
@@ -1787,7 +1787,7 @@ async fn resolve_release_group(
     Ok(best_release_group(&found.release_groups, &candidate.album, &candidate.artist).cloned())
 }
 
-/// The MusicBrainz query Napstr asks for an album.
+/// The MusicBrainz query Deadwax asks for an album.
 ///
 /// Also where the manual art tool starts, so a person editing a search sees
 /// exactly what the automatic lookup sent rather than a blank box.
@@ -2480,10 +2480,10 @@ fn describe_lookup_error(error: LookupError) -> String {
         ),
         LookupError::Throttled { retry_after } => match retry_after {
             Some(delay) => format!(
-                "MusicBrainz asked Napstr to slow down \u{2014} try again in about {} seconds",
+                "MusicBrainz asked Deadwax to slow down \u{2014} try again in about {} seconds",
                 delay.as_secs().max(1)
             ),
-            None => "MusicBrainz asked Napstr to slow down \u{2014} try again in a moment".into(),
+            None => "MusicBrainz asked Deadwax to slow down \u{2014} try again in a moment".into(),
         },
     }
 }
@@ -2565,7 +2565,7 @@ impl CoverPublisher {
     /// Release groups for one album, each with whatever art the archive has.
     ///
     /// `query` is a person's own edited Lucene query; `None` uses the query the
-    /// automatic lookup sends, so the tool starts from what Napstr already asked.
+    /// automatic lookup sends, so the tool starts from what Deadwax already asked.
     pub async fn search_candidates(
         &self,
         artist: &str,
@@ -2691,7 +2691,7 @@ impl CoverPublisher {
     /// The list is a filter, not a boundary — the person configuring it is the
     /// person it protects — and it deliberately does not apply to art this
     /// computer looked up itself, which would break a list that omits the
-    /// sources Napstr uses on purpose.
+    /// sources Deadwax uses on purpose.
     pub async fn apply_pick(&self, pick: CoverManualPick) -> Result<CoverPickResult, String> {
         let key = cover::cover_key(&pick.artist, &pick.album)
             .ok_or("this album has no addressable cover key")?;
@@ -2822,7 +2822,7 @@ fn read_preferences(db_path: &Path) -> Result<CoverPreferences, String> {
 /// is rude and pointless — but only while "everything this computer asks" means
 /// the same thing. Once Apple's catalogue is part of the search, an older
 /// verdict was reached without it, and leaving those rows alone is what would
-/// make an album Napstr can now cover keep drawing a blank square until the
+/// make an album Deadwax can now cover keep drawing a blank square until the
 /// fortnight ran out.
 ///
 /// Guarded by its own marker rather than by a schema version, so it happens
@@ -3127,7 +3127,7 @@ mod tests {
         ));
         // A 500 is one record the server cannot answer for, not a request to go
         // away and come back. The archive really does this for particular release
-        // groups; read as back-pressure it made Napstr wait out an album it could
+        // groups; read as back-pressure it made Deadwax wait out an album it could
         // have resolved, and told the person it had been throttled.
         match classify(
             reqwest::StatusCode::INTERNAL_SERVER_ERROR,

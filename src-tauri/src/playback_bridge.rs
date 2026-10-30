@@ -230,7 +230,7 @@ impl PlaybackBridge {
     fn forward(&self, command: &PlaybackCommand) -> Result<(), String> {
         self.app
             .emit(REMOTE_PLAYBACK_EVENT, command)
-            .map_err(|error| format!("could not reach the Napstr window: {error}"))
+            .map_err(|error| format!("could not reach the Deadwax window: {error}"))
     }
 
     /// Tell the window about a change the audio player has already made.
@@ -241,7 +241,7 @@ impl PlaybackBridge {
     fn notify(&self, command: &PlaybackCommand) {
         if let Err(error) = self.forward(command) {
             crate::diag::note(&format!(
-                "the Napstr window could not be told what a phone asked for: {error}"
+                "the Deadwax window could not be told what a phone asked for: {error}"
             ));
         }
     }

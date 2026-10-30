@@ -16,7 +16,7 @@ test('all generated pages keep legacy filenames, valid links, anchors and locali
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
     assert.equal(locations.length, 50);
     assert.equal(new Set(locations).size, 50);
-    assert.match(await readFile(join(output, 'robots.txt'), 'utf8'), /Sitemap: https:\/\/napstr.net\/sitemap.xml/);
+    assert.match(await readFile(join(output, 'robots.txt'), 'utf8'), /Sitemap: https:\/\/deadwax.rip\/sitemap.xml/);
     for (const product of ['napstr', 'napstrfy']) {
       const png = await readFile(join(output, `assets/${product}-share.png`));
       assert.equal(png.subarray(1, 4).toString(), 'PNG');
@@ -37,7 +37,7 @@ test('all generated pages keep legacy filenames, valid links, anchors and locali
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`));
       assert.ok(html.includes(`<link rel="alternate" hreflang="${code}" href="${canonical}">`));
       assert.ok(html.includes(`<link rel="alternate" hreflang="x-default" href="${pageUrl(slug, 'en')}">`));
-      const image = `https://napstr.net/assets/${slug === 'napstrfy' ? 'napstrfy' : 'napstr'}-share.png`;
+      const image = `https://deadwax.rip/assets/${slug === 'napstrfy' ? 'napstrfy' : 'napstr'}-share.png`;
       assert.ok(html.includes(`<meta property="og:image" content="${image}">`));
       assert.ok(html.includes(`<meta name="twitter:image" content="${image}">`));
       assert.ok(html.includes(`<meta property="og:url" content="${canonical}">`));
@@ -57,6 +57,6 @@ test('all generated pages keep legacy filenames, valid links, anchors and locali
       }
       for (const page of Object.keys(pages)) assert.match(html, new RegExp(`href="${page}.html"`));
     }
-    assert.doesNotMatch(await readFile(join(output, 'es/index.html'), 'utf8'), /<h1>Napstr - own your music again<\/h1>/);
+    assert.doesNotMatch(await readFile(join(output, 'es/index.html'), 'utf8'), /<h1>Deadwax - own your music again<\/h1>/);
   } finally { await rm(output, { recursive: true, force: true }); }
 });

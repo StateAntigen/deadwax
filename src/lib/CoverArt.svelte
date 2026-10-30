@@ -51,7 +51,7 @@
   // Art somebody signed and published reads differently from art only this
   // computer resolved, and the tooltip is the cheapest honest way to say so.
   $: origin = cover?.author
-    ? `Cover ${cover.source ? `(${cover.source}) ` : ''}published to Napstr`
+    ? `Cover ${cover.source ? `(${cover.source}) ` : ''}published to Deadwax`
     : 'Art resolved on this computer; not published';
 </script>
 

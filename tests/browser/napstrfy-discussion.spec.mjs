@@ -88,7 +88,7 @@ async function pressBack(page) {
   });
 }
 
-test('Napstrfy shows a track conversation and marks what this identity said', async ({ page }) => {
+test('Deadwax shows a track conversation and marks what this identity said', async ({ page }) => {
   await openApp(page, { messages: [themFirst, mineLast] });
   await openDiscussion(page);
 
@@ -102,7 +102,7 @@ test('Napstrfy shows a track conversation and marks what this identity said', as
   await expect(rows.last()).toHaveClass(/mine/);
 });
 
-test('Napstrfy posts a comment by asking the computer to sign it', async ({ page }) => {
+test('Deadwax posts a comment by asking the computer to sign it', async ({ page }) => {
   await openApp(page, { messages: [themFirst] });
   await openDiscussion(page);
 
@@ -119,7 +119,7 @@ test('Napstrfy posts a comment by asking the computer to sign it', async ({ page
   await expect(page.locator('.discussion-message').last()).toContainText('Where did you find this?');
 });
 
-test('Napstrfy posts a comment with its own key when the computer signs nothing', async ({ page }) => {
+test('Deadwax posts a comment with its own key when the computer signs nothing', async ({ page }) => {
   await openApp(page, { messages: [themFirst], streamOnly: true });
   // This phone's own key, which is not the computer's: it is what makes the comment
   // the phone's to say, and what the assertion below about "mine" turns on.
@@ -160,7 +160,7 @@ async function openPlayer(page) {
     .toBe(0);
 }
 
-test('Napstrfy keeps a social card in the player sheet, with the newest comment', async ({ page }) => {
+test('Deadwax keeps a social card in the player sheet, with the newest comment', async ({ page }) => {
   await openApp(page, { messages: [themFirst, mineLast] });
   await openPlayer(page);
 
@@ -181,7 +181,7 @@ test('Napstrfy keeps a social card in the player sheet, with the newest comment'
   expect(art.height).toBeGreaterThan(120);
 });
 
-test('Napstrfy invites a comment on a track nobody has spoken about', async ({ page }) => {
+test('Deadwax invites a comment on a track nobody has spoken about', async ({ page }) => {
   await openApp(page, { messages: [] });
   await openPlayer(page);
 
@@ -194,7 +194,7 @@ test('Napstrfy invites a comment on a track nobody has spoken about', async ({ p
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? '')).toBe('INPUT');
 });
 
-test('Napstrfy asks about a conversation once per track, not once per glance', async ({ page }) => {
+test('Deadwax asks about a conversation once per track, not once per glance', async ({ page }) => {
   await openApp(page, { messages: [themFirst] });
   await openPlayer(page);
   await expect.poll(() => callsTo(page, 'remote_track_discussion')).toBe(1);
@@ -207,7 +207,7 @@ test('Napstrfy asks about a conversation once per track, not once per glance', a
   expect(await callsTo(page, 'remote_track_discussion')).toBe(1);
 });
 
-test('Napstrfy answers one comment rather than the room', async ({ page }) => {
+test('Deadwax answers one comment rather than the room', async ({ page }) => {
   await openApp(page, { messages: [themFirst] });
   await openDiscussion(page);
 
@@ -228,7 +228,7 @@ test('Napstrfy answers one comment rather than the room', async ({ page }) => {
   await expect(page.locator('.discussion-replying')).toHaveCount(0);
 });
 
-test('Napstrfy draws the line a reply answers', async ({ page }) => {
+test('Deadwax draws the line a reply answers', async ({ page }) => {
   const answer = {
     ...said(1, 'Me', id('c'), 'The 2011 remaster.'),
     replyTo: themFirst.eventId,

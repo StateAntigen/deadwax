@@ -390,7 +390,7 @@
           p1: String(knownHosts.length)
         });
       }
-      return homeComputer()?.desktopName || status.desktopName || 'Napstr';
+      return homeComputer()?.desktopName || status.desktopName || 'Deadwax';
     }
     // A phone with no network at all is not connecting to anything: every attempt
     // is going to time out, so "Connecting…" is a claim it makes and never keeps.
@@ -401,17 +401,17 @@
     // the first for as long as a real attempt takes, or it never stops saying it.
     if (statusPending || (status.connecting && !connectGraceDone)) return $t("Connecting…");
     if (!status.connected) return $t("Offline");
-    return status.desktopName || 'Napstr';
+    return status.desktopName || 'Deadwax';
   }
 
   /** What the chip says when it is held down: which computers are here. */
   function statusTitle(): string {
-    if (nothingOnline()) return 'Reconnect to Napstr';
+    if (nothingOnline()) return 'Reconnect to Deadwax';
     const missing = awayComputers().filter((computer) => computer.included);
     if (missing.length > 0) {
       return `${missing.map((computer) => computer.desktopName || 'A computer').join(', ')} unreachable`;
     }
-    return `Connected to ${homeComputer()?.desktopName || status.desktopName || 'Napstr'}`;
+    return `Connected to ${homeComputer()?.desktopName || status.desktopName || 'Deadwax'}`;
   }
 
   /** The letter on a computer's dot, so that a colour can be read as a name. */
@@ -884,7 +884,7 @@
   let cachedFileIds = $state<Set<string>>(new Set());
 
   /**
-   * Playlists live on the Napstr computer: this phone lists them, opens one a
+   * Playlists live on the Deadwax computer: this phone lists them, opens one a
    * page of members at a time, and writes edits back through the companion
    * channel. The computer is the one that owns a playlist; what is kept here is
    * the reading of it a screen has already been given, so a playlist can still
@@ -964,7 +964,7 @@
   /**
    * Whether the connection this phone is spending is one it pays for.
    *
-   * The phone answers this, not Napstr: only the phone knows whether the bytes
+   * The phone answers this, not Deadwax: only the phone knows whether the bytes
    * it asks for are billed, and a Wi-Fi hotspot can be somebody's data plan.
    */
   let metered = $state(meteredNow());
@@ -1612,7 +1612,7 @@
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      error = 'Napstrfy could not save that favourite on this phone.';
+      error = 'Deadwax could not save that favourite on this phone.';
     }
   }
 
@@ -2482,9 +2482,9 @@
       });
       if (complete) cacheReconciliationKey = key;
     } catch (nextError) {
-      // Older Napstr versions do not implement cache reconciliation. Preserve
+      // Older Deadwax versions do not implement cache reconciliation. Preserve
       // every offline file and avoid repeatedly asking during this session.
-      if (/invalid Napstrfy request|unexpected response/i.test(String(nextError))) {
+      if (/invalid Deadwax request|unexpected response/i.test(String(nextError))) {
         cacheReconciliationKey = key;
       }
     } finally {
@@ -2503,7 +2503,7 @@
     error = '';
     try {
       const platform = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iPhone' : 'Android phone';
-      const desktop = await invoke<string>('pair_desktop', { code: code.trim(), deviceName: `Napstrfy on ${platform}` });
+      const desktop = await invoke<string>('pair_desktop', { code: code.trim(), deviceName: `Deadwax on ${platform}` });
       pairingCode = '';
       notice = `Connected to ${desktop}`;
       // The list of computers is read again here rather than by the effect that
@@ -2530,7 +2530,7 @@
       if (permission !== 'granted') permission = await requestPermissions();
       if (permission !== 'granted') {
         cameraPermissionDenied = true;
-        error = 'Camera access is required to scan the Napstr pairing code.';
+        error = 'Camera access is required to scan the Deadwax pairing code.';
         return;
       }
 
@@ -2546,7 +2546,7 @@
       if (!/cancel/i.test(message)) {
         cameraPermissionDenied = /permission/i.test(message);
         error = cameraPermissionDenied
-          ? 'Camera access is required to scan the Napstr pairing code.'
+          ? 'Camera access is required to scan the Deadwax pairing code.'
           : `Could not open the QR scanner: ${message}`;
       }
     } finally {
@@ -2563,7 +2563,7 @@
   }
 
   async function forgetDesktop() {
-    if (!window.confirm('Disconnect this phone from Napstr? You will need to scan a new QR code.')) return;
+    if (!window.confirm('Disconnect this phone from Deadwax? You will need to scan a new QR code.')) return;
     await invoke('forget_desktop');
     status = { streamOnly: false, mayDownload: false, mayControl: false, paired: false, connected: false, connecting: false, desktopName: '', endpointId: '', libraryRevision: 0, coverRevision: 0, pubkey: '', error: '' };
     tracks = [];
@@ -3007,7 +3007,7 @@
         .catch((nextError) => {
           if (viewVersion !== musicViewVersion) return;
           // The host's own files are still worth showing when the network is out.
-          if (tracks.length > 0) notice = msg("Showing results from Napstr only: {p0}", { p0: String(nextError) });
+          if (tracks.length > 0) notice = msg("Showing results from Deadwax only: {p0}", { p0: String(nextError) });
           else error = String(nextError);
         })
         .finally(() => { if (viewVersion === musicViewVersion) searchingNetwork = false; })
@@ -3175,7 +3175,7 @@
       if (stored.length > 0) playlists = stored;
     }
     // Offline there is nobody to ask, and the wait for the answer is what puts a
-    // spinner and "Asking Napstr…" over a screen that is already complete: the list
+    // spinner and "Asking Deadwax…" over a screen that is already complete: the list
     // above is the one this phone was last shown. Found on the device with Wi-Fi
     // off, where the Playlists tab said it was asking for the best part of a minute.
     if (offlineMode) {
@@ -4389,7 +4389,7 @@
     return [formats, ceiling];
   }
 
-  /** The audio facts Napstr reported for a track, for the row's meta line. */
+  /** The audio facts Deadwax reported for a track, for the row's meta line. */
   function audioFacts(track: RemoteTrack): string {
     const format = (track.format ?? '').toUpperCase();
     if (!AUDIO_FORMATS.includes(format)) return '';
@@ -4712,7 +4712,7 @@
         sourcePubkeys: track.sources.map((source) => source.pubkey),
         destinationFolder
       });
-      notice = `Napstr is downloading ${title(track)} over Tor`;
+      notice = `Deadwax is downloading ${title(track)} over Tor`;
       await refreshTransfers();
       return 'queued';
     } catch (nextError) {
@@ -5952,7 +5952,7 @@
     // A podcast episode is streamed from its feed and is not a file the computer
     // can hold, so there is nothing here for it to take over.
     if (activeMedia === 'podcast' && currentPodcast) {
-      notice = 'Napstr cannot play a podcast · it keeps playing here';
+      notice = 'Deadwax cannot play a podcast · it keeps playing here';
       syncSystemMedia(true);
       return;
     }
@@ -5981,7 +5981,7 @@
       return;
     }
     watchPendingHandoff({ track, queue, positionMs });
-    notice = `Napstr is fetching ${title(track)} · it takes over when it arrives`;
+    notice = `Deadwax is fetching ${title(track)} · it takes over when it arrives`;
   }
 
   /** Ask the computer to take over, and stop this phone only once it has. */
@@ -6002,7 +6002,7 @@
       // The computer refused, so this phone is still the one playing: keeping it
       // as the source says that honestly.
       playbackTarget = 'phone';
-      notice = remoteError || 'Napstr could not take playback over';
+      notice = remoteError || 'Deadwax could not take playback over';
       syncSystemMedia(true);
       return;
     }
@@ -6010,7 +6010,7 @@
     audio?.pause();
     playing = false;
     selected = track;
-    notice = fetched ? `Napstr took over ${title(track)}` : '';
+    notice = fetched ? `Deadwax took over ${title(track)}` : '';
     syncSystemMedia(true);
   }
 
@@ -6043,7 +6043,7 @@
     // giving up says so rather than waiting forever on a download that stalled.
     if (pendingHandoffAttempts >= 60) {
       cancelPendingHandoff();
-      notice = `Napstr never finished fetching ${title(pending.track)}`;
+      notice = `Deadwax never finished fetching ${title(pending.track)}`;
     }
   }
 
@@ -6072,12 +6072,12 @@
     }
     const handed = await sendPlaybackState({ type: 'handoff' });
     if (!handed) {
-      notice = remoteError || 'Napstr would not hand playback over';
+      notice = remoteError || 'Deadwax would not hand playback over';
       return;
     }
     const track = handed.track;
     if (!track || !track.local) {
-      notice = 'Napstr was not playing anything this phone can hold';
+      notice = 'Deadwax was not playing anything this phone can hold';
       return;
     }
     // The queue comes as ids because a queue is too big to repeat on every
@@ -6468,7 +6468,7 @@
       });
       notice = report.reportId
         ? `Report published as ${report.reportId.slice(0, 12)}…`
-        : 'Report sent to Napstr';
+        : 'Report sent to Deadwax';
       showReport = false;
       closeActions();
     } catch (nextError) {
@@ -6669,7 +6669,7 @@
     actionTrack = null;
   }
 
-  /** The track URI Napstrfy clients understand, and what a track code carries. */
+  /** The track URI Deadwax clients understand, and what a track code carries. */
   function trackUri(track: RemoteTrack) {
     return `napstrfy://track/${track.fileId}`;
   }
@@ -6710,7 +6710,7 @@
   /**
    * Hand the track's link to another app.
    *
-   * A link rather than the audio: the other side of a link is another Napstrfy,
+   * A link rather than the audio: the other side of a link is another Deadwax,
    * or a person, and it costs nothing to send. The file itself is the row below
    * this one, and needs the file to be here at all.
    */
@@ -7581,7 +7581,7 @@
   });
 </script>
 
-<svelte:head><title>Napstrfy</title></svelte:head>
+<svelte:head><title>Deadwax</title></svelte:head>
 
 {#snippet trackList(emptyTitle: string, emptyHint: string, showLoadMore: boolean)}
   <section
@@ -7657,7 +7657,7 @@
         >{choice === 0 ? $t("No limit") : `${choice} kb/s`}</button>
       {/each}
     </div>
-    <p class="quality-hint">{$t("FLAC and WAV keep every sample, so they cost the most data. Napstr reports each file's bitrate, and files it does not report are judged by their format alone.")}</p>
+    <p class="quality-hint">{$t("FLAC and WAV keep every sample, so they cost the most data. Deadwax reports each file's bitrate, and files it does not report are judged by their format alone.")}</p>
   </div>
 {/snippet}
 
@@ -7702,14 +7702,14 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" /></svg>
       </button>
     {/if}
-    <div class="pair-logo" aria-label="Napstrfy"><img src={appIcon} alt="" /><span>napstrfy</span></div>
-    <p class="eyebrow">{$t("NAPSTR COMPANION")}</p>
+    <div class="pair-logo" aria-label="Deadwax"><img src={appIcon} alt="" /><span>deadwax</span></div>
+    <p class="eyebrow">{$t("DEADWAX COMPANION")}</p>
     {#if addingComputer}
       <h1>{$t("Another computer.")}</h1>
       <p class="pair-copy">{$t("This phone has one home computer that signs and downloads for it; the others are libraries to read and play from. What a code may do is set by the computer that issued it.")}</p>
     {:else}
       <h1>{$t("Your music.")}<br />{$t("Wherever you are.")}</h1>
-      <p class="pair-copy">{$t("Pair securely with Napstr on your computer. Discovery and Tor downloads stay there; your music reaches this phone over encrypted Iroh.")}</p>
+      <p class="pair-copy">{$t("Pair securely with Deadwax on your computer. Discovery and Tor downloads stay there; your music reaches this phone over encrypted Iroh.")}</p>
     {/if}
     {#if error}
       <div class="error-card">
@@ -7718,13 +7718,13 @@
       </div>
     {/if}
     {#if mobile}
-      <button class="scan-button" onclick={scanCode} disabled={scanning || pairing || statusLoading}><span>▦</span>{scanning ? $t("Opening camera…") : pairing ? $t("Pairing…") : $t("Scan Napstr QR")}</button>
+      <button class="scan-button" onclick={scanCode} disabled={scanning || pairing || statusLoading}><span>▦</span>{scanning ? $t("Opening camera…") : pairing ? $t("Pairing…") : $t("Scan Deadwax QR")}</button>
     {/if}
     <button class="browse-podcasts" onclick={showPodcasts}>{$t("Listen to podcasts without pairing")}</button>
     <details class="manual-pair" class:desktop-pair={!mobile} bind:open={manualPairOpen}>
       <summary>{mobile ? $t("Enter a pairing code instead") : $t("Connect with a pairing code")}</summary>
-      <p>{$t("On the computer running Napstr, open")} <strong>{$t("Napstrfy → Pair without a camera")}</strong>{$t(". Copy the code and paste it here within five minutes.")}</p>
-      <textarea bind:value={pairingCode} aria-label={$t("Napstr pairing code")} placeholder="napstrfy://pair/…" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+      <p>{$t("On the computer running Deadwax, open")} <strong>{$t("Deadwax → Pair without a camera")}</strong>{$t(". Copy the code and paste it here within five minutes.")}</p>
+      <textarea bind:value={pairingCode} aria-label={$t("Deadwax pairing code")} placeholder="napstrfy://pair/…" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
       <button onclick={() => pair()} disabled={!pairingCode.trim() || pairing || statusLoading}>{pairing ? $t("Connecting…") : $t("Connect")}</button>
     </details>
     <LanguageSelect />
@@ -7749,7 +7749,7 @@
           <span>{$t(statusLabel())}</span>
         </button>
       {:else}
-        <button class="status-chip offline" onclick={showMusic}><i></i><span>{$t("Pair Napstr")}</span></button>
+        <button class="status-chip offline" onclick={showMusic}><i></i><span>{$t("Pair Deadwax")}</span></button>
       {/if}
       <!-- How much this phone's computers are hosting, in the middle of the bar:
            the library is not a page, it is what every page here is drawn from. -->
@@ -7788,7 +7788,7 @@
       {#if activeTab === 'search'}
         <section class="search-area">
           <form onsubmit={(event) => { event.preventDefault(); event.currentTarget.querySelector('input')?.blur(); void searchTracks(); }}>
-            <span>⌕</span><input bind:value={query} placeholder={mayDownload ? "Search your music and Nostr" : "Search Napstr’s music"} aria-label={$t("Search tracks")} />
+            <span>⌕</span><input bind:value={query} placeholder={mayDownload ? "Search your music and Nostr" : "Search Deadwax’s music"} aria-label={$t("Search tracks")} />
             {#if loading || searchingNetwork}<i class="search-spinner" role="status" aria-label={$t("Searching")}></i>{/if}
             {#if query}<button type="button" class="clear-search" onclick={() => searchTracks('')}>×</button>{/if}
           </form>
@@ -7899,7 +7899,7 @@
                page standing there before one has been made. -->
           {@render trackList(
             'No tracks found',
-            query.trim() ? 'Try different words or clear the search.' : 'Search your Napstr library and the network.',
+            query.trim() ? 'Try different words or clear the search.' : 'Search your Deadwax library and the network.',
             !showingLikedMusic && Boolean(query.trim())
           )}
         {/if}      {:else if activeTab === 'music'}
@@ -7979,7 +7979,7 @@
   
         {@render trackList(
           showingLikedMusic ? 'No liked tracks yet' : 'No tracks found',
-          showingLikedMusic ? 'Tap the heart beside a song to keep it here.' : 'Add music to your Napstr folder on the computer.',
+          showingLikedMusic ? 'Tap the heart beside a song to keep it here.' : 'Add music to your Deadwax folder on the computer.',
           !showingLikedMusic
         )}
       {:else if activeTab === 'podcasts'}
@@ -8038,7 +8038,7 @@
                 <button class:liked={isPodcastLiked(feed)} class="like-button podcast-like" onclick={() => togglePodcastLike(feed)} aria-label={`${isPodcastLiked(feed) ? 'Unlike' : 'Like'} ${feed.title}`}>{isPodcastLiked(feed) ? '♥' : '♡'}</button>
               </article>
             {/each}
-            {#if !podcastLoading && podcastFeeds.length === 0}<div class="empty-library"><h2>{showingLikedPodcasts ? 'No liked podcasts yet' : 'Search podcasts'}</h2><p>{showingLikedPodcasts ? 'Tap the heart beside a podcast to keep it here.' : 'Napstrfy searches podcasts directly over this phone\'s internet connection.'}</p></div>{/if}
+            {#if !podcastLoading && podcastFeeds.length === 0}<div class="empty-library"><h2>{showingLikedPodcasts ? 'No liked podcasts yet' : 'Search podcasts'}</h2><p>{showingLikedPodcasts ? 'Tap the heart beside a podcast to keep it here.' : 'Deadwax searches podcasts directly over this phone\'s internet connection.'}</p></div>{/if}
           </section>
         {/if}
       {:else if activeTab === 'audiobooks'}
@@ -8065,11 +8065,11 @@
           </section>
         {:else}
           <section class="library-heading">
-            <div><p>{$t("YOUR NAPSTR")}</p><h1>{$t("Audiobooks")}</h1></div>
+            <div><p>{$t("YOUR DEADWAX")}</p><h1>{$t("Audiobooks")}</h1></div>
             <span>{audiobookTotal} {audiobookTotal === 1 ? 'book' : 'books'}</span>
           </section>
           <section class="audiobook-list" aria-busy={audiobookLoading}>
-            {#if audiobookLoading}<div class="loading-list"><i></i><span>{$t("Asking Napstr…")}</span></div>{/if}
+            {#if audiobookLoading}<div class="loading-list"><i></i><span>{$t("Asking Deadwax…")}</span></div>{/if}
             {#each audiobooks as book (book.audiobookId)}
               <button class="audiobook-card" onclick={() => openAudiobook(book)}>
                 <span class="audiobook-cover">▥</span>
@@ -8077,7 +8077,7 @@
                 <b>›</b>
               </button>
             {/each}
-            {#if !audiobookLoading && audiobooks.length === 0}<div class="empty-library"><h2>{$t("No audiobooks found")}</h2><p>{$t("Group a chapter folder in Napstr, or add the tag “audiobook” to a complete one-file book.")}</p></div>{/if}
+            {#if !audiobookLoading && audiobooks.length === 0}<div class="empty-library"><h2>{$t("No audiobooks found")}</h2><p>{$t("Group a chapter folder in Deadwax, or add the tag “audiobook” to a complete one-file book.")}</p></div>{/if}
           </section>
         {/if}
       {:else if activeTab === 'playlists'}
@@ -8367,12 +8367,12 @@
         {:else}
           <section class="playlist-view" aria-busy={playlistsLoading}>
             <header class="library-heading">
-              <div><p>{$t("YOUR NAPSTR")}</p><h1>{$t("Playlists")}</h1></div>
+              <div><p>{$t("YOUR DEADWAX")}</p><h1>{$t("Playlists")}</h1></div>
               <button class="playlist-new" onclick={() => void newPlaylist()} aria-label={$t("New playlist")}>+</button>
             </header>
 
             {#if playlistsError}<p class="error-card">{$t(playlistsError)}</p>{/if}
-            {#if playlistsLoading}<div class="loading-list"><i></i><span>{$t("Asking Napstr…")}</span></div>{/if}
+            {#if playlistsLoading}<div class="loading-list"><i></i><span>{$t("Asking Deadwax…")}</span></div>{/if}
 
             {#if playlistsMine().length > 0}
               <p class="section-label"><b>{$t("Your playlists")}</b></p>
@@ -8431,7 +8431,7 @@
       {/if}
     </div>
 
-    <nav class:dragging={sheetDragging || barDragging} style={`--nav-shift:${navShift}`} class="bottom-nav" aria-label={$t("Napstrfy navigation")}>
+    <nav class:dragging={sheetDragging || barDragging} style={`--nav-shift:${navShift}`} class="bottom-nav" aria-label={$t("Deadwax navigation")}>
       <button data-tab="music" class:active={activeTab === 'music'} onclick={showMusic}><span>♫</span>{$t("Music")}</button>
       <button data-tab="search" class:active={activeTab === 'search'} onclick={showSearch}><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.4" /><path d="M15.9 15.9 20.6 20.6" /></svg></span>{$t("Search")}</button>
       <button data-tab="playlists" class:active={activeTab === 'playlists'} onclick={showPlaylists}><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16" /><path d="M4 12h16" /><path d="M4 17.5h9" /></svg></span>{$t("Playlists")}</button>
@@ -8624,7 +8624,7 @@
               <p>
                 {!mayControl
                   ? 'This phone may not control the computer’s player.'
-                  : 'Napstr will pick up from wherever the computer left off.'}
+                  : 'Deadwax will pick up from wherever the computer left off.'}
               </p>
             </div>
           {:else if shownTrack}
@@ -8809,7 +8809,7 @@
       </button>
     </header>
     <div class="settings-scroll">
-      {#if status.paired && !status.mayDownload}<p class="settings-note">{$t("This pairing cannot ask Napstr to download from the network.")}</p>{/if}
+      {#if status.paired && !status.mayDownload}<p class="settings-note">{$t("This pairing cannot ask Deadwax to download from the network.")}</p>{/if}
 
       {#if status.paired}
         <div class="settings-section">
@@ -8862,12 +8862,12 @@
             </div>
           {/each}
           <button class="settings-row" onclick={() => { showSettings = false; addingComputer = true; }}>
-            <span>{$t("Add a computer")}</span><small>{$t("A friend's Napstr, or another of your own")}</small>
+            <span>{$t("Add a computer")}</span><small>{$t("A friend's Deadwax, or another of your own")}</small>
           </button>
         </div>
       {:else}
         <button class="settings-row" onclick={() => { showSettings = false; showMusic(); }}>
-          <span>{$t("Pair Napstr")}</span><small>{$t("Scan a QR code from the computer")}</small>
+          <span>{$t("Pair Deadwax")}</span><small>{$t("Scan a QR code from the computer")}</small>
         </button>
       {/if}
 
@@ -8997,7 +8997,7 @@
           <p>{$t("Lend access")}</p>
           <button class="settings-row" onclick={() => void requestReadOnlyCode()} disabled={ticketBusy || !status.connected}>
             <span>{$t("Create a read-only code")}</span>
-            <small>{ticketBusy ? 'Asking Napstr…' : 'For a guest phone'}</small>
+            <small>{ticketBusy ? 'Asking Deadwax…' : 'For a guest phone'}</small>
           </button>
           {#if ticketError}<p class="settings-note">{ticketError}</p>{/if}
           {#if readOnlyTicket}
@@ -9323,7 +9323,7 @@
           </button>
         </div>
       {/each}
-      {#if addLoading}<div class="loading-list"><i></i><span>{$t("Asking Napstr…")}</span></div>{/if}
+      {#if addLoading}<div class="loading-list"><i></i><span>{$t("Asking Deadwax…")}</span></div>{/if}
       {#if !addLoading && addRows().length === 0}
         <p class="playlist-hint">{addTab === 'recent' ? $t("Nothing has been played on this phone yet.") : addTab === 'liked' ? $t("Nothing liked yet.") : $t("No tracks yet")}</p>
       {/if}
@@ -9404,7 +9404,7 @@
           </i>
         </button>
       {/each}
-      {#if pickerLoading}<div class="loading-list"><i></i><span>{$t("Asking Napstr…")}</span></div>{/if}
+      {#if pickerLoading}<div class="loading-list"><i></i><span>{$t("Asking Deadwax…")}</span></div>{/if}
       {#if !pickerLoading && pickerRows().length === 0}
         <p class="playlist-hint">{$t("No playlists yet")}</p>
       {/if}

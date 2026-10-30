@@ -7,7 +7,7 @@ import { languages, untranslatedStatuses } from '../shared/i18n/core.js';
 
 const root = new URL('../', import.meta.url);
 const dynamicKeys = [
-  'Downloads', 'Shared', 'Settings', 'Trollbox', 'Napstrfy', 'All audio', 'All audiobooks', 'local catalogue',
+  'Downloads', 'Shared', 'Settings', 'Trollbox', 'Deadwax', 'All audio', 'All audiobooks', 'local catalogue',
   'Local', 'Tor connected', 'Tor failed', 'Tor connecting', 'Tor unavailable', 'Ready', 'Waiting',
   'Rock', 'Soundtrack', 'Punk', 'Folk', 'Upbeat', 'Comedy', 'News', 'True Crime', 'Society & Culture',
   'Technology', 'History', 'Business', 'Science', 'Arts', 'Sports', 'Education', 'Music',
@@ -51,7 +51,7 @@ export async function untranslatedCopy() {
   // The allowed list is what may sit in the markup without being translated: a
   // product name, and the examples that are formats rather than words - a pairing
   // link, an https URL, a bitcoin address, and a secret key's own prefix.
-  const allowed = /^(Napstr|Napstrfy|napstrfy|Nostr|Tor|i|#napstr-trollbox|https:\/\/…|napstrfy:\/\/pair\/…|nsec1…|bc1qwgms685z3j69qtgalyjtrfuqg5f6pt302z0k60)$/;
+  const allowed = /^(Deadwax|DEADWAX|deadwax|Nostr|Tor|i|#napstr-trollbox|https:\/\/…|napstrfy:\/\/pair\/…|nsec1…|bc1qwgms685z3j69qtgalyjtrfuqg5f6pt302z0k60)$/;
   for (const file of ['src/routes/+page.svelte', 'android/src/App.svelte']) {
     const ast = parse(await readFile(new URL(file, root), 'utf8'), { modern: true });
     function walk(node) {

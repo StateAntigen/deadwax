@@ -179,7 +179,7 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
         // phone's own channel does - and the phone's local commands keep working,
         // which is the whole point of the state.
         if (window.desktopReachable === false && cmd.startsWith('remote_')) {
-          throw 'Could not reach Napstr';
+          throw 'Could not reach Deadwax';
         }
         switch (cmd) {
           case 'plugin:os|locale': return window.nativeLocale;
@@ -232,7 +232,7 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
             // The host decides, so the mock applies the write and the list the
             // window reads back is the answer rather than its own optimism.
             const row = (window.mobileDevices ?? []).find((entry) => entry.endpointId === args.endpointId);
-            if (!row) throw new Error('That device is not paired with Napstr');
+            if (!row) throw new Error('That device is not paired with Deadwax');
             row.rights = args.rights;
             return null;
           }

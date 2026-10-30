@@ -60,7 +60,7 @@ async function finish(page, cmd, query, tracks = [], error) {
 // either half is still out, and the rows carry `aria-busy` alongside it.
 const networkPending = (page) => expect(page.locator('.search-spinner')).toBeVisible();
 
-test('Napstrfy full access plays host matches while network search waits, then appends without duplicates or losing selection', async ({ page }) => {
+test('Deadwax full access plays host matches while network search waits, then appends without duplicates or losing selection', async ({ page }) => {
   await openSearch(page);
   await search(page, 'music');
   await finish(page, 'remote_library', 'music', [track('b'), track('c')]);
@@ -75,7 +75,7 @@ test('Napstrfy full access plays host matches while network search waits, then a
   await expect(page.locator('.track-list')).toHaveAttribute('aria-busy', 'false');
 });
 
-test('Napstrfy keeps host matches when the network search fails', async ({ page }) => {
+test('Deadwax keeps host matches when the network search fails', async ({ page }) => {
   await openSearch(page);
   await search(page, 'music');
   await finish(page, 'remote_library', 'music', [track('b')]);
@@ -88,7 +88,7 @@ test('Napstrfy keeps host matches when the network search fails', async ({ page 
   await expect(page.locator('.track-list')).toHaveAttribute('aria-busy', 'false');
 });
 
-test('Napstrfy handles network results arriving before the host-library response', async ({ page }) => {
+test('Deadwax handles network results arriving before the host-library response', async ({ page }) => {
   await openSearch(page);
   await search(page, 'music');
   await finish(page, 'remote_search', 'music', [track('b', false), track('c', false)]);
@@ -99,7 +99,7 @@ test('Napstrfy handles network results arriving before the host-library response
   await expect(page.locator('.track-list')).toHaveAttribute('aria-busy', 'false');
 });
 
-test('Napstrfy read-only search uses only the host library', async ({ page }) => {
+test('Deadwax read-only search uses only the host library', async ({ page }) => {
   await openSearch(page, true);
   await search(page, 'music');
   await finish(page, 'remote_library', 'music', [track('b')]);
@@ -108,7 +108,7 @@ test('Napstrfy read-only search uses only the host library', async ({ page }) =>
   expect(await page.evaluate(() => window.searchRequests.map((request) => request.cmd))).toEqual(['remote_library']);
 });
 
-test('Napstrfy does not show an empty result until both searches finish', async ({ page }) => {
+test('Deadwax does not show an empty result until both searches finish', async ({ page }) => {
   await openSearch(page);
   await search(page, 'music');
   await finish(page, 'remote_library', 'music');
@@ -119,7 +119,7 @@ test('Napstrfy does not show an empty result until both searches finish', async 
 });
 
 for (const action of ['new search', 'clear', 'liked']) {
-  test(`Napstrfy ignores late results and errors after ${action}`, async ({ page }) => {
+  test(`Deadwax ignores late results and errors after ${action}`, async ({ page }) => {
     await openSearch(page);
     await search(page, 'old');
     if (action === 'new search') {

@@ -1,6 +1,6 @@
 # Measure a phone screenshot in DEVICE pixels.
 #
-# The Napstrfy WebView exposes no accessibility nodes, so UI automation has to
+# The Deadwax WebView exposes no accessibility nodes, so UI automation has to
 # tap fixed coordinates - which means those coordinates have to be measured
 # rather than guessed. A screenshot shown to a human or a model is scaled by an
 # unknown factor, so never read positions off a scaled image. This draws a

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mockNative } from './helpers/native.mjs';
 
 for (const chat of ['trollbox', 'track']) {
-  test(`Napstr ${chat}: opens at newest, prepends 100 messages, and preserves reading position`, async ({ page }) => {
+  test(`Deadwax ${chat}: opens at newest, prepends 100 messages, and preserves reading position`, async ({ page }) => {
     await mockNative(page, { app: 'napstr' });
     await page.addInitScript(() => {
       const invoke = window.__TAURI_INTERNALS__.invoke;

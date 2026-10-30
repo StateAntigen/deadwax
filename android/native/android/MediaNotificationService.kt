@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
 
 class MediaNotificationService : Service() {
   private lateinit var mediaSession: MediaSessionCompat
-  private var title = "Napstrfy"
+  private var title = "Deadwax"
   private var artist = ""
   private var previousLabel = "Previous"
   private var playLabel = "Play"
@@ -174,7 +174,7 @@ class MediaNotificationService : Service() {
   }
 
   private fun readState(intent: Intent) {
-    title = intent.getStringExtra(EXTRA_TITLE)?.ifBlank { "Napstrfy" } ?: "Napstrfy"
+    title = intent.getStringExtra(EXTRA_TITLE)?.ifBlank { "Deadwax" } ?: "Deadwax"
     artist = intent.getStringExtra(EXTRA_ARTIST).orEmpty()
     playing = intent.getBooleanExtra(EXTRA_PLAYING, false)
     position = intent.getLongExtra(EXTRA_POSITION, 0L).coerceAtLeast(0L)

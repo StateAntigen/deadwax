@@ -254,7 +254,7 @@ test('a fetch the computer refuses does not leave the player waiting for ever', 
   await openApp(page, {
     library: [],
     results: [{ ...away }],
-    refuse: 'This pairing is read only. It cannot ask Napstr to download songs.'
+    refuse: 'This pairing is read only. It cannot ask Deadwax to download songs.'
   });
   // Queued while nothing is playing, which is the one route into this that goes
   // through `playTrack` - the same path a queued network track's turn takes.

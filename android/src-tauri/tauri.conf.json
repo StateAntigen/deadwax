@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Napstrfy",
+  "productName": "Deadwax",
   "mainBinaryName": "napstrfy",
   "version": "0.2.4-fork",
   "identifier": "net.napstr.nostrfy",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Napstrfy",
+        "title": "Deadwax",
         "width": 1100,
         "height": 780,
         "minWidth": 360,
@@ -52,8 +52,8 @@
       "icons/icon.icns"
     ],
     "category": "Music",
-    "shortDescription": "Your Napstr music on any device",
-    "longDescription": "Napstrfy securely connects to your own Napstr desktop over Iroh.",
+    "shortDescription": "Your Deadwax music on any device",
+    "longDescription": "Deadwax securely connects to your own Deadwax desktop over Iroh.",
     "linux": {
       "appimage": {
         "bundleMediaFramework": true

@@ -42,7 +42,7 @@ pub const PLAYLIST_MEMBER_LIMIT: usize = 500;
 pub const PLAYLIST_LIST_LIMIT: usize = 200;
 /// The `alt` string a public playlist carries, which is what a client that does
 /// not implement this kind shows to a person.
-const PLAYLIST_ALT: &str = "Napstr public playlist";
+const PLAYLIST_ALT: &str = "Deadwax public playlist";
 
 /// Untrusted display text - a title, or a member hint - is at most this long.
 /// A title is normative, so one longer than this is refused; hints are advisory,
@@ -831,7 +831,7 @@ pub fn playlist_event_builder(
         Tag::parse(["t", PLAYLIST_MARKER]).map_err(|error| error.to_string())?,
         Tag::parse(["title", title.as_str()]).map_err(|error| error.to_string())?,
         Tag::parse(["alt", PLAYLIST_ALT]).map_err(|error| error.to_string())?,
-        Tag::parse(["client", "Napstr"]).map_err(|error| error.to_string())?,
+        Tag::parse(["client", "Deadwax"]).map_err(|error| error.to_string())?,
     ];
     // One `x` tag per member, in order, so a relay can answer "which playlists
     // include this file" without fetching and parsing every playlist body.
@@ -1057,8 +1057,8 @@ mod tests {
             Tag::parse(["d", PLAYLIST_ID]).unwrap(),
             Tag::parse(["t", "napstr-playlist"]).unwrap(),
             Tag::parse(["title", "rock"]).unwrap(),
-            Tag::parse(["alt", "Napstr public playlist"]).unwrap(),
-            Tag::parse(["client", "Napstr"]).unwrap(),
+            Tag::parse(["alt", "Deadwax public playlist"]).unwrap(),
+            Tag::parse(["client", "Deadwax"]).unwrap(),
             Tag::parse(["x", ENTER_SANDMAN]).unwrap(),
             Tag::parse(["x", ROOSTER]).unwrap(),
             Tag::parse(["t", "rock"]).unwrap(),

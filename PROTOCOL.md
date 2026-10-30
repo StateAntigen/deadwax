@@ -1,10 +1,10 @@
-# Napstr protocol
+# Deadwax protocol
 
-This document specifies the public protocol implemented by Napstr clients. It
+This document specifies the public protocol implemented by Deadwax clients. It
 contains the event kinds, tags, messages, Tor setup, and file-transfer framing
 needed to build an interoperable client.
 
-Napstr uses two version identifiers:
+Deadwax uses two version identifiers:
 
 - `napstr/1` identifies catalogue and private negotiation messages.
 - Transfer protocol version `2` identifies the TCP protocol carried over Tor.
@@ -47,13 +47,13 @@ a random identity on first launch or let the user supply an existing key. Secret
 keys MUST be held in secure local storage and MUST never be placed in an event,
 log, URL, catalogue entry, or transfer message.
 
-Napstr publishes standard kind `0` profile metadata. The current fields are:
+Deadwax publishes standard kind `0` profile metadata. The current fields are:
 
 ```json
 {
   "name": "napstr-user",
   "display_name": "napstr-user",
-  "about": "Sharing files privately with Napstr. napstr.net",
+  "about": "Sharing files privately with Deadwax. deadwax.rip",
   "picture": "https://example.com/avatar.png"
 }
 ```
@@ -131,7 +131,7 @@ Required tags:
   ["size", "1234567"],
   ["m", "audio/mpeg"],
   ["t", "song"],
-  ["alt", "Napstr shared file catalogue entry"]
+  ["alt", "Deadwax shared file catalogue entry"]
 ]
 ```
 
@@ -253,7 +253,7 @@ not offer the older entry from that author.
 
 Kind `30423` is an addressable collection event layered over ordinary kind
 `30421` files. Every chapter MUST still be published as an independent catalogue
-entry and transferred with the normal Napstr file protocol. Clients that do not
+entry and transferred with the normal Deadwax file protocol. Clients that do not
 support audiobook manifests therefore remain able to find and download the
 chapters individually.
 
@@ -269,7 +269,7 @@ Required tags include:
   ["t", "napstr-audiobook"],
   ["x", "<audiobookId>"],
   ["title", "Book title"],
-  ["alt", "Napstr audiobook manifest"]
+  ["alt", "Deadwax audiobook manifest"]
 ]
 ```
 
@@ -378,7 +378,7 @@ that file ID. Older surplus groups disappear naturally through expiration.
 
 ## Public chats: NIP-C7 kind 9
 
-Napstr public chat uses portable NIP-C7 kind `9` events. It does not depend on a
+Deadwax public chat uses portable NIP-C7 kind `9` events. It does not depend on a
 relay-owned NIP-29 group.
 
 ### Trollbox
@@ -389,8 +389,8 @@ relay-owned NIP-29 group.
   "content": "hello",
   "tags": [
     ["t", "napstr-trollbox"],
-    ["client", "Napstr"],
-    ["alt", "Public message in the Napstr trollbox"]
+    ["client", "Deadwax"],
+    ["alt", "Public message in the Deadwax trollbox"]
   ]
 }
 ```
@@ -405,8 +405,8 @@ A track topic is `napstr-` followed by its lowercase 64-character file ID:
   "content": "great recording",
   "tags": [
     ["t", "napstr-<fileId>"],
-    ["client", "Napstr"],
-    ["alt", "Public message in a Napstr track discussion"]
+    ["client", "Deadwax"],
+    ["alt", "Public message in a Deadwax track discussion"]
   ]
 }
 ```
@@ -429,13 +429,13 @@ Every private signal carries these rumor tags:
 ```json
 [
   ["expiration", "<Unix time 20 minutes from now>"],
-  ["client", "Napstr"]
+  ["client", "Deadwax"]
 ]
 ```
 
 A receiver MUST unwrap only messages addressed to its own key, validate the
 Nostr events, require kind `14`, require an unexpired `expiration`, and reject
-unknown Napstr messages.
+unknown Deadwax messages.
 
 ### Download request
 
@@ -504,7 +504,7 @@ MUST NOT be published in the public catalogue or chat.
 
 ## Tor session and onion-service flow
 
-Napstr uses a client-controlled Tor process. A packaged client may bundle Tor;
+Deadwax uses a client-controlled Tor process. A packaged client may bundle Tor;
 another implementation may use a compatible local Tor binary. There is no
 direct-IP transfer fallback.
 
@@ -531,7 +531,7 @@ consensus and the relay descriptors it has fetched, so a directory that survives
 a restart is the difference between a start of a few seconds and one of minutes,
 and nothing can be offered or fetched before Tor has started. For the same
 reason `--AvoidDiskWrites` MUST NOT be set: it discards exactly that cache. A
-second Napstr on the same machine cannot share the directory, because Tor
+second Deadwax on the same machine cannot share the directory, because Tor
 refuses to share one, so that case is given a directory of its own; only those
 private directories are removed after shutdown.
 
@@ -666,9 +666,9 @@ Reference timeouts are 30 seconds for `HELLO`, 60 seconds for manifest and data
 headers, 45 seconds without file progress, and 15 minutes for an idle authorized
 connection.
 
-## Optional Napstrfy companion protocol
+## Optional Deadwax companion protocol
 
-The phone companion is separate from Napstr's public Nostr/Tor protocol. It
+The phone companion is separate from Deadwax's public Nostr/Tor protocol. It
 connects only to the user's own running desktop over Iroh, using ALPN
 `/napstr/mobile/1`. Iroh authenticates both endpoints by Ed25519 endpoint ID and
 encrypts QUIC traffic end to end; a relay may forward ciphertext when a direct
@@ -689,14 +689,14 @@ The decoded ticket uses camel-case fields:
   "endpointAddr": "<JSON-encoded Iroh EndpointAddr>",
   "token": "<32 random bytes as lowercase hex>",
   "expiresAt": 1787680200,
-  "desktopName": "Napstr"
+  "desktopName": "Deadwax"
 }
 ```
 
 The token expires after five minutes and MUST be consumed by the first
 successful pairing. The desktop stores the authenticated phone endpoint ID in
 an allowlist. The phone persists its own Iroh secret key and the desktop address,
-but MUST NOT persist the one-use token. Removing the phone from Napstr deletes
+but MUST NOT persist the one-use token. Removing the phone from Deadwax deletes
 that allowlist entry.
 
 Each operation uses one Iroh bidirectional stream. A control frame is a
@@ -705,7 +705,7 @@ length of 262,144 bytes. Request and response objects use a camel-case `type`
 discriminator. Defined requests are:
 
 ```json
-{"type":"pair","token":"<token>","deviceName":"Napstrfy on Android phone"}
+{"type":"pair","token":"<token>","deviceName":"Deadwax on Android phone"}
 {"type":"library","query":"metallica","offset":0,"limit":100,"shuffleSeed":1234567890}
 {"type":"libraryByIds","fileIds":["<fileId>","<fileId>"]}
 {"type":"search","query":"enter sandman"}
@@ -761,7 +761,7 @@ Which request needs which right:
   and the proof described below is what guards it, not a grant handed out here.
 
 `available` accepts at most 200 SHA-256 file IDs and returns the subset still
-present in the desktop's indexed Napstr folder. Napstrfy uses this bounded check
+present in the desktop's indexed Deadwax folder. Deadwax uses this bounded check
 after reconnecting to reconcile its verified offline audio cache. A companion
 MUST preserve cached files when paired with an older desktop that does not
 support this request.
@@ -776,8 +776,8 @@ playlist carries into tracks a companion can show and play.
 
 `destinationFolder` is optional and is used for audiobook chapters. The desktop
 accepts only one sanitized path component and stores it beneath
-`Napstr/Audiobooks/`; it never accepts an absolute path or nested path from the
-companion. Omitting it keeps the normal music destination at the Napstr-folder
+`Deadwax/Audiobooks/`; it never accepts an absolute path or nested path from the
+companion. Omitting it keeps the normal music destination at the Deadwax-folder
 root.
 
 `shuffleSeed` is optional and is only meaningful on a `library` request that
@@ -901,7 +901,7 @@ handoff, so `next` still means what it meant before; a companion MUST NOT read
 For `fetchAudio`, an `audioReady` control frame is immediately followed on the
 same receive stream by exactly `track.size` raw bytes and then stream finish.
 The desktop MUST serve only an indexed supported-audio path contained by the
-currently selected Napstr folder. The phone writes to a temporary cache file,
+currently selected Deadwax folder. The phone writes to a temporary cache file,
 MUST reject excess or truncated bytes, and MUST verify that the complete
 SHA-256 digest equals `track.fileId` before playback. All other responses end
 after their control frame.
@@ -1009,7 +1009,7 @@ playlist be played end to end on a computer that has never seen its tracks.
 
 ## Reports and local blocking
 
-Napstr supports NIP-56 report events even when a client does not expose a report
+Deadwax supports NIP-56 report events even when a client does not expose a report
 button. A report is kind `1984`:
 
 ```json
@@ -1020,7 +1020,7 @@ button. A report is kind `1984`:
     ["p", "<seeder public key>", "malware"],
     ["e", "<catalogue event ID>", "malware"],
     ["x", "<fileId>", "malware"],
-    ["client", "Napstr"]
+    ["client", "Deadwax"]
   ]
 }
 ```
@@ -1034,7 +1034,7 @@ why the key is repeated there.
 Supported report types are `illegal`, `malware`, `spam`, `nudity`, `profanity`,
 `impersonation`, and `other`.
 
-Blocking a file ID or public key is local state, not a Napstr Nostr event. A
+Blocking a file ID or public key is local state, not a Deadwax Nostr event. A
 client should omit blocked catalogue entries, ignore blocked availability and
 offers, refuse blocked requesters, and hide public-chat messages from blocked
 authors.
@@ -1074,7 +1074,7 @@ integrity; it does not establish authorship, licensing, or trustworthiness.
 
 ## Interoperability checklist
 
-A minimal independent Napstr client is interoperable when it can:
+A minimal independent Deadwax client is interoperable when it can:
 
 1. connect a Nostr identity to configured relays and advertise kind `10050` DM
    relays;

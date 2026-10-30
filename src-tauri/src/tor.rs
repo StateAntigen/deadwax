@@ -96,7 +96,7 @@ pub fn is_v3_onion(host: &str) -> bool {
 struct BootstrapFailure {
     message: String,
     /// True when the process exited before it reached the network. That is what a
-    /// second Napstr on the same machine looks like from here: Tor refuses to
+    /// second Deadwax on the same machine looks like from here: Tor refuses to
     /// share a data directory and gives up at once.
     own_directory: bool,
 }
@@ -175,7 +175,7 @@ impl TorManager {
         // descriptors it has fetched in its data directory, so a directory that
         // survives a restart is the difference between a start of a few seconds and
         // one of minutes - and Tor is asked to start before anything can be offered
-        // or fetched at all. A second Napstr on the same machine cannot share it,
+        // or fetched at all. A second Deadwax on the same machine cannot share it,
         // because Tor refuses to share one; that case gets a directory of its own,
         // which is also the only kind this file ever removes.
         let result = match self.bootstrap(&self.cached_data_dir(), false).await {
@@ -320,7 +320,7 @@ impl TorManager {
                         format!(": {diagnostic}")
                     };
                     // An early exit on a shared directory is exactly what a second
-                    // Napstr on this machine looks like, so this is the failure worth
+                    // Deadwax on this machine looks like, so this is the failure worth
                     // retrying with a directory of its own.
                     return Err(BootstrapFailure {
                         message: format!(
@@ -613,7 +613,7 @@ impl TorManager {
 
 #[cfg(target_os = "windows")]
 fn hide_child_process_window(command: &mut Command) {
-    // Tor is a console executable. Napstr captures its output through pipes, so
+    // Tor is a console executable. Deadwax captures its output through pipes, so
     // it does not need a visible terminal window when launched by the GUI app.
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     command.creation_flags(CREATE_NO_WINDOW);

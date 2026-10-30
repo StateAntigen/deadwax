@@ -810,7 +810,7 @@ mod tests {
 
     #[test]
     fn the_user_agent_says_what_is_asking() {
-        assert!(USER_AGENT.starts_with("Napstr/"));
+        assert!(USER_AGENT.starts_with("Deadwax/"));
     }
 
     #[test]

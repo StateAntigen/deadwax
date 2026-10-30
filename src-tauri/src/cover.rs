@@ -1,4 +1,4 @@
-//! Consumer for the Napstr album cover event (kind `30427`).
+//! Consumer for the Deadwax album cover event (kind `30427`).
 //!
 //! The wire format is specified by `NIP-NAPSTR-COVER.md`. Cover events are
 //! additive assertions about an album's artwork, addressed by a normalized
@@ -1335,7 +1335,7 @@ pub(crate) const SETTING_ALLOWED_ART_HOSTS: &str = "cover_allowed_art_hosts";
 /// The domains the user listed, lowercased and without a leading `.` or `*.`.
 ///
 /// An unreadable database or an absent row reads as an empty list, which means
-/// "no restriction". That is what Napstr did before the setting existed, and a
+/// "no restriction". That is what Deadwax did before the setting existed, and a
 /// filter that nobody configured must not blank a library: this is a
 /// convenience, not a boundary, and it is documented that way in the Covers tab.
 pub(crate) fn allowed_art_hosts(connection: &Connection) -> Vec<String> {
@@ -1973,7 +1973,7 @@ mod tests {
             .tags(vec![
                 Tag::identifier(key),
                 Tag::hashtag(COVER_MARKER),
-                Tag::parse(["alt", "Napstr album cover assertion"]).unwrap(),
+                Tag::parse(["alt", "Deadwax album cover assertion"]).unwrap(),
             ])
             .sign_with_keys(keys)
             .unwrap()

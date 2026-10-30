@@ -41,13 +41,13 @@ const other = track(id('b'), 'Another Song');
 
 const full = { browse: true, fetch: true, control: true, download: true, privileged: true };
 
-const myComputer = { endpointId: 'endpoint', desktopName: 'My Napstr', rights: full, home: true, included: true, online: true, mayDownload: true };
+const myComputer = { endpointId: 'endpoint', desktopName: 'My Deadwax', rights: full, home: true, included: true, online: true, mayDownload: true };
 
 async function openApp(page, { library = [mine, other], known = [myComputer], hostDislikes = [], dislikes = [], orphans = [], synced = [], hostLikes = [], rights = full } = {}) {
   await mockNative(page, { platform: 'android' });
   await page.route('**/fixture.wav', serveAudio);
   await page.addInitScript(({ library, known, hostDislikes, dislikes, orphans, synced, hostLikes, rights }) => {
-    window.remoteHosts = [{ endpointId: 'endpoint', desktopName: 'My Napstr', rights, home: true, included: true, online: true, mayDownload: true }];
+    window.remoteHosts = [{ endpointId: 'endpoint', desktopName: 'My Deadwax', rights, home: true, included: true, online: true, mayDownload: true }];
     window.remoteLibrary = library;
     window.hostDislikes = hostDislikes;
     window.hostLikes = hostLikes;

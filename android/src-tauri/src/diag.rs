@@ -9,7 +9,7 @@
 //! On Android the lines go to logcat under one tag, so
 //!
 //! ```text
-//! adb logcat -s Napstrfy
+//! adb logcat -s Deadwax
 //! ```
 //!
 //! is the whole of it. Anywhere else they go to stderr, which is what a dev run
@@ -33,7 +33,7 @@ static LISTENING: AtomicBool = AtomicBool::new(true);
 
 /// Every line this phone writes is prefixed with this, so one filter finds all
 /// of it and no other app's noise.
-pub const TAG: &str = "Napstrfy";
+pub const TAG: &str = "Deadwax";
 
 #[cfg(target_os = "android")]
 const ANDROID_LOG_INFO: i32 = 4;

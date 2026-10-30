@@ -1,9 +1,9 @@
-# Napstr playlist event: kind `30425`
+# Deadwax playlist event: kind `30425`
 
 > **Status:** draft proposal for upstream inclusion in
 > [lnbits/napstr `PROTOCOL.md`](https://github.com/lnbits/napstr/blob/main/PROTOCOL.md).
 > First implemented by napstr.net (2026-09-01), and implemented for publication by
-> Napstr (`src-tauri/src/playlist.rs`). Normative keywords follow the main
+> Deadwax (`src-tauri/src/playlist.rs`). Normative keywords follow the main
 > document: **MUST**, **MUST NOT**, **SHOULD**, **MAY**.
 >
 > **Public only:** this kind carries public playlists and nothing else. There is no
@@ -48,7 +48,7 @@ Required tags:
   ["d", "<playlistId>"],
   ["t", "napstr-playlist"],
   ["title", "<playlist title>"],
-  ["alt", "Napstr public playlist"]
+  ["alt", "Deadwax public playlist"]
 ]
 ```
 
@@ -58,7 +58,7 @@ Optional tags:
 [
   ["x", "<memberFileId>"],
   ["t", "<search word>"],
-  ["client", "Napstr"]
+  ["client", "Deadwax"]
 ]
 ```
 
@@ -72,7 +72,7 @@ Optional tags:
   by the catalogue metadata rules (at most 256 characters, no unsafe control or
   bidirectional formatting characters).
 - `x`: one tag per member file, **in member order**. See "Membership tags".
-- `alt`: the literal `Napstr public playlist`, see "Changes from the deployed
+- `alt`: the literal `Deadwax public playlist`, see "Changes from the deployed
   event" below for why the word `public` is kept.
 - `client`: optional provenance hint, informational only.
 
@@ -91,8 +91,8 @@ Example:
     ["d", "77abf082-7075-4d36-afe2-e9710ac6b33c"],
     ["t", "napstr-playlist"],
     ["title", "rock"],
-    ["alt", "Napstr public playlist"],
-    ["client", "Napstr"],
+    ["alt", "Deadwax public playlist"],
+    ["client", "Deadwax"],
     ["x", "48e5979efa6a56dc3cab293b954ae84e36f464b936bd8c534838189abcc93c68"],
     ["x", "cdf1741591bf1e580b1e7a2712ce781ef7ade8b12ebf309731d264498accf5ce"],
     ["t", "rock"],
@@ -433,7 +433,7 @@ Playlists MUST NOT be used to enumerate an unbounded public catalogue. A UI that
 lists playlists SHOULD bound the result set the same way catalogue browse is
 bounded in the main document.
 
-A companion that never talks to relays — Napstrfy, which holds no Nostr keys —
+A companion that never talks to relays — Deadwax, which holds no Nostr keys —
 does not consume this kind at all. It asks its own desktop instead, over the
 companion protocol in `PROTOCOL.md` (`playlists` for the list, `playlist` for one
 playlist's members, `libraryByIds` to turn member file IDs into playable
@@ -620,17 +620,17 @@ properties and MUST NOT reject an event for carrying extras.
 | `totalSize` | present | absent | without per-member `size` it could only restate hints, and would be an unverifiable claim |
 | marker | `napstr-playlist` | unchanged | already deployed and unambiguous |
 | `d` | UUID version 4 | any canonical UUID | no reason to forbid the time-ordered v7 |
-| `alt` | `Napstr public playlist` | unchanged | see below |
+| `alt` | `Deadwax public playlist` | unchanged | see below |
 | album enrichment | absent | optional `artist` and `mbid` | provisional and additive |
 | `client` | absent | optional | provenance hint |
 
 The `alt` string deliberately **keeps the word `public`** from the deployed event.
-It is redundant from Napstr's own perspective — this kind is public by
+It is redundant from Deadwax's own perspective — this kind is public by
 construction, and a private tier exists but is local state that never reaches a
 relay — but `alt` is exactly the field that a client which does not implement this
 kind will display to a human, and in this kind most neighbouring traffic is NIP-44
-ciphertext. `Napstr public playlist` tells such a reader both what the event is
-and that its content is readable text, which `Napstr playlist` does not.
+ciphertext. `Deadwax public playlist` tells such a reader both what the event is
+and that its content is readable text, which `Deadwax playlist` does not.
 
 ## Rationale notes (non-normative)
 

@@ -1,12 +1,12 @@
-# Napstr protocol 1
+# Deadwax protocol 1
 
 `napstr/1` is the interoperability and security boundary used by this implementation.
 
 ## Public Nostr events
 
-Catalogue records are parameterized-replaceable kind `30421` events. Required tags are `d=<full SHA-256>`, `t=napstr`, `x=<full SHA-256>`, `name`, `size`, `m`, and `alt`. JSON content carries `protocol`, `fileId`, `filename`, `title`, `artist`, `album`, `format`, `mime`, `size`, `license`, `description`, and `tags` for protocol compatibility. Napstr sets `title` to the indexed filename and leaves the optional descriptive fields empty; the app has no separate catalogue-metadata editor. Publishing the same author/kind/`d` replaces a record. A removed share replaces it with a deletion document that cannot be parsed as a catalogue record.
+Catalogue records are parameterized-replaceable kind `30421` events. Required tags are `d=<full SHA-256>`, `t=napstr`, `x=<full SHA-256>`, `name`, `size`, `m`, and `alt`. JSON content carries `protocol`, `fileId`, `filename`, `title`, `artist`, `album`, `format`, `mime`, `size`, `license`, `description`, and `tags` for protocol compatibility. Deadwax sets `title` to the indexed filename and leaves the optional descriptive fields empty; the app has no separate catalogue-metadata editor. Publishing the same author/kind/`d` replaces a record. A removed share replaces it with a deletion document that cannot be parsed as a catalogue record.
 
-Availability uses parameterized-replaceable kind `30422`, tagged with `d=availability-NNNN`, `t=napstr-availability`, and `expiration`. Its JSON content is an array of no more than 400 exact file IDs. Napstr sends fresh batches every four minutes with a ten-minute expiry and accepts only recent heartbeats. Replaceable events are used so relays retain the current heartbeat; ephemeral event kinds would normally not be stored and could not support on-demand search.
+Availability uses parameterized-replaceable kind `30422`, tagged with `d=availability-NNNN`, `t=napstr-availability`, and `expiration`. Its JSON content is an array of no more than 400 exact file IDs. Deadwax sends fresh batches every four minutes with a ten-minute expiry and accepts only recent heartbeats. Replaceable events are used so relays retain the current heartbeat; ephemeral event kinds would normally not be stored and could not support on-demand search.
 
 NIP-17 inbox relay lists use kind `10050` with `relay` tags. Profile metadata uses standard kind `0`.
 
@@ -14,7 +14,7 @@ Catalogue events never contain an onion, capability, local path, or transfer req
 
 ## Private signalling
 
-Every signal is a kind `14` private message delivered as a NIP-59 gift wrap by NIP-17. `nostr-sdk` applies NIP-44 encryption. Rumors carry NIP-40 `expiration` (20 minutes); Napstr rejects signals without a future expiry.
+Every signal is a kind `14` private message delivered as a NIP-59 gift wrap by NIP-17. `nostr-sdk` applies NIP-44 encryption. Rumors carry NIP-40 `expiration` (20 minutes); Deadwax rejects signals without a future expiry.
 
 Messages are JSON with one of these types:
 

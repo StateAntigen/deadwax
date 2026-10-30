@@ -145,7 +145,7 @@ fn client_builder(request_timeout: Duration, read_timeout: Duration) -> reqwest:
                 attempt.follow()
             }
         }))
-        .user_agent("Napstrfy/0.1 (https://napstr.net)")
+        .user_agent("Deadwax/0.1 (https://deadwax.rip)")
 }
 
 #[cfg(test)]

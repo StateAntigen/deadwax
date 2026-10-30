@@ -1,5 +1,5 @@
 {
-  description = "Napstr Tauri development shell";
+  description = "Deadwax Tauri development shell";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 

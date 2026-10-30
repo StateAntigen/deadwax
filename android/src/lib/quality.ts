@@ -5,7 +5,7 @@ import type { RemoteTrack } from './types';
  *
  * A phone's connection decides how expensive a file is to fetch, and the file's
  * own container decides what it costs: a lossless FLAC is tens of megabytes for
- * a song that a 128 kb/s MP3 gives away for three. Napstr knows both of those
+ * a song that a 128 kb/s MP3 gives away for three. Deadwax knows both of those
  * numbers because it read them out of the file when it scanned its library, so
  * the choice between them belongs on the phone, where the data is being spent.
  *
@@ -14,7 +14,7 @@ import type { RemoteTrack } from './types';
  * copy of a file this phone already has is what it plays.
  */
 
-/** The formats Napstr shares, in the order the chips are drawn. */
+/** The formats Deadwax shares, in the order the chips are drawn. */
 export const AUDIO_FORMATS = ['MP3', 'FLAC', 'WAV', 'OGG', 'OPUS'];
 
 /** The two that keep the samples themselves, which is why they are the big ones. */
@@ -122,11 +122,11 @@ export function activeProfile(settings: QualitySettings, metered: boolean): Qual
 /**
  * Whether this track fits what the connection may spend, and if not, why.
  *
- * Only what the file itself states is judged. A track whose bitrate Napstr did
+ * Only what the file itself states is judged. A track whose bitrate Deadwax did
  * not report is never held back for its bitrate, because a number this phone
  * does not have cannot be over a ceiling - the format still decides, and a
  * format is always known, since it is in the filename and in the tags. A format
- * that is not one of Napstr's own is left alone for the same reason: this
+ * that is not one of Deadwax's own is left alone for the same reason: this
  * setting is about music files it can identify, and guessing about the rest
  * would be inventing a policy.
  */

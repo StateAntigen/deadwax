@@ -1,4 +1,4 @@
-# Napstr cover event: kind `30427`
+# Deadwax cover event: kind `30427`
 
 > **Status:** draft proposal for upstream inclusion in
 > [lnbits/napstr `PROTOCOL.md`](https://github.com/lnbits/napstr/blob/main/PROTOCOL.md).
@@ -8,12 +8,12 @@
 >
 > **Kind selection (surveyed 2026-09-10, occupancy re-probed 2026-09-21):**
 > `30427` was the first kind in this range with no occupant when it was chosen.
-> The range is a shared commons rather than a Napstr reservation: every
+> The range is a shared commons rather than a Deadwax reservation: every
 > coordinate from `30420` upward is claimed by at least one unrelated
 > application, and `30425` was quiet only temporarily — an unrelated protocol
 > resumed publishing there on 2026-09-15. `30427` itself has since acquired three
 > foreign events as well. Marker tags (`#t=napstr-cover`) are therefore not
-> decorative: they are the only thing distinguishing Napstr events from neighbours
+> decorative: they are the only thing distinguishing Deadwax events from neighbours
 > at the same coordinate, so publishers and consumers MUST filter on the marker
 > and never on the kind alone. See "Neighbourhood occupancy" below.
 
@@ -37,7 +37,7 @@ Required tags:
 [
   ["d", "<coverKey>"],
   ["t", "napstr-cover"],
-  ["alt", "Napstr album cover assertion"]
+  ["alt", "Deadwax album cover assertion"]
 ]
 ```
 
@@ -48,7 +48,7 @@ Optional tags:
   ["x", "<coverFileId>"],
   ["thumb", "<https image url>"],
   ["m", "image/jpeg"],
-  ["client", "Napstr"]
+  ["client", "Deadwax"]
 ]
 ```
 
@@ -177,7 +177,7 @@ small enough that the difference cannot be seen.
 ## Embedded covers
 
 Publishers whose local audio files contain embedded artwork MAY share the
-image itself through Napstr:
+image itself through Deadwax:
 
 1. Extract the front-cover image as its own file.
 2. Compute its `fileId` (lowercase SHA-256 of the complete bytes) exactly as
@@ -223,7 +223,7 @@ album key. Consumers apply this order:
        ["p", "<cover author public key>", "spam"],
        ["e", "<cover event ID>", "spam"],
        ["napstr-cover", "<artist|album>"],
-       ["client", "Napstr"]
+       ["client", "Deadwax"]
      ]
    }
    ```
@@ -323,13 +323,13 @@ A probe of kinds `30415`–`30435` on 2026-09-21 found no empty coordinate from
 | kind | occupants | notes |
 | --- | --- | --- |
 | `30420` | text-adventure game, encrypted session app, lobby app | game went quiet 2026-05-18; others active to 2026-09-18 |
-| `30421` | Napstr catalogue (961), game shop listings, LLM oracle app | Napstr's own kind, shared |
-| `30422` | art marketplace (≈350), Napstr availability (47), game state | far more foreign than Napstr |
-| `30423` | Napstr audiobooks (59), art gallery (85), game loot (9) | three unrelated apps at one coordinate |
+| `30421` | Deadwax catalogue (961), game shop listings, LLM oracle app | Deadwax's own kind, shared |
+| `30422` | art marketplace (≈350), Deadwax availability (47), game state | far more foreign than Deadwax |
+| `30423` | Deadwax audiobooks (59), art gallery (85), game loot (9) | three unrelated apps at one coordinate |
 | `30424` | encrypted session app, text-adventure game | game stopped 2026-05-05, app resumed 2026-09-18 |
 | `30425` | encrypted session app (42), text-adventure game (28), `napstr-playlist` (1) | quiet 2026-05-12 → 2026-09-15, then resumed |
 | `30426` | text-adventure game, encrypted session app | game stopped 2026-05-01 |
-| `30427` | Napstr covers (712), encrypted session app (3) | **this kind** |
+| `30427` | Deadwax covers (712), encrypted session app (3) | **this kind** |
 | `30428`, `30429` | text-adventure game trades | `30429` untouched since 2026-04-29 |
 | `30430` | `voidstrike` / `macsand` lobby codes (514) | one event per author |
 
@@ -349,7 +349,7 @@ and 2026-09-18, and its events exist on only two of eighteen relays probed
 kind `0`, no kind `1`, no relay list.
 
 Its two busiest channels are `30422` (84 sampled events) and `30423` (53) — the
-Napstr availability and audiobook kinds — so a client that read either kind
+Deadwax availability and audiobook kinds — so a client that read either kind
 without checking the marker would ingest encrypted blobs as heartbeats or
 manifests. `merge_availability_events` requires the `napstr-availability` tag and
 `valid_audiobook_event` requires `napstr-audiobook`, and that requirement is the
@@ -373,16 +373,16 @@ What follows from that is not a permission question but three obligations:
   `d` values whose *shape* is distinct from neighbours' patterns.** A cover key
   (`artist|album`) and a playlist ID (a UUID) are both distinct in shape from the
   neighbours' `d` patterns observed here, which is what keeps shape collisions
-  from becoming bugs. Napstr's catalogue and audiobook `d` values are 64-character
+  from becoming bugs. Deadwax's catalogue and audiobook `d` values are 64-character
   hex, which is **shape-identical to a public key** — the same shape the session
   app uses for its peer-addressed slots. On `30421` and `30423` the marker tag is
-  the *only* thing separating a Napstr file ID from a peer key, so a `#d` query
+  the *only* thing separating a Deadwax file ID from a peer key, so a `#d` query
   against those kinds is ambiguous by construction and MUST be accompanied by the
   marker.
-- **Napstr events MUST stay ignorable by any foreign client.** The markers and the
+- **Deadwax events MUST stay ignorable by any foreign client.** The markers and the
   `d` shapes achieve this. Note that the unidentified protocol publishes bare `p`
   and `d` with no marker whatsoever, which makes it the fragile participant in
-  this neighbourhood rather than Napstr: it has no way to exclude our events from
+  this neighbourhood rather than Deadwax: it has no way to exclude our events from
   its own queries, whereas we have a marker on every event.
 
 ## Rationale notes (non-normative)

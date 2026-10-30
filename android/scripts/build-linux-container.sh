@@ -5,7 +5,7 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 image="napstr-appimage-builder:ubuntu-22.04"
 
 # Reuse the existing Ubuntu toolchain; only the companion and build caches are
-# writable in the container. Napstr and the shared protocol are read-only.
+# writable in the container. Deadwax and the shared protocol are read-only.
 if ! docker image inspect "$image" >/dev/null 2>&1; then
   docker build --file "$project_dir/packaging/appimage.Dockerfile" \
     --tag "$image" "$project_dir/packaging"

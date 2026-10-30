@@ -80,7 +80,7 @@ class ShareBridge(private val activity: MainActivity) {
     val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
       ?: return false
     activity.runOnUiThread {
-      clipboard.setPrimaryClip(ClipData.newPlainText("Napstrfy", payload))
+      clipboard.setPrimaryClip(ClipData.newPlainText("Deadwax", payload))
     }
     return true
   }

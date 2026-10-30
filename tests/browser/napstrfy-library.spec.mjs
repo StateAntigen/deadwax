@@ -128,14 +128,14 @@ async function pressBack(page) {
   });
 }
 
-test('Napstrfy leaves the liked page from its close button', async ({ page }) => {
+test('Deadwax leaves the liked page from its close button', async ({ page }) => {
   await openApp(page, { likes: [likedSong] });
   await openLikedPage(page);
   await page.locator('.liked-close').click();
   await searchPageIsBack(page);
 });
 
-test('Napstrfy walks back out of every page it advertises, and is only left from home', async ({ page }) => {
+test('Deadwax walks back out of every page it advertises, and is only left from home', async ({ page }) => {
   // A phone, because a wide desktop window pins the player as a column that is
   // never a drawer to close.
   await openApp(page, { library: zzTop, album: zzTop, likes: [likedSong], platform: 'android' });
@@ -175,7 +175,7 @@ test('Napstrfy walks back out of every page it advertises, and is only left from
   expect(await page.evaluate(() => window.appExits)).toBe(1);
 });
 
-test('Napstrfy draws the player bar and the cover stretched behind it from the thumbnail', async ({ page }) => {
+test('Deadwax draws the player bar and the cover stretched behind it from the thumbnail', async ({ page }) => {
   // The full rendition is never delivered in this test, so whatever is drawn on
   // the bar is drawn from the small one the tile that was tapped already had.
   const { releaseFullCover } = await openApp(page, { library: zzTop, album: zzTop, platform: 'android', holdFullCover: true });
@@ -189,7 +189,7 @@ test('Napstrfy draws the player bar and the cover stretched behind it from the t
   await releaseFullCover();
 });
 
-test('Napstrfy gives the lock screen the thumbnail, then the full cover once it has landed', async ({ page }) => {
+test('Deadwax gives the lock screen the thumbnail, then the full cover once it has landed', async ({ page }) => {
   // The full rendition is held open, so the order the two are published in is the
   // assertion rather than a race between them.
   const { releaseFullCover } = await openApp(page, { library: zzTop, album: zzTop, platform: 'android', recordMedia: true, holdFullCover: true });
@@ -204,7 +204,7 @@ test('Napstrfy gives the lock screen the thumbnail, then the full cover once it 
   await expect.poll(artwork).toBe(coverFull);
 });
 
-test('Napstrfy leaves the liked page with a right swipe, without playing what was under the finger', async ({ page }) => {
+test('Deadwax leaves the liked page with a right swipe, without playing what was under the finger', async ({ page }) => {
   await openApp(page, { likes: [likedSong] });
   await openLikedPage(page);
   const box = await page.locator('.track-list').boundingBox();
@@ -218,7 +218,7 @@ test('Napstrfy leaves the liked page with a right swipe, without playing what wa
   expect(await page.evaluate(() => window.calls.filter((call) => call.cmd === 'cache_remote_audio').length)).toBe(0);
 });
 
-test('Napstrfy keeps one artist\'s Greatest Hits out of another artist\'s', async ({ page }) => {
+test('Deadwax keeps one artist\'s Greatest Hits out of another artist\'s', async ({ page }) => {
   await openApp(page, { library: zzTop, album: [...zzTop, ...sameTitleOtherArtists] });
   await expect(page.locator('.album-card strong')).toHaveText('Greatest Hits');
   await page.locator('.album-open').click();
@@ -231,7 +231,7 @@ test('Napstrfy keeps one artist\'s Greatest Hits out of another artist\'s', asyn
   await expect(page.locator('.album-track-copy strong')).toHaveText(['Doubleback', 'Gimme All Your Lovin', 'Sharp Dressed Man']);
 });
 
-test('Napstrfy moves the storage badge when playing puts a track on the phone', async ({ page }) => {
+test('Deadwax moves the storage badge when playing puts a track on the phone', async ({ page }) => {
   await openApp(page, { library: [zzTop[0]], cached: [] });
   const badge = page.locator('.track-list .track-badge');
   await expect(badge).toHaveClass(/computer/);
@@ -240,7 +240,7 @@ test('Napstrfy moves the storage badge when playing puts a track on the phone', 
   await expect(badge).toHaveClass(/phone/);
 });
 
-test('Napstrfy opens an album on its thumbnail and fades the full cover in over it', async ({ page }) => {
+test('Deadwax opens an album on its thumbnail and fades the full cover in over it', async ({ page }) => {
   await openApp(page, { library: zzTop, album: zzTop });
   await page.locator('.album-open').click();
   // The small rendition is what the shelf tile already fetched, so it is up
@@ -259,7 +259,7 @@ test('Napstrfy opens an album on its thumbnail and fades the full cover in over 
   await expect(full).toHaveClass(/ready/);
 });
 
-test('Napstrfy opens the now-playing drawer on the thumbnail rather than a blank square', async ({ page }) => {
+test('Deadwax opens the now-playing drawer on the thumbnail rather than a blank square', async ({ page }) => {
   // A phone, because a wide desktop window pins this sheet as a column and has
   // no drawer to open.
   const { releaseFullCover } = await openApp(page, { library: zzTop, album: zzTop, platform: 'android', holdFullCover: true });

@@ -35,7 +35,7 @@ pub struct AudioProperties {
     pub sample_rate_hz: u32,
     pub channels: u8,
     /// True when the format stores the samples rather than an approximation of
-    /// them. Decided by the format, because each of the five Napstr accepts is
+    /// them. Decided by the format, because each of the five Deadwax accepts is
     /// unambiguously one or the other: FLAC and WAV keep the samples, and MP3,
     /// Vorbis and Opus do not.
     pub lossless: bool,

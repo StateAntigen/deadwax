@@ -165,18 +165,18 @@ test('notarization submits once, preserves the ID, and only accepts Accepted', a
 
 test('final checksums cover stapled bytes and are written only after cleanup', async (t) => {
   const directory = await temporary(t);
-  const output = join(directory, 'Napstr.dmg');
-  const session = { async cleanup() { assert.deepEqual(await readdir(directory), ['Napstr.dmg']); } };
+  const output = join(directory, 'Deadwax.dmg');
+  const session = { async cleanup() { assert.deepEqual(await readdir(directory), ['Deadwax.dmg']); } };
   await withCleanup(session, {}, output, async () => {
     await writeFile(output, 'unsigned image');
     await writeFile(output, 'final signed and stapled image');
   });
-  assert.equal(await readFile(`${output}.sha256`, 'utf8'), `${await checksum(output)}  Napstr.dmg\n`);
+  assert.equal(await readFile(`${output}.sha256`, 'utf8'), `${await checksum(output)}  Deadwax.dmg\n`);
 });
 
 test('build, verification, interruption, and cleanup failures remove both publishable artifacts', async (t) => {
   const directory = await temporary(t);
-  const output = join(directory, 'Napstr.dmg');
+  const output = join(directory, 'Deadwax.dmg');
   for (const stage of ['build', 'verification', 'interrupted', 'cleanup']) {
     let cleaned = false;
     const session = { async cleanup() { cleaned = true; if (stage === 'cleanup') throw new Error('cleanup failed'); } };

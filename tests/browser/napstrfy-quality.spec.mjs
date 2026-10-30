@@ -5,7 +5,7 @@ import { mockNative, serveAudio } from './helpers/native.mjs';
  * Music quality is the phone's setting, because the phone is what pays.
  *
  * These tests pin down the two halves of that: what this phone asks for, and
- * what it says when it does not ask. The tracks carry the facts Napstr reads out
+ * what it says when it does not ask. The tracks carry the facts Deadwax reads out
  * of each file - the format, and the bitrate the container declares - so a test
  * can tell a policy that judged the file from one that only looked at its name.
  */
@@ -118,7 +118,7 @@ function answerDialogs(page, answer = 'accept') {
   return messages;
 }
 
-test('Napstrfy asks once before spending mobile data on a lossless track', async ({ page }) => {
+test('Deadwax asks once before spending mobile data on a lossless track', async ({ page }) => {
   await openApp(page, { library: [losslessSong, otherLosslessSong, plainSong], metered: true });
   const dialogs = answerDialogs(page);
 
@@ -136,7 +136,7 @@ test('Napstrfy asks once before spending mobile data on a lossless track', async
   expect(dialogs.length).toBe(1);
 });
 
-test('Napstrfy leaves a held-back track alone when the answer is no', async ({ page }) => {
+test('Deadwax leaves a held-back track alone when the answer is no', async ({ page }) => {
   await openApp(page, { metered: true });
   answerDialogs(page, 'dismiss');
 
@@ -145,7 +145,7 @@ test('Napstrfy leaves a held-back track alone when the answer is no', async ({ p
   expect(await callsTo(page, 'cache_remote_audio')).toBe(0);
 });
 
-test('Napstrfy plays a held-back track that is already on this phone', async ({ page }) => {
+test('Deadwax plays a held-back track that is already on this phone', async ({ page }) => {
   // Nothing is being spent on a file this phone holds, and a setting about data
   // must not stop music that is already here.
   await openApp(page, { metered: true, cached: [losslessSong] });
@@ -156,7 +156,7 @@ test('Napstrfy plays a held-back track that is already on this phone', async ({ 
   expect(dialogs).toEqual([]);
 });
 
-test('Napstrfy holds nothing back over Wi-Fi unless it is asked to', async ({ page }) => {
+test('Deadwax holds nothing back over Wi-Fi unless it is asked to', async ({ page }) => {
   await openApp(page, { metered: false });
   const dialogs = answerDialogs(page);
 
@@ -165,7 +165,7 @@ test('Napstrfy holds nothing back over Wi-Fi unless it is asked to', async ({ pa
   expect(dialogs).toEqual([]);
 });
 
-test('Napstrfy prefetches the next track when it fits', async ({ page }) => {
+test('Deadwax prefetches the next track when it fits', async ({ page }) => {
   // The control for the test below: the warm-ahead does happen, so an absence
   // there is the setting and not a path that never runs.
   await openApp(page, { library: [plainSong, track('e', { title: 'Also small', format: 'MP3' })], metered: true });
@@ -173,7 +173,7 @@ test('Napstrfy prefetches the next track when it fits', async ({ page }) => {
   await expect.poll(() => callsTo(page, 'prefetch_remote_audio')).toBe(1);
 });
 
-test('Napstrfy does not warm ahead into a track it would hold back', async ({ page }) => {
+test('Deadwax does not warm ahead into a track it would hold back', async ({ page }) => {
   await openApp(page, { library: [plainSong, losslessSong], metered: true });
   await play(page, 'Small and fine');
   await expect.poll(() => callsTo(page, 'cache_remote_audio')).toBe(1);
@@ -228,7 +228,7 @@ test('a pre-load of zero fetches only what is played', async ({ page }) => {
   expect(await callsTo(page, 'prefetch_remote_audio')).toBe(0);
 });
 
-test('Napstrfy holds back a file the host reported as over the ceiling', async ({ page }) => {
+test('Deadwax holds back a file the host reported as over the ceiling', async ({ page }) => {
   await openApp(page, {
     library: [heavySong],
     metered: true,
@@ -242,7 +242,7 @@ test('Napstrfy holds back a file the host reported as over the ceiling', async (
   expect(await callsTo(page, 'cache_remote_audio')).toBe(0);
 });
 
-test('Napstrfy keeps the quality setting on the phone', async ({ page }) => {
+test('Deadwax keeps the quality setting on the phone', async ({ page }) => {
   await openApp(page, { metered: true });
   await page.locator('.header-icon[aria-label="Settings"]').click();
 
@@ -268,14 +268,14 @@ test('Napstrfy keeps the quality setting on the phone', async ({ page }) => {
   await expect(page.getByRole('button', { name: /On mobile data/ })).toContainText('Up to 192 kb/s');
 });
 
-test('Napstrfy shows what each file is on the row it is listed on', async ({ page }) => {
+test('Deadwax shows what each file is on the row it is listed on', async ({ page }) => {
   await openApp(page, { library: [losslessSong, plainSong], metered: false });
   const meta = page.locator('.track-row').filter({ hasText: 'Loud and big' }).locator('.track-meta');
   await expect(meta).toContainText('FLAC · lossless · 900 kb/s');
   await expect(page.locator('.track-row').filter({ hasText: 'Small and fine' }).locator('.track-meta')).toContainText('MP3 · 128 kb/s');
 });
 
-test("Napstrfy's now playing drawer repeats the file's bitrate rather than working it out", async ({ page }) => {
+test("Deadwax's now playing drawer repeats the file's bitrate rather than working it out", async ({ page }) => {
   // 4 MB over 200 seconds is 160 kb/s by arithmetic; the file says 128. The
   // drawer has to say what the file says, since that is the audio and not the
   // whole file.

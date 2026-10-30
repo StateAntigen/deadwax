@@ -1,4 +1,4 @@
-name: Build Napstr desktop and Napstrfy Android installers
+name: Build Deadwax desktop and Deadwax Android installers
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   build:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
-    name: Napstr ${{ matrix.platform }}
+    name: Deadwax ${{ matrix.platform }}
     permissions:
       contents: write
     env:
@@ -118,9 +118,9 @@ jobs:
           LD_LIBRARY_PATH: ${{ matrix.tor_platform == 'linux' && format('{0}/src-tauri/resources/tor/linux/tor', github.workspace) || '' }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: Napstr ${{ env.RELEASE_TAG }}
+          releaseName: Deadwax ${{ env.RELEASE_TAG }}
           releaseBody: |
-            Cross-platform Napstr desktop installers.
+            Cross-platform Deadwax desktop installers.
 
             Release macOS DMGs are Developer ID signed, notarized, and stapled. SHA-256 checksums accompany the macOS installers.
           releaseDraft: true
@@ -185,7 +185,7 @@ jobs:
           artifacts=src-tauri/target/macos-release/signed
           (cd "$artifacts" && shasum -a 256 -c ./*.dmg.sha256)
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            create_args=(release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --title "Napstr $RELEASE_TAG" --notes "Napstr and Napstrfy installers. Release macOS DMGs are Developer ID signed, notarized, and stapled.")
+            create_args=(release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --title "Deadwax $RELEASE_TAG" --notes "Deadwax desktop and Android installers. Release macOS DMGs are Developer ID signed, notarized, and stapled.")
             if [[ "$RELEASE_TAG" == *-* ]]; then
               create_args+=(--prerelease)
             fi
@@ -199,7 +199,7 @@ jobs:
       (github.event_name == 'pull_request' &&
        startsWith(github.event.pull_request.title, '[build]') &&
        (github.event.action != 'edited' || github.event.changes.title != null))
-    name: Napstr ${{ matrix.name }}
+    name: Deadwax ${{ matrix.name }}
     env:
       MACOS_BUILD_MODE: >-
         ${{ (github.event_name == 'workflow_dispatch' ||
@@ -263,7 +263,7 @@ jobs:
       - name: Upload verified installer and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: Napstr-${{ matrix.name }}-${{ env.MACOS_BUILD_MODE }}
+          name: Deadwax-${{ matrix.name }}-${{ env.MACOS_BUILD_MODE }}
           path: |
             src-tauri/target/macos-release/${{ env.MACOS_BUILD_MODE }}/*.dmg
             src-tauri/target/macos-release/${{ env.MACOS_BUILD_MODE }}/*.dmg.sha256
@@ -271,7 +271,7 @@ jobs:
 
   android:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
-    name: Build Napstrfy Android APK
+    name: Build Deadwax Android APK
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -314,10 +314,10 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
       - name: Set and verify version from release tag
         run: node scripts/set-release-version.mjs
-      - name: Install Napstrfy dependencies
+      - name: Install Deadwax dependencies
         working-directory: android
         run: npm ci
-      - name: Verify Napstrfy interface
+      - name: Verify Deadwax interface
         working-directory: android
         run: npm run check
       - name: Generate Android project
@@ -331,7 +331,7 @@ jobs:
           ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
         run: |
           if [[ -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" || -z "$ANDROID_KEY_BASE64" ]]; then
-            echo "Napstrfy release signing secrets are missing." >&2
+            echo "Deadwax release signing secrets are missing." >&2
             echo "Add ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD, and ANDROID_KEY_BASE64 in repository Actions secrets." >&2
             exit 1
           fi
@@ -350,7 +350,7 @@ jobs:
       - name: Build signed universal APK
         working-directory: android
         run: npm run android:build -- --apk
-      - name: Verify and upload Napstrfy APK
+      - name: Verify and upload Deadwax APK
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -370,7 +370,7 @@ jobs:
           jar tf "$apk" > "$apk_files"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             if ! grep -Fxq "lib/$abi/libnostrfy_lib.so" "$apk_files"; then
-              echo "APK is missing the Napstrfy native library for $abi" >&2
+              echo "APK is missing the Deadwax native library for $abi" >&2
               exit 1
             fi
           done
@@ -382,11 +382,11 @@ jobs:
             exit 1
           fi
 
-          asset="$RUNNER_TEMP/Napstrfy_${release_version}_android.apk"
+          asset="$RUNNER_TEMP/Deadwax_${release_version}_android.apk"
           cp "$apk" "$asset"
 
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            create_args=(release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --title "Napstr $RELEASE_TAG" --notes "Cross-platform Napstr desktop installers and the Napstrfy Android companion.")
+            create_args=(release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --title "Deadwax $RELEASE_TAG" --notes "Cross-platform Deadwax desktop installers and the Deadwax Android companion.")
             if [[ "$RELEASE_TAG" == *-* ]]; then
               create_args+=(--prerelease)
             fi

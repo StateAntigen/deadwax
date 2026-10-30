@@ -1,4 +1,4 @@
-# Record a scripted tour of Napstrfy on a USB-attached phone.
+# Record a scripted tour of Deadwax on a USB-attached phone.
 #
 #   .\tour.ps1                      # record the whole tour
 #   .\tour.ps1 -SkipRecording       # just drive the UI (no video), for exploring

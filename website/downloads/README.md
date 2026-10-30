@@ -6,10 +6,10 @@ the Windows installer, Linux AppImage, and architecture-specific macOS DMGs auto
 The macOS release helper signs, notarizes, staples, and verifies the app and DMG
 before uploading the installer and its SHA-256 checksum. Configure the six Apple
 secrets described in [macOS release setup](../../docs/macos-releases.md) first.
-The same tag runs `.github/workflows/napstrfy-desktop.yml` for Napstrfy desktop installers;
-`release.yml` also attaches the Napstrfy Android APK.
+The same tag runs `.github/workflows/napstrfy-desktop.yml` for Deadwax desktop installers;
+`release.yml` also attaches the Deadwax Android APK.
 
-Both product pages query GitHub's latest published release on every visit. The Napstrfy
+Both product pages query GitHub's latest published release on every visit. The Deadwax
 page lists Windows, Linux, macOS (Apple Silicon and Intel), and Android separately.
 Only matching product assets enable download links. Missing installers display as
 unavailable and become downloadable on the next visit after they are attached to the

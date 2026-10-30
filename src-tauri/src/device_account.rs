@@ -159,7 +159,7 @@ pub fn remember_key(db_path: &Path, endpoint_id: &str, pubkey: &str) -> Result<(
         )
         .map_err(|error| error.to_string())?;
     if changed == 0 {
-        return Err("This phone is not paired with Napstr".into());
+        return Err("This phone is not paired with Deadwax".into());
     }
     Ok(())
 }

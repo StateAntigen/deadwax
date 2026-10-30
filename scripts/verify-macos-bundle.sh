@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-app_binary="${1:?Napstr app executable is required}"
+app_binary="${1:?Deadwax app executable is required}"
 tor_binary="${2:?bundled Tor executable is required}"
 expected_arch="${3:?expected architecture is required (arm64 or x86_64)}"
 

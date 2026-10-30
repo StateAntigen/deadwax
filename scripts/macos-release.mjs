@@ -15,8 +15,8 @@ export const credentialNames = [
   'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_SPECIFIC_PASSWORD'
 ];
 const products = {
-  napstr: { directory: root, name: 'Napstr', binary: 'napstr', identifier: 'social.napstr.desktop' },
-  napstrfy: { directory: join(root, 'android'), name: 'Napstrfy', binary: 'napstrfy', identifier: 'net.napstr.nostrfy' }
+  napstr: { directory: root, name: 'Deadwax', client: 'desktop', binary: 'napstr', identifier: 'social.napstr.desktop' },
+  napstrfy: { directory: join(root, 'android'), name: 'Deadwax', client: 'companion', binary: 'napstrfy', identifier: 'net.napstr.nostrfy' }
 };
 const profile = 'napstr-notarization';
 const machMagic = new Set(['feedface', 'cefaedfe', 'feedfacf', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca']);
@@ -402,7 +402,7 @@ async function verifyImage(runner, session, output, product, expectedArch, team)
     await runner.run('Validate app ticket from final DMG', '/usr/bin/xcrun', ['stapler', 'validate', app]);
     await runner.run('Assess app with Gatekeeper', '/usr/sbin/spctl', ['--assess', '--type', 'execute', '--verbose=2', app]);
   }
-  if (product.name === 'Napstr') {
+  if (product.client === 'desktop') {
     // No DYLD overrides: this exercises the exact hardened runtime users get.
     await runner.run('Smoke-test bundled Tor from final DMG', join(app, 'Contents/Resources/resources/tor/macos/tor/tor'), ['--version']);
   }
@@ -495,7 +495,9 @@ export async function main(args = process.argv.slice(2)) {
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.test(version)) throw new Error('Invalid application version');
   product.bundleVersion = version.split('-')[0];
   const outputDir = join(targetDir, 'macos-release', options.signed ? 'signed' : 'unsigned');
-  const output = join(outputDir, `${product.name}_${version}_${expectedArch}.dmg`);
+  // Both Tauri products now call themselves Deadwax, so the file name - and
+  // therefore the release asset - has to say which client it belongs to.
+  const output = join(outputDir, `${product.name}${product.client === 'companion' ? '-Companion' : ''}_${version}_${expectedArch}.dmg`);
   await session.begin();
   const interrupt = () => { runner.interrupted = true; runner.stopChild(); };
   process.on('SIGINT', interrupt);
@@ -508,10 +510,10 @@ export async function main(args = process.argv.slice(2)) {
       await session.prepare();
       const tauri = join(product.directory, 'node_modules/@tauri-apps/cli/tauri.js');
       if (!await exists(tauri)) throw new Error('Install dependencies with npm ci before building');
-      if (product.name === 'Napstr') await runner.run('Prepare pinned Tor bundle', process.execPath, [join(root, 'scripts/prepare-tor-bundle.mjs')], { timeout: 600_000 });
+      if (product.client === 'desktop') await runner.run('Prepare pinned Tor bundle', process.execPath, [join(root, 'scripts/prepare-tor-bundle.mjs')], { timeout: 600_000 });
       const override = { version, bundle: { macOS: { signingIdentity: null, hardenedRuntime: options.signed } } };
       // Other platforms may also have local Tor resources; never ship them on Mac.
-      if (product.name === 'Napstr') override.bundle.resources = ['resources/tor/macos/**/*'];
+      if (product.client === 'desktop') override.bundle.resources = ['resources/tor/macos/**/*'];
       await runner.run('Build Tauri application', process.execPath, [tauri, 'build', '--ci', '--no-sign', '--target', target, '--bundles', 'app', '--config', JSON.stringify(override), '--', '--locked'], {
         cwd: product.directory, env: { CARGO_TARGET_DIR: targetDir }, timeout: 7_200_000
       });
@@ -520,7 +522,7 @@ export async function main(args = process.argv.slice(2)) {
       for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
         await runner.run('Finalize macOS bundle version', '/usr/bin/plutil', ['-replace', key, '-string', product.bundleVersion, join(app, 'Contents/Info.plist')]);
       }
-      if (product.name === 'Napstr') await prepareTor(runner, app);
+      if (product.client === 'desktop') await prepareTor(runner, app);
       // All bundle mutations finish before the final signatures are made.
       await runner.run('Remove packaging extended attributes', '/usr/bin/xattr', ['-cr', app]);
       const identity = options.signed ? await session.setupKeychain(credentials) : '-';

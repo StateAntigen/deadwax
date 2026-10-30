@@ -308,7 +308,7 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         ("display_name", "napstr-user".to_string()),
         (
             "profile_about",
-            "Sharing files privately with Napstr. napstr.net".to_string(),
+            "Sharing files privately with Deadwax. deadwax.rip".to_string(),
         ),
         ("profile_picture", "".to_string()),
         ("profile_event_fingerprint", "".to_string()),
@@ -357,8 +357,8 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         .execute(
             "UPDATE settings SET value=?1 WHERE key='profile_about' AND value=?2",
             params![
-                "Sharing files privately with Napstr. napstr.net",
-                "Sharing files privately with Napstr."
+                "Sharing files privately with Deadwax. deadwax.rip",
+                "Sharing files privately with Deadwax."
             ],
         )
         .map_err(|error| error.to_string())?;
@@ -1081,7 +1081,7 @@ fn index_path_with_progress(
     mut batch_committed: impl FnMut(IndexBatch),
 ) -> Result<IndexReport, String> {
     if !folder.is_dir() {
-        return Err("The selected Napstr folder does not exist or is not a directory".into());
+        return Err("The selected Deadwax folder does not exist or is not a directory".into());
     }
     let mut report = IndexReport {
         file_count: 0,
@@ -1273,7 +1273,7 @@ fn run_index_job(
             scanning: true,
             processed_files: 0,
             indexed_files: 0,
-            message: "Scanning the Napstr folder…".into(),
+            message: "Scanning the Deadwax folder…".into(),
         },
     );
     let mut connection = open_connection(db_path)?;
@@ -1610,7 +1610,7 @@ fn start_folder_watcher(
                 };
                 if let Err(error) = outcome {
                     diag::note(&format!(
-                        "The Napstr folder changed but could not be indexed: {error}"
+                        "The Deadwax folder changed but could not be indexed: {error}"
                     ));
                 }
             }
@@ -1627,7 +1627,7 @@ const FOLDER_WAIT_ATTEMPTS: usize = 240;
 
 /// Wait for the shared folder to appear, then watch it and walk it.
 ///
-/// A folder that is not a directory when Napstr starts is nearly always a network
+/// A folder that is not a directory when Deadwax starts is nearly always a network
 /// share that has not been mounted yet rather than one that has been deleted, and
 /// the difference decides what happens to the index: nothing is emptied for it, so
 /// what is missing is the watcher and the walk. This thread is what makes a share
@@ -1681,14 +1681,14 @@ fn wait_for_folder_and_watch(
             }
             Err(error) => {
                 diag::note(&format!(
-                    "The Napstr folder is back but could not be watched: {error}"
+                    "The Deadwax folder is back but could not be watched: {error}"
                 ));
                 return;
             }
         }
     }
     diag::note(&format!(
-        "The Napstr folder {} was not there when Napstr started and has not appeared since; press Rescan once it is mounted.",
+        "The Deadwax folder {} was not there when Deadwax started and has not appeared since; press Rescan once it is mounted.",
         folder.display()
     ));
 }
@@ -1718,7 +1718,7 @@ fn save_audiobook(
             .components()
             .any(|component| !matches!(component, std::path::Component::Normal(_)))
     {
-        return Err("choose a subfolder inside the Napstr folder".into());
+        return Err("choose a subfolder inside the Deadwax folder".into());
     }
     let title = audio::sanitise_public_text(title.trim());
     let author = audio::sanitise_public_text(author.trim());
@@ -1795,7 +1795,7 @@ async fn set_napstr_folder(
 ) -> Result<IndexReport, String> {
     let folder = PathBuf::from(&path);
     if !folder.is_dir() {
-        return Err("The selected Napstr folder does not exist or is not a directory".into());
+        return Err("The selected Deadwax folder does not exist or is not a directory".into());
     }
     fs::create_dir_all(folder.join("Audiobooks"))
         .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
@@ -2136,14 +2136,14 @@ fn open_release_url(url: String) -> Result<(), String> {
     if !is_trusted_release_url(&url) {
         return Err("refused to open an untrusted release URL".into());
     }
-    open_with_system(Path::new(&url), "Napstr release")
+    open_with_system(Path::new(&url), "Deadwax release")
 }
 
 #[tauri::command]
 fn open_napstrfy_website() -> Result<(), String> {
     open_with_system(
-        Path::new("https://napstr.net/napstrfy.html"),
-        "Napstrfy website",
+        Path::new("https://deadwax.rip/napstrfy.html"),
+        "Deadwax website",
     )
 }
 
@@ -2151,7 +2151,7 @@ fn open_napstrfy_website() -> Result<(), String> {
 fn open_napstr_folder(state: State<'_, AppState>) -> Result<(), String> {
     let folder = PathBuf::from(get_setting(&open_db(&state)?, "shared_folder")?);
     fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
-    open_with_system(&folder, "Napstr folder")
+    open_with_system(&folder, "Deadwax folder")
 }
 
 fn playable_audio_path(connection: &Connection, file_id: &str) -> Result<PathBuf, String> {
@@ -2177,7 +2177,7 @@ fn playable_audio_path(connection: &Connection, file_id: &str) -> Result<PathBuf
             return Ok(path);
         }
     }
-    Err("audio is not present in the indexed Napstr folder".into())
+    Err("audio is not present in the indexed Deadwax folder".into())
 }
 
 fn validate_length(label: &str, value: &str, maximum: usize) -> Result<(), String> {
@@ -2245,7 +2245,7 @@ fn save_file_tags(
         )
         .map_err(|error| error.to_string())?;
     if changed != 1 {
-        return Err("track is no longer in the Napstr folder".into());
+        return Err("track is no longer in the Deadwax folder".into());
     }
     snapshot(&connection)
 }
@@ -2816,7 +2816,7 @@ fn nudge_cover_worker(state: State<'_, AppState>) {
 ///
 /// Stored normalised — one lowercase domain per line — so the box reads back the
 /// list that is actually in force. An empty list accepts any HTTPS host, which
-/// is how Napstr behaved before the list existed.
+/// is how Deadwax behaved before the list existed.
 #[tauri::command]
 fn set_allowed_art_hosts(
     hosts: String,
@@ -2885,7 +2885,7 @@ fn cancel_cover_scan(state: State<'_, AppState>) {
 
 /// The MusicBrainz query the automatic lookup sends for one album.
 ///
-/// The manual art tool opens on this, so a person edits the search Napstr
+/// The manual art tool opens on this, so a person edits the search Deadwax
 /// actually asked rather than retyping one from scratch.
 #[tauri::command]
 fn cover_default_query(artist: String, album: String) -> String {
@@ -2895,7 +2895,7 @@ fn cover_default_query(artist: String, album: String) -> String {
 /// MusicBrainz release groups for one album, for choosing art by hand.
 ///
 /// `query` is the person's own edited search; leaving it empty uses the query
-/// the automatic lookup sends, so the tool opens on what Napstr already asked.
+/// the automatic lookup sends, so the tool opens on what Deadwax already asked.
 #[tauri::command]
 async fn cover_search_candidates(
     artist: String,
@@ -2954,7 +2954,7 @@ pub fn run() {
             // the log: a desktop that will not start is the one case where the
             // file has to already exist by the time somebody looks for it.
             diag::start(&app_data);
-            diag::note(&format!("Napstr starting from {}", app_data.display()));
+            diag::note(&format!("Deadwax starting from {}", app_data.display()));
             let resource_dir = app
                 .path()
                 .resource_dir()
@@ -3205,7 +3205,7 @@ pub fn run() {
             close_window
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Napstr");
+        .expect("error while building Deadwax");
 
     let exit_code = app.run_return(|_, _| {});
     if let Some(services) = shutdown_services
@@ -3853,7 +3853,7 @@ mod tests {
         assert_eq!(settings.nostr_relays, DEFAULT_NOSTR_RELAYS);
         assert_eq!(
             settings.profile_about,
-            "Sharing files privately with Napstr. napstr.net"
+            "Sharing files privately with Deadwax. deadwax.rip"
         );
         assert_eq!(
             get_setting(&connection, "profile_event_fingerprint").unwrap(),
@@ -3871,7 +3871,7 @@ mod tests {
         let connection = open_connection(&db_path).unwrap();
         connection
             .execute(
-                "UPDATE settings SET value='Sharing files privately with Napstr.' WHERE key='profile_about'",
+                "UPDATE settings SET value='Sharing files privately with Deadwax.' WHERE key='profile_about'",
                 [],
             )
             .unwrap();
@@ -3887,7 +3887,7 @@ mod tests {
         let connection = open_connection(&db_path).unwrap();
         assert_eq!(
             get_setting(&connection, "profile_about").unwrap(),
-            "Sharing files privately with Napstr. napstr.net"
+            "Sharing files privately with Deadwax. deadwax.rip"
         );
         assert_eq!(
             get_setting(&connection, "profile_event_fingerprint").unwrap(),

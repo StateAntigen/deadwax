@@ -1,6 +1,6 @@
 # macOS builds and releases
 
-Napstr and Napstrfy share `scripts/macos-release.mjs` for local and CI builds.
+The desktop build and the companion build share `scripts/macos-release.mjs` for local and CI builds.
 The release sequence follows [LNbits PR #4175](https://github.com/lnbits/lnbits/pull/4175),
 using Tauri to build these applications. Local commands never create a tag,
 publish a release, or upload installers to GitHub.
@@ -32,7 +32,7 @@ npm run macos-build
 npm run macos-build:signed
 ```
 
-For Napstrfy, either run those same commands from `android/`, or use:
+For Deadwax, either run those same commands from `android/`, or use:
 
 ```sh
 npm --prefix android ci
@@ -49,13 +49,13 @@ There is no automatic fallback to a community build when signing fails.
 Outputs are under the selected application's `src-tauri/target/macos-release/`:
 
 ```text
-signed/Napstr_0.1.0_arm64.dmg
-signed/Napstr_0.1.0_arm64.dmg.sha256
-unsigned/Napstr_0.1.0_arm64.dmg
-unsigned/Napstr_0.1.0_arm64.dmg.sha256
+signed/Deadwax_0.1.0_arm64.dmg
+signed/Deadwax_0.1.0_arm64.dmg.sha256
+unsigned/Deadwax_0.1.0_arm64.dmg
+unsigned/Deadwax_0.1.0_arm64.dmg.sha256
 ```
 
-Napstrfy filenames start with `Napstrfy`; Intel filenames use `x86_64`.
+Deadwax filenames start with `Deadwax`; Intel filenames use `x86_64`.
 Use `-- --tag v0.1.5-rc1` to set the packaged version without editing tracked
 version files. The root release workflow also synchronizes source versions
 using its existing `set-release-version.mjs` step.
@@ -97,8 +97,8 @@ subprocess environments, and redacts credential-bearing diagnostics.
 
 1. Validate the requested mode, credentials, and native architecture. Build the
    `.app` with Tauri signing disabled so all final signing happens in one place.
-   Napstr downloads and verifies its pinned Tor Expert Bundle.
-2. In Napstr's app, make Tor's bundled library references relative to their
+   Deadwax downloads and verifies its pinned Tor Expert Bundle.
+2. In Deadwax's app, make Tor's bundled library references relative to their
    loader. Reject unresolved non-system libraries. This avoids depending on
    `DYLD_LIBRARY_PATH` or granting a hardened-runtime exception for it.
 3. For signed builds, import the P12 into a unique temporary keychain. Select
@@ -148,15 +148,15 @@ Configure the six names above as repository Actions secrets accessible to
 `lnbits/napstr`. The same names are used by LNbits, but secrets restricted to
 that repository are not automatically available here.
 
-`release.yml` handles both Napstr release builds and optional macOS test builds
+`release.yml` handles both Deadwax release builds and optional macOS test builds
 on `macos-15` (Apple Silicon) and `macos-15-intel`. A `v*` tag or a manual run with
-`release_tag` set runs the full Napstr desktop and Napstrfy Android release process.
-`napstrfy-desktop.yml` runs signed Napstrfy desktop builds for tags and
+`release_tag` set runs the full Deadwax desktop and Deadwax Android release process.
+`napstrfy-desktop.yml` runs signed Deadwax desktop builds for tags and
 manual runs; its pull-request builds use community signatures without secrets.
-Manual Napstrfy runs on a branch produce workflow artifacts; tagged runs attach
+Manual Deadwax runs on a branch produce workflow artifacts; tagged runs attach
 them to the draft release. Existing `v*` release triggers are preserved.
 
-For Napstr testing without creating a release, prefix a PR title with `[build]`,
+For Deadwax testing without creating a release, prefix a PR title with `[build]`,
 for example `[build] Fix audio playback`. The `macos_test` job in `release.yml` builds
 Intel and Apple Silicon installers when that PR opens, reopens, receives new
 commits, or has its title edited. Adding the prefix to an existing PR starts a
@@ -168,15 +168,15 @@ Same-repository PRs use the six Apple signing secrets to create signed installer
 Fork PRs, Dependabot-authored PRs, and runs triggered by Dependabot use ad-hoc
 signatures without Apple credentials. Those artifacts end in `-unsigned` and may
 show Gatekeeper's unverified-developer warning. PRs without `[build]` skip the
-Napstr macOS build job.
+Deadwax macOS build job.
 
-You can also use **Actions → Build Napstr desktop and Napstrfy Android installers
+You can also use **Actions → Build Deadwax desktop and Deadwax Android installers
 → Run workflow**, select a branch, and leave `release_tag` empty for a signed
 macOS test build. Setting `release_tag` instead runs the full release process.
 Signed PR and manual test runs produce these artifacts:
 
-- `Napstr-macOS-Intel-signed`
-- `Napstr-macOS-Apple-Silicon-signed`
+- `Deadwax-macOS-Intel-signed`
+- `Deadwax-macOS-Apple-Silicon-signed`
 
 Download the artifact for your Mac from the completed run, extract it, and open
 the enclosed DMG. It includes a SHA-256 checksum. The version comes from the
@@ -191,5 +191,5 @@ verification and cleanup. Release publication remains a separate action.
 
 Before publishing the first release, test downloaded installers on both an Intel
 Mac and an Apple Silicon Mac, including app startup, Tor connection, file
-transfer, audio playback, and Napstrfy pairing. The helper's signature and Tor
+transfer, audio playback, and Deadwax pairing. The helper's signature and Tor
 checks do not replace this interactive application testing.

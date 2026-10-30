@@ -102,7 +102,7 @@ async function openApp(
       window.remoteHosts = [
         {
           endpointId: 'endpoint',
-          desktopName: 'My Napstr',
+          desktopName: 'My Deadwax',
           rights: { browse: true, fetch: true, control: true, download: true, privileged: true },
           home: true,
           included: true,
@@ -448,7 +448,7 @@ test('a playlist opens from what this phone already has, without asking anybody'
   await page.locator('button[data-tab="playlists"]').click();
   await expect(page.locator('.playlist-row', { hasText: 'Camping' })).toBeVisible();
   // Nothing claims to be asking anybody. Seen on the device: the list drew from
-  // memory and then sat under "Asking Napstr…" for the best part of a minute.
+  // memory and then sat under "Asking Deadwax…" for the best part of a minute.
   await expect(page.locator('.loading-list')).toHaveCount(0);
   await page.locator('.playlist-row', { hasText: 'Camping' }).click();
   // Opened at once from the copy this phone was last shown, rather than after a

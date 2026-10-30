@@ -1,11 +1,11 @@
 # Demo tooling for the phone app
 
-Two throwaway-once, now-kept scripts for driving Napstrfy on a USB-attached
+Two throwaway-once, now-kept scripts for driving Deadwax on a USB-attached
 phone from the Windows dev machine, plus the traps that make them necessary.
 
 ## Why coordinates
 
-Napstrfy's UI is a WebView, and it publishes **nothing** to Android's
+Deadwax's UI is a WebView, and it publishes **nothing** to Android's
 accessibility layer: `adb shell uiautomator dump` returns a handful of nodes
 whose innermost is one opaque `android.webkit.WebView` with no `content-desc`.
 There is no element to query by name, so a script has to tap at fixed device

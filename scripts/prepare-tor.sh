@@ -40,10 +40,10 @@ fi
 mkdir -p "$destination"
 tar -xzf "$archive" -C "$destination"
 
-# Napstr launches Tor itself and does not use the Expert Bundle's debug files,
+# Deadwax launches Tor itself and does not use the Expert Bundle's debug files,
 # documentation, or optional bridge transports. Leaving those executable ELF
 # files in the resource tree makes linuxdeploy inspect and strip programs that
-# are not part of Napstr's runtime, and substantially inflates every installer.
+# are not part of Deadwax's runtime, and substantially inflates every installer.
 for unused_path in \
   "$destination/debug" \
   "$destination/docs" \

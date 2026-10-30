@@ -25,7 +25,7 @@ async function openPlayer(page) {
 }
 
 for (const platform of ['android', 'linux']) {
-  test(`Napstrfy ${platform}: opening screen has a readable language selector without a dialog`, async ({ page }) => {
+  test(`Deadwax ${platform}: opening screen has a readable language selector without a dialog`, async ({ page }) => {
     await mockNative(page, { paired: false, platform });
     await page.setViewportSize({ width: platform === 'android' ? 360 : 1100, height: 900 });
     await page.goto('http://127.0.0.1:15174');
@@ -43,7 +43,7 @@ for (const platform of ['android', 'linux']) {
     await page.screenshot({ path: test.info().outputPath(`${platform}-opening-language.png`) });
   });
 
-  test(`Napstrfy ${platform}: 15-second controls seek safely and system controls use live playback position`, async ({ page }) => {
+  test(`Deadwax ${platform}: 15-second controls seek safely and system controls use live playback position`, async ({ page }) => {
     await mockNative(page, { platform });
     await page.addInitScript((platform) => {
       window.mediaUpdates = [];
@@ -163,7 +163,7 @@ async function instrumentTiming(page) {
 }
 
 for (const platform of ['android', 'linux']) {
-  test(`Napstrfy ${platform}: a late duration arrives without range queries or playback changes`, async ({ page }) => {
+  test(`Deadwax ${platform}: a late duration arrives without range queries or playback changes`, async ({ page }) => {
     await mockNative(page, { platform });
     await instrumentTiming(page);
     await page.route('**/fixture.wav', serveAudio);
@@ -210,7 +210,7 @@ for (const platform of ['android', 'linux']) {
   });
 }
 
-test('Napstrfy podcast duration hints cannot enable seeking or reach system controls', async ({ page }) => {
+test('Deadwax podcast duration hints cannot enable seeking or reach system controls', async ({ page }) => {
   await mockNative(page);
   await instrumentTiming(page);
   await page.route('**/fixture.wav', serveAudio);
@@ -248,7 +248,7 @@ test('Napstrfy podcast duration hints cannot enable seeking or reach system cont
 // `NOTICE_VISIBLE_MS` in android/src/App.svelte: a notice clears itself.
 const NOTICE_MS = 4200;
 
-test('Napstrfy notices expire on their own and an error waits to be dismissed', async ({ page }) => {
+test('Deadwax notices expire on their own and an error waits to be dismissed', async ({ page }) => {
   await mockNative(page, { remote: true });
   await page.clock.install();
   await page.addInitScript(() => {
@@ -262,7 +262,7 @@ test('Napstrfy notices expire on their own and an error waits to be dismissed', 
   });
   await page.goto('http://127.0.0.1:15174');
   await page.locator('.track-open').first().click();
-  await expect(page.locator('.toast')).toContainText('Napstr is downloading');
+  await expect(page.locator('.toast')).toContainText('Deadwax is downloading');
   await page.clock.fastForward(NOTICE_MS - 600);
   await expect(page.locator('.toast')).toBeVisible();
   await page.clock.fastForward(900);
@@ -286,7 +286,7 @@ test('Napstrfy notices expire on their own and an error waits to be dismissed', 
   await expect(page.locator('.error-banner')).toBeVisible();
 });
 
-test('Napstrfy desktop pins the player as its own column with artwork, likes and playback modes', async ({ page }) => {
+test('Deadwax desktop pins the player as its own column with artwork, likes and playback modes', async ({ page }) => {
   await mockNative(page, { platform: 'linux' });
   // The host names the picture; the copy on this phone is what is drawn. A host
   // that names an address and no hash is one that has not fetched the picture yet,
@@ -394,7 +394,7 @@ test('Napstrfy desktop pins the player as its own column with artwork, likes and
   expect(await page.evaluate(() => window.calls.filter((call) => call.cmd === 'cache_remote_audio').length)).toBe(1);
 });
 
-test('Napstrfy marks a liked album track with the gold rule under its title', async ({ page }) => {
+test('Deadwax marks a liked album track with the gold rule under its title', async ({ page }) => {
   await mockNative(page, { platform: 'linux' });
   await page.setViewportSize({ width: 1100, height: 900 });
   await page.goto('http://127.0.0.1:15174');
@@ -489,7 +489,7 @@ test('browser fallback works without native locale and language selection surviv
 });
 
 for (const code of ['ar', 'ur', 'fr', 'bn']) {
-  test(`Napstrfy ${code}: mobile and desktop layouts fit without duplicating navigation`, async ({ page }) => {
+  test(`Deadwax ${code}: mobile and desktop layouts fit without duplicating navigation`, async ({ page }) => {
     await mockNative(page, { saved: code });
     await page.goto('http://127.0.0.1:15174');
     await expect(page.locator('.track-row')).toBeVisible();
@@ -541,7 +541,7 @@ test('website language links and sharing metadata work without JavaScript', asyn
   const context = await browser.newContext({ javaScriptEnabled: false, locale: 'fr-FR' });
   const page = await context.newPage();
   await page.goto('http://127.0.0.1:15175/preview/napstrfy.html');
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://napstr.net/assets/napstrfy-share.png');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://deadwax.rip/assets/napstrfy-share.png');
   await page.locator('.language-links summary').click();
   await expect(page.locator('.language-links a')).toHaveCount(10);
   await page.locator('.language-links a[lang="fr"]').click();
@@ -556,24 +556,26 @@ test('website language links and sharing metadata work without JavaScript', asyn
  * assertions follow `website/template.mjs` - if they disagree, the site is
  * offering somebody else's installers.
  */
-const RELEASE_REPOSITORY = 'StateAntigen/napstr';
+const RELEASE_REPOSITORY = 'StateAntigen/deadwax';
 
 test('website downloads select the right product and display translated release status', async ({ page }) => {
-  await page.route('https://api.github.com/**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tag_name: 'v0.2.2', html_url: `https://github.com/${RELEASE_REPOSITORY}/releases/tag/v0.2.2`, assets: ['Napstrfy_0.2.2_x64.exe', 'Napstr_0.2.2_x64.exe', 'Napstrfy_0.2.2_amd64.AppImage', 'Napstr_0.2.2_amd64.AppImage'].map((name) => ({ name, size: 1234567, browser_download_url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/v0.2.2/${name}` })) }) }));
+  await page.route('https://api.github.com/**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tag_name: 'v0.2.2', html_url: `https://github.com/${RELEASE_REPOSITORY}/releases/tag/v0.2.2`, assets: ['Deadwax_0.2.2_x64.exe', 'Deadwax_0.2.2_x64.exe', 'Deadwax_0.2.2_amd64.AppImage', 'Deadwax_0.2.2_amd64.AppImage'].map((name) => ({ name, size: 1234567, browser_download_url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/v0.2.2/${name}` })) }) }));
   await page.goto('http://127.0.0.1:15175/es/download.html');
-  await expect(page.locator('[data-release-platform="windows"]').first()).toHaveAttribute('href', /Napstr_0.2.2_x64.exe$/);
+  await expect(page.locator('[data-release-platform="windows"]').first()).toHaveAttribute('href', /Deadwax_0.2.2_x64.exe$/);
   await expect(page.locator('#release-status')).toContainText('0.2.2');
   await page.goto('http://127.0.0.1:15175/es/napstrfy.html');
-  await expect(page.locator('[data-release-platform="windows"]')).toHaveAttribute('href', /Napstrfy_0.2.2_x64.exe$/);
+  await expect(page.locator('[data-release-platform="windows"]')).toHaveAttribute('href', /Deadwax_0.2.2_x64.exe$/);
 });
 
-test('Napstrfy downloads follow newly published assets and keep unavailable clients disabled', async ({ page }) => {
+test('Deadwax downloads follow newly published assets and keep unavailable clients disabled', async ({ page }) => {
   let version = '0.2.1';
   let clients = ['android.apk'];
   await page.route('https://api.github.com/**', (route) => route.fulfill({ json: {
     tag_name: `v${version}`,
     html_url: `https://github.com/${RELEASE_REPOSITORY}/releases/tag/v${version}`,
-    assets: [...clients.map((client) => `Napstrfy_${version}_${client}`), `Napstr_${version}_x64.exe`].map((name) => ({
+    // Only what this release actually published: one product name means the
+    // page can no longer rely on a second name's absence to know a client is missing.
+    assets: clients.map((client) => `Deadwax_${version}_${client}`).map((name) => ({
       name, size: 1234567, browser_download_url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/v${version}/${name}`
     }))
   } }));
@@ -581,14 +583,14 @@ test('Napstrfy downloads follow newly published assets and keep unavailable clie
   await expect(page.locator('[data-release-version="windows"]')).toHaveText('Unavailable');
   await expect(page.locator('[data-release-platform="windows"]')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('[data-release-platform="windows"]')).not.toHaveAttribute('href');
-  await expect(page.locator('[data-release-platform="napstrfy-android"]')).toHaveAttribute('href', /Napstrfy_0.2.1_android.apk$/);
+  await expect(page.locator('[data-release-platform="napstrfy-android"]')).toHaveAttribute('href', /Deadwax_0.2.1_android.apk$/);
   await expect(page.locator('#release-status')).toContainText('some installers are not available');
   version = '0.2.2';
   clients = ['android.apk', 'x64.exe', 'amd64.AppImage', 'aarch64.dmg', 'x64.dmg'];
   await page.reload();
-  await expect(page.locator('#release-status')).toHaveText('Napstrfy 0.2.2 downloads are ready.');
+  await expect(page.locator('#release-status')).toHaveText('Deadwax 0.2.2 downloads are ready.');
   for (const [platform, file] of Object.entries({ windows: 'x64.exe', linux: 'amd64.AppImage', 'macos-arm64': 'aarch64.dmg', 'macos-intel': 'x64.dmg', 'napstrfy-android': 'android.apk' })) {
-    await expect(page.locator(`[data-release-platform="${platform}"]`)).toHaveAttribute('href', `https://github.com/${RELEASE_REPOSITORY}/releases/download/v0.2.2/Napstrfy_0.2.2_${file}`);
+    await expect(page.locator(`[data-release-platform="${platform}"]`)).toHaveAttribute('href', `https://github.com/${RELEASE_REPOSITORY}/releases/download/v0.2.2/Deadwax_0.2.2_${file}`);
     await expect(page.locator(`[data-release-version="${platform}"]`)).toHaveText('0.2.2');
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -596,7 +598,7 @@ test('Napstrfy downloads follow newly published assets and keep unavailable clie
   await page.screenshot({ path: test.info().outputPath('napstrfy-downloads.png'), fullPage: true });
 });
 
-test('Napstrfy downloads retain a release-page fallback when GitHub is unavailable', async ({ page }) => {
+test('Deadwax downloads retain a release-page fallback when GitHub is unavailable', async ({ page }) => {
   await page.route('https://api.github.com/**', (route) => route.fulfill({ status: 403, json: { message: 'API rate limit exceeded' } }));
   await page.goto('http://127.0.0.1:15175/napstrfy.html');
   await expect(page.locator('#release-status')).toHaveText('The automatic download list is temporarily unavailable.');

@@ -37,7 +37,7 @@ fi
 
 # linuxdeploy intentionally excludes a number of libraries it expects every
 # Linux distribution to provide. NixOS does not expose those libraries through
-# the usual FHS paths. GStreamer's core needs zlib and Napstr's native player
+# the usual FHS paths. GStreamer's core needs zlib and Deadwax's native player
 # links the ALSA compatibility library even when PulseAudio is the selected
 # output. Keep these stable dependencies inside the AppImage.
 if [[ ! -e "$app_dir/usr/lib/libz.so.1" ]]; then
@@ -63,7 +63,7 @@ fi
 # libasound loads its configuration and output modules at runtime, so
 # linuxdeploy cannot discover them from ELF dependencies. Bundle the base
 # configuration and Pulse bridge explicitly. PipeWire exposes a compatible
-# Pulse socket on mainstream desktops, giving Napstr a shared output without
+# Pulse socket on mainstream desktops, giving Deadwax a shared output without
 # taking exclusive control of the physical ALSA device.
 alsa_config_source="/usr/share/alsa"
 if [[ ! -f "$alsa_config_source/alsa.conf" ]]; then
@@ -109,7 +109,7 @@ done < <(
 # hooks import /etc/alsa/conf.d from the host. Those snippets may reference
 # host-only modules or syntax (notably NixOS's PipeWire `libs.*` entries).
 # The Pulse plugin only needs these two definitions.
-printf '# Napstr AppImage shared audio output\npcm.!default {\n  type pulse\n}\nctl.!default {\n  type pulse\n}\n' \
+printf '# Deadwax AppImage shared audio output\npcm.!default {\n  type pulse\n}\nctl.!default {\n  type pulse\n}\n' \
   > "$app_dir/usr/share/alsa/napstr-pulse.conf"
 
 # Remove X11 libraries copied by an earlier post-processing pass. They belong

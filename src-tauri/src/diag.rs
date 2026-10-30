@@ -131,14 +131,14 @@ pub fn start(app_data: &Path) {
     match Log::open(path) {
         Ok(mut log) => {
             log.write(&format!(
-                "--- Napstr {} started ---",
+                "--- Deadwax {} started ---",
                 env!("CARGO_PKG_VERSION")
             ));
             *guard = Some(log);
         }
         Err(error) => {
             *guard = None;
-            eprintln!("Napstr could not write its log: {error}");
+            eprintln!("Deadwax could not write its log: {error}");
         }
     }
 }

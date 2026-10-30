@@ -62,7 +62,7 @@ const asks = (page) => page.evaluate(() => window.coverAsks);
 const askCount = (page) => page.evaluate(() => window.coverAsks.length);
 const artAsks = (page) => page.evaluate(() => window.artAsks);
 
-test('Napstrfy asks the host about the artwork it can show, in batches by album, and paints it from this phone', async ({ page }) => {
+test('Deadwax asks the host about the artwork it can show, in batches by album, and paints it from this phone', async ({ page }) => {
   await mockNative(page);
   const hashes = await seedLibrary(page);
   const far = await refusePublisherArtwork(page, ['**/publisher-*']);
@@ -113,7 +113,7 @@ test('Napstrfy asks the host about the artwork it can show, in batches by album,
   expect(served.every((hash) => /^[0-9a-f]{64}$/.test(hash))).toBe(true);
 });
 
-test('Napstrfy fetches the artwork of the track next in the queue while the one before it plays', async ({ page }) => {
+test('Deadwax fetches the artwork of the track next in the queue while the one before it plays', async ({ page }) => {
   await mockNative(page);
   // A list long enough that the album this test plays next cannot have been on
   // screen: "nothing has asked about it yet" has to be a fact about the list
@@ -163,7 +163,7 @@ test('Napstrfy fetches the artwork of the track next in the queue while the one 
   await expect(queueRows.nth(target).locator('.artwork img:not(.fallback)')).toHaveCount(1);
 });
 
-test('Napstrfy warms the next track’s thumbnail only, while nothing that draws a full cover is open', async ({ page }) => {
+test('Deadwax warms the next track’s thumbnail only, while nothing that draws a full cover is open', async ({ page }) => {
   await mockNative(page);
   await seedLibrary(page, 5);
   const far = await refusePublisherArtwork(page, ['**/publisher-*']);
@@ -186,7 +186,7 @@ test('Napstrfy warms the next track’s thumbnail only, while nothing that draws
   expect(far).toEqual([]);
 });
 
-test('Napstrfy keeps the art it already holds while the host is still fetching its own copy', async ({ page }) => {
+test('Deadwax keeps the art it already holds while the host is still fetching its own copy', async ({ page }) => {
   await mockNative(page);
   // The host knows of a picture for this album and has not fetched it, so it
   // answers with the publisher's address and no hash. That is not "no art", and a
@@ -213,7 +213,7 @@ test('Napstrfy keeps the art it already holds while the host is still fetching i
   expect(far).toEqual([]);
 });
 
-test('Napstrfy asks the host for a picture the host knows of and has not fetched', async ({ page }) => {
+test('Deadwax asks the host for a picture the host knows of and has not fetched', async ({ page }) => {
   await mockNative(page);
   // The host answers with an address and no hash: a picture waiting to be fetched
   // rather than "no art". No hash exists for a picture the host has not fetched,
@@ -238,7 +238,7 @@ test('Napstrfy asks the host for a picture the host knows of and has not fetched
   expect(far).toEqual([]);
 });
 
-test('Napstrfy artwork recovers from a transient host failure while the screen stays open', async ({ page }) => {
+test('Deadwax artwork recovers from a transient host failure while the screen stays open', async ({ page }) => {
   await mockNative(page);
   const hashes = await seedLibrary(page, 1);
   await page.addInitScript(() => { window.coverFails = true; });
@@ -259,7 +259,7 @@ test('Napstrfy artwork recovers from a transient host failure while the screen s
   expect(await page.locator('.track-row').count()).toBe(1);
 });
 
-test('Napstrfy artwork gives up after three tries, so a dead host is not polled forever', async ({ page }) => {
+test('Deadwax artwork gives up after three tries, so a dead host is not polled forever', async ({ page }) => {
   await mockNative(page);
   await seedLibrary(page, 1);
   await page.addInitScript(() => { window.coverFails = true; });

@@ -4,7 +4,7 @@ import { mockNative } from './helpers/native.mjs';
 /**
  * Playlists on the phone.
  *
- * The playlist itself lives on the Napstr computer: this page lists what the
+ * The playlist itself lives on the Deadwax computer: this page lists what the
  * computer holds, and the editor writes every change back through the companion
  * channel rather than keeping a copy here. What these tests hold it to is
  * therefore the round trip — that a row the computer reports is the row on

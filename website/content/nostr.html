@@ -1,6 +1,6 @@
-<h1>How Napstr Uses Nostr</h1>
+<h1>How Deadwax Uses Nostr</h1>
             <p class="protocol-lead">
-              Nostr is Napstr’s public discovery layer and encrypted negotiation channel.
+              Nostr is Deadwax’s public discovery layer and encrypted negotiation channel.
               Audio bytes are never uploaded to Nostr relays.
             </p>
 
@@ -8,7 +8,7 @@
               <h2>What Type Is a Track?</h2>
               <p>
                 A shared track is a custom <strong>parameterized-replaceable event</strong> of
-                kind <strong>30421</strong>. The event is signed by the seeder’s Napstr identity.
+                kind <strong>30421</strong>. The event is signed by the seeder’s Deadwax identity.
               </p>
               <div class="event-card">
                 <div><b>Kind:</b> <code>30421</code></div>
@@ -24,11 +24,11 @@
             </section>
 
             <section>
-              <h2>Napstr Event Map</h2>
+              <h2>Deadwax Event Map</h2>
               <table class="protocol-table">
                 <thead><tr><th>Kind</th><th>Purpose</th><th>Visibility</th></tr></thead>
                 <tbody>
-                  <tr><td>0</td><td>Napstr profile name, description and picture</td><td>Public</td></tr>
+                  <tr><td>0</td><td>Deadwax profile name, description and picture</td><td>Public</td></tr>
                   <tr><td>10050</td><td>NIP-17 inbox relay list</td><td>Public</td></tr>
                   <tr><td>30421</td><td>Signed track catalogue record</td><td>Public</td></tr>
                   <tr><td>30422</td><td>Expiring batches of file IDs currently being seeded</td><td>Public</td></tr>
@@ -45,7 +45,7 @@
             <section>
               <h2>From Search to Download</h2>
               <ol class="flow-list">
-                <li>Napstr fetches public <code>30421</code> catalogue events and live <code>30422</code> heartbeats.</li>
+                <li>Deadwax fetches public <code>30421</code> catalogue events and live <code>30422</code> heartbeats.</li>
                 <li>The downloader sends selected seeders an encrypted NIP-17 request containing only a request ID and file ID.</li>
                 <li>A seeder replies with its private app-session Tor onion and a random, short-lived per-file capability inside NIP-17.</li>
                 <li>The audio transfer then leaves Nostr entirely and continues over Tor.</li>
@@ -64,6 +64,6 @@
                 A Nostr relay can normally see the IP address connecting to that relay, along
                 with public catalogue activity and encrypted-message timing. NIP-17 hides the
                 message plaintext; it does not make the relay connection itself anonymous.
-                Napstr stores its dedicated Nostr key in the operating-system keyring.
+                Deadwax stores its dedicated Nostr key in the operating-system keyring.
               </p>
             </section>

@@ -24,7 +24,7 @@ if [[ -z "$appimage" ]]; then
 fi
 
 if [[ -z "$appimage" || ! -x "$appimage" ]]; then
-  echo "No executable Napstr AppImage was found. Run npm run appimage:build first." >&2
+  echo "No executable Deadwax AppImage was found. Run npm run appimage:build first." >&2
   exit 1
 fi
 
@@ -39,7 +39,7 @@ elif [[ -r /etc/NIXOS ]]; then
   exit 1
 fi
 
-echo "Starting isolated Napstr test user: $profile"
+echo "Starting isolated Deadwax test user: $profile"
 echo "Data: $profile_root/data/social.napstr.desktop"
 echo "Identity: OS keyring account nostr-identity-$profile"
 

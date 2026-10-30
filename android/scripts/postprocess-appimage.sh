@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Napstrfy plays through WebKit/GStreamer; it does not bundle Napstr's Tor or
+# Deadwax plays through WebKit/GStreamer; it does not bundle Deadwax's Tor or
 # native ALSA player. Preserve the generated media hooks and use host graphics.
-input="$(realpath "${1:?usage: postprocess-appimage.sh Napstrfy.AppImage}")"
+input="$(realpath "${1:?usage: postprocess-appimage.sh Deadwax.AppImage}")"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/napstrfy-appimage.XXXXXXXX")"
 trap 'rm -rf -- "$work_dir"' EXIT
 (
@@ -50,10 +50,10 @@ plugin="${TAURI_APPIMAGE_PLUGIN:-${XDG_CACHE_HOME:-$HOME/.cache}/tauri/linuxdepl
 test -x "$plugin"
 (
   cd "$work_dir"
-  ARCH="${ARCH:-$(uname -m)}" LDAI_OUTPUT="$work_dir/Napstrfy.AppImage" \
+  ARCH="${ARCH:-$(uname -m)}" LDAI_OUTPUT="$work_dir/Deadwax.AppImage" \
     APPIMAGE_EXTRACT_AND_RUN=1 "$plugin" --appdir="$app_dir"
 )
-test -s "$work_dir/Napstrfy.AppImage"
-chmod 0755 "$work_dir/Napstrfy.AppImage"
-mv -f "$work_dir/Napstrfy.AppImage" "$input"
-echo "Prepared Napstrfy AppImage: $input"
+test -s "$work_dir/Deadwax.AppImage"
+chmod 0755 "$work_dir/Deadwax.AppImage"
+mv -f "$work_dir/Deadwax.AppImage" "$input"
+echo "Prepared Deadwax AppImage: $input"

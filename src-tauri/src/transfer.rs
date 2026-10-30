@@ -49,7 +49,7 @@ fn is_download_temporary_name(name: &str) -> bool {
         && extension.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
-/// Run before starting workers/watchers. Only Napstr's temporary downloads in
+/// Run before starting workers/watchers. Only Deadwax's temporary downloads in
 /// its actual download destinations are eligible; never follow child symlinks.
 pub fn cleanup_abandoned_downloads(folder: &Path) -> Result<(), String> {
     fn clean(directory: &Path) -> Result<(), String> {
@@ -155,7 +155,7 @@ fn ensure_secure_child_directory(parent: &Path, name: &std::ffi::OsStr) -> Resul
     }
     let canonical = std::fs::canonicalize(&candidate).map_err(|error| error.to_string())?;
     if canonical.parent() != Some(parent) {
-        return Err("download destination escapes the Napstr folder".into());
+        return Err("download destination escapes the Deadwax folder".into());
     }
     Ok(canonical)
 }
@@ -166,7 +166,7 @@ fn secure_destination_root(
 ) -> Result<PathBuf, String> {
     let root = std::fs::canonicalize(napstr_folder).map_err(|error| error.to_string())?;
     if !root.is_dir() {
-        return Err("Napstr folder is not a directory".into());
+        return Err("Deadwax folder is not a directory".into());
     }
     let component = Path::new(destination_folder);
     if destination_folder.is_empty()

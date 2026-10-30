@@ -65,7 +65,7 @@ if (!checkOnly) {
     paths.cargoLock,
     /(\[\[package\]\]\r?\nname = "napstr"\r?\nversion = ")[^"]+("(?:\r?\n|$))/,
     `$1${version}$2`,
-    'Napstr Cargo lock entry'
+    'Deadwax desktop Cargo lock entry'
   );
   updateJson(paths.androidPackageJson, (document) => {
     document.version = version;
@@ -81,13 +81,13 @@ if (!checkOnly) {
     paths.androidCargoToml,
     /(\[package\][\s\S]*?\nversion\s*=\s*")[^"]+("\s*\n)/,
     `$1${version}$2`,
-    'Napstrfy Cargo package version'
+    'Deadwax companion Cargo package version'
   );
   replaceExactlyOnce(
     paths.androidCargoLock,
     /(\[\[package\]\]\r?\nname = "nostrfy"\r?\nversion = ")[^"]+("(?:\r?\n|$))/,
     `$1${version}$2`,
-    'Napstrfy Cargo lock entry'
+    'Deadwax companion Cargo lock entry'
   );
 }
 
@@ -122,4 +122,4 @@ for (const [source, actualVersion] of Object.entries(actualVersions)) {
   }
 }
 
-console.log(`Napstr and Napstrfy release versions verified: ${version}`);
+console.log(`Deadwax desktop and companion versions verified: ${version}`);

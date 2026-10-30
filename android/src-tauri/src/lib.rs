@@ -1676,7 +1676,7 @@ fn included_by_default() -> bool {
 /// through it if it is the one that may.
 fn readable_hosts(hosts: &[SavedHost], home: Option<&str>) -> Result<Vec<SavedHost>, String> {
     if hosts.is_empty() {
-        return Err("Pair Napstrfy with Napstr first".into());
+        return Err("Pair Deadwax with Deadwax first".into());
     }
     if !hosts.iter().any(|host| host.included) {
         return Err("Every computer is left out in Settings".into());
@@ -1722,7 +1722,7 @@ fn none_answered(
             .map(|(_, reason)| reason.clone())
     })
     .or_else(|| reasons.first().map(|(_, reason)| reason.clone()))
-    .or_else(|| Some("Napstr is unavailable".into()))
+    .or_else(|| Some("Deadwax is unavailable".into()))
 }
 
 /// What each computer that could not be reached said, in the order asked.
@@ -1735,7 +1735,7 @@ fn mixed_reasons(hosts: &[MixedHost]) -> Vec<(String, String)> {
                 host.endpoint_id.clone(),
                 host.reason
                     .clone()
-                    .unwrap_or_else(|| "Napstr did not answer".into()),
+                    .unwrap_or_else(|| "Deadwax did not answer".into()),
             )
         })
         .collect()
@@ -1835,7 +1835,7 @@ fn fetch_order(
     home: Option<&str>,
 ) -> Result<Vec<SavedHost>, String> {
     if hosts.is_empty() {
-        return Err("Pair Napstrfy with Napstr first".into());
+        return Err("Pair Deadwax with Deadwax first".into());
     }
     let home = home_host(hosts, home).map(|host| host.endpoint_id);
     let mut may_fetch = hosts
@@ -1914,7 +1914,7 @@ impl RemoteClient {
         // when it restarts, so a stale one is exactly how a phone ends up
         // reporting a computer that is plainly there as unreachable.
         diag::note(&format!(
-            "Napstrfy starting; app data {}, {} paired computer(s), home {:?}",
+            "Deadwax starting; app data {}, {} paired computer(s), home {:?}",
             app_data.display(),
             hosts.len(),
             home.as_deref().map(|id| &id[..8.min(id.len())])
@@ -1981,7 +1981,7 @@ impl RemoteClient {
     async fn home(&self) -> Result<SavedHost, String> {
         let hosts = self.hosts.read().await;
         let chosen = self.home.read().await.clone();
-        home_host(&hosts, chosen.as_deref()).ok_or_else(|| "Pair Napstrfy with Napstr first".into())
+        home_host(&hosts, chosen.as_deref()).ok_or_else(|| "Pair Deadwax with Deadwax first".into())
     }
 
     /// The chosen home computer, if it is still one this phone holds.
@@ -2120,7 +2120,7 @@ impl RemoteClient {
                 connection
             }
             Ok(Err(error)) => {
-                let message = format!("Could not reach Napstr: {error}");
+                let message = format!("Could not reach Deadwax: {error}");
                 diag::note(&format!(
                     "tunnel to {} failed after {}: {message}",
                     host.desktop_name,
@@ -2130,11 +2130,11 @@ impl RemoteClient {
             }
             Err(_) => {
                 diag::note(&format!(
-                    "tunnel to {} timed out after {} - Napstr did not answer over Iroh",
+                    "tunnel to {} timed out after {} - Deadwax did not answer over Iroh",
                     host.desktop_name,
                     diag::millis(started)
                 ));
-                return Err("Napstr did not answer over Iroh".into());
+                return Err("Deadwax did not answer over Iroh".into());
             }
         };
         self.connections
@@ -2232,7 +2232,7 @@ impl RemoteClient {
     async fn pair(&self, code: &str, device_name: &str) -> Result<String, String> {
         let ticket = PairingTicket::from_uri(code)?;
         if ticket.expires_at < chrono_timestamp() {
-            return Err("This pairing code has expired. Create another in Napstr.".into());
+            return Err("This pairing code has expired. Create another in Deadwax.".into());
         }
         let host = SavedHost {
             endpoint_id: ticket.endpoint_id.clone(),
@@ -2256,7 +2256,7 @@ impl RemoteClient {
             endpoint.connect(address.clone(), ALPN),
         )
         .await
-        .map_err(|_| "Napstr did not answer. Keep its Mobile page open and try again.")?
+        .map_err(|_| "Deadwax did not answer. Keep its Mobile page open and try again.")?
         .map_err(|error| format!("Could not pair over Iroh: {error}"))?;
         let response = tokio::time::timeout(
             Duration::from_secs(15),
@@ -2269,7 +2269,7 @@ impl RemoteClient {
             ),
         )
         .await
-        .map_err(|_| "Napstr did not complete pairing in time")??
+        .map_err(|_| "Deadwax did not complete pairing in time")??
         .0;
         let (desktop_name, grant) = match response {
             ServerResponse::Paired {
@@ -2840,7 +2840,7 @@ impl RemoteClient {
                 Err(error) => last_error = Some(error),
             }
         }
-        Err(last_error.unwrap_or_else(|| "Napstr is unavailable".into()))
+        Err(last_error.unwrap_or_else(|| "Deadwax is unavailable".into()))
     }
 
     /// One request to one computer, retried once.
@@ -2849,7 +2849,7 @@ impl RemoteClient {
         host: &SavedHost,
         request: ClientRequest,
     ) -> Result<(ServerResponse, iroh::endpoint::RecvStream), String> {
-        let mut last_error = "Napstr is unavailable".to_string();
+        let mut last_error = "Deadwax is unavailable".to_string();
         for _ in 0..2 {
             match self.exchange_attempt(host, request.clone()).await {
                 Ok(response) => return Ok(response),
@@ -3226,7 +3226,7 @@ impl RemoteClient {
                 Ok(Ok(answered)) => (Ok(answered), None),
                 Ok(Err(error)) => (Err(error), Some(AttemptFailure::Transport)),
                 Err(_) => (
-                    Err("Napstr did not answer the request in time".into()),
+                    Err("Deadwax did not answer the request in time".into()),
                     Some(AttemptFailure::Timeout),
                 ),
             },
@@ -3291,7 +3291,7 @@ impl RemoteClient {
         // The size is the host's word, so it is bounded before anything is
         // allocated on its account.
         if length == 0 || length > art_store::MAX_ART_BYTES {
-            return Err("Napstr offered artwork of an impossible size".into());
+            return Err("Deadwax offered artwork of an impossible size".into());
         }
         let mut bytes = Vec::with_capacity(length as usize);
         while (bytes.len() as u64) < length {
@@ -3300,11 +3300,11 @@ impl RemoteClient {
                 .await
                 .map_err(|error| format!("Iroh artwork stream failed: {error}"))?
             else {
-                return Err("Napstr stopped sending the artwork".into());
+                return Err("Deadwax stopped sending the artwork".into());
             };
             bytes.extend_from_slice(&chunk);
             if bytes.len() as u64 > length {
-                return Err("Napstr sent more artwork than it announced".into());
+                return Err("Deadwax sent more artwork than it announced".into());
             }
         }
         Ok(Some(FetchedArt { hash, bytes }))
@@ -3374,7 +3374,7 @@ impl RemoteClient {
                     "status: {} did not answer within 8s (tunnel exists but the answer did not come)",
                     host.desktop_name
                 ));
-                host.status(false, false, "Napstr did not answer yet".into())
+                host.status(false, false, "Deadwax did not answer yet".into())
             }
             Ok(Ok(ServerResponse::Status {
                 library_revision,
@@ -3425,7 +3425,7 @@ impl RemoteClient {
                     error: String::new(),
                 }
             }
-            Ok(Err(error)) if error == "invalid Napstrfy request" => self.legacy_status(host).await,
+            Ok(Err(error)) if error == "invalid Deadwax request" => self.legacy_status(host).await,
             Ok(Ok(other)) => host.status(false, false, unexpected_response(&other)),
             Ok(Err(error)) => host.status(false, false, error),
         }
@@ -3478,7 +3478,7 @@ impl RemoteClient {
             },
             Ok(Ok(other)) => host.status(false, false, unexpected_response(&other)),
             Ok(Err(error)) => host.status(false, false, error),
-            Err(_) => host.status(false, false, "Napstr did not answer yet".into()),
+            Err(_) => host.status(false, false, "Deadwax did not answer yet".into()),
         }
     }
 
@@ -3549,7 +3549,7 @@ impl RemoteClient {
                 {
                     received = received.saturating_add(bytes.len() as u64);
                     if received > entry.track.size || received > 2 * 1024 * 1024 * 1024 {
-                        return Err("Napstr sent more audio data than advertised".to_string());
+                        return Err("Deadwax sent more audio data than advertised".to_string());
                     }
                     hasher.update(&bytes);
                     output
@@ -4649,7 +4649,7 @@ async fn search_cached_library(
 }
 
 /// Album artwork for the given `artist|album` keys, resolved by the paired
-/// Napstr host from kind `30427` cover events.
+/// Deadwax host from kind `30427` cover events.
 ///
 /// The phone never talks to relays itself: the host owns the relay pool, the
 /// catalogue, and the availability heartbeats that decide which claim wins.
@@ -4778,7 +4778,7 @@ fn normalise_cover_key(value: &str) -> Option<String> {
     (key.chars().count() <= 300).then_some(key)
 }
 
-/// What the paired Napstr desktop is playing, if anything.
+/// What the paired Deadwax desktop is playing, if anything.
 ///
 /// A read-only pairing may ask this too: seeing what the computer is doing is
 /// not a way of changing it.
@@ -4839,7 +4839,7 @@ const DEVICE_COMMENT_KIND: u16 = 9;
 /// A public playlist's kind, and the marker that says the event is one.
 const DEVICE_PLAYLIST_KIND: u16 = 30425;
 const DEVICE_PLAYLIST_MARKER: &str = "napstr-playlist";
-const DEVICE_PLAYLIST_ALT: &str = "Napstr public playlist";
+const DEVICE_PLAYLIST_ALT: &str = "Deadwax public playlist";
 
 /// One of this phone's own events, as the shape the protocol carries.
 ///
@@ -4917,8 +4917,8 @@ async fn remote_send_device_discussion(
     let mut tags = vec![
         nostr::Tag::parse(["t", format!("napstr-{file_id}").as_str()])
             .map_err(|error| error.to_string())?,
-        nostr::Tag::parse(["client", "Napstr"]).map_err(|error| error.to_string())?,
-        nostr::Tag::parse(["alt", "Public message in a Napstr track discussion"])
+        nostr::Tag::parse(["client", "Deadwax"]).map_err(|error| error.to_string())?,
+        nostr::Tag::parse(["alt", "Public message in a Deadwax track discussion"])
             .map_err(|error| error.to_string())?,
     ];
     let mut body = text.to_string();
@@ -5013,7 +5013,7 @@ async fn remote_publish_device_playlist(
         nostr::Tag::parse(["t", DEVICE_PLAYLIST_MARKER]).map_err(|error| error.to_string())?,
         nostr::Tag::parse(["title", title]).map_err(|error| error.to_string())?,
         nostr::Tag::parse(["alt", DEVICE_PLAYLIST_ALT]).map_err(|error| error.to_string())?,
-        nostr::Tag::parse(["client", "Napstr"]).map_err(|error| error.to_string())?,
+        nostr::Tag::parse(["client", "Deadwax"]).map_err(|error| error.to_string())?,
     ];
     // One `x` per member, in order, so a relay can answer "which playlists include
     // this file" without fetching every playlist body - the host's own layout.
@@ -5167,7 +5167,7 @@ const MAX_TRACK_URI_BYTES: usize = 256;
 /// what guarantees only a QR renderer's own elements ever reach the page.
 ///
 /// Drawn at the highest error correction the symbol can carry rather than the
-/// default, because the page draws the Napstr mark in the middle of it: a
+/// default, because the page draws the Deadwax mark in the middle of it: a
 /// scanner reads the modules around the logo, and the level is the budget that
 /// says how much of the middle can be covered and still read. It costs a denser
 /// pattern, which is a fair trade for a code that a person has to point a camera
@@ -5362,7 +5362,7 @@ async fn remote_audiobook_library(
             Ok(AudiobookLibraryPage { audiobooks, total })
         }
         _ => {
-            // Compatibility with Napstr versions that predate paged summaries.
+            // Compatibility with Deadwax versions that predate paged summaries.
             let audiobooks = remote_audiobooks(query, state).await?;
             let total = audiobooks.len();
             let audiobooks = audiobooks
@@ -5550,25 +5550,25 @@ async fn read_response(receive: &mut iroh::endpoint::RecvStream) -> Result<Serve
     receive
         .read_exact(&mut length)
         .await
-        .map_err(|error| format!("Could not read Napstr's response: {error}"))?;
+        .map_err(|error| format!("Could not read Deadwax's response: {error}"))?;
     let length = u32::from_be_bytes(length) as usize;
     if length == 0 || length > MAX_CONTROL_FRAME_BYTES {
-        return Err("Napstr returned an invalid response size".into());
+        return Err("Deadwax returned an invalid response size".into());
     }
     let mut payload = vec![0u8; length];
     receive
         .read_exact(&mut payload)
         .await
-        .map_err(|error| format!("Could not read Napstr's response: {error}"))?;
+        .map_err(|error| format!("Could not read Deadwax's response: {error}"))?;
     serde_json::from_slice(&payload).map_err(|error| {
         // The one failure that says "the two sides disagree about the wire", and
         // the one that used to say nothing at all: what serde objected to, and
         // enough of the answer to see it. Without this, a phone that refuses
         // every answer is indistinguishable from a computer that is not there.
         let sample: String = String::from_utf8_lossy(&payload[..payload.len().min(160)]).into();
-        let message = format!("Napstr returned an invalid response: {error}; it said: {sample}");
+        let message = format!("Deadwax returned an invalid response: {error}; it said: {sample}");
         diag::note(&message);
-        "Napstr returned an invalid response".to_string()
+        "Deadwax returned an invalid response".to_string()
     })
 }
 
@@ -5580,7 +5580,7 @@ fn decode_endpoint_addr(host: &SavedHost) -> Result<EndpointAddr, String> {
                 .map(EndpointAddr::new)
                 .map_err(|_| serde_json::Error::io(std::io::Error::other("invalid endpoint ID")))
         })
-        .map_err(|_| "The saved Napstr Iroh address is invalid".into())
+        .map_err(|_| "The saved Deadwax Iroh address is invalid".into())
 }
 
 /// The address to dial next time, given what the last tunnel really used.
@@ -5657,7 +5657,7 @@ fn safe_extension(format: &str) -> Result<&'static str, String> {
         "OGG" => Ok("ogg"),
         "OPUS" => Ok("opus"),
         "M4A" => Ok("m4a"),
-        _ => Err("Napstr returned an unsupported audio format".into()),
+        _ => Err("Deadwax returned an unsupported audio format".into()),
     }
 }
 
@@ -5676,7 +5676,7 @@ fn validate_cache_track(track: &RemoteTrack) -> Result<(), String> {
     validate_file_id(&track.file_id)?;
     safe_extension(&track.format)?;
     if !track.local || track.size == 0 || track.size > 2 * 1024 * 1024 * 1024 {
-        return Err("Napstr returned an invalid local audio track".into());
+        return Err("Deadwax returned an invalid local audio track".into());
     }
     Ok(())
 }
@@ -5687,7 +5687,7 @@ fn validate_matching_track(expected: &RemoteTrack, actual: &RemoteTrack) -> Resu
         || !expected.format.eq_ignore_ascii_case(&actual.format)
         || expected.mime != actual.mime
     {
-        return Err("Napstr returned different audio than Napstrfy requested".into());
+        return Err("Deadwax returned different audio than Deadwax requested".into());
     }
     Ok(())
 }
@@ -5731,7 +5731,7 @@ fn clean_device_name(value: &str) -> String {
         .collect::<String>();
     let cleaned = cleaned.trim();
     if cleaned.is_empty() {
-        "Napstrfy phone".into()
+        "Deadwax phone".into()
     } else {
         cleaned.into()
     }
@@ -5755,27 +5755,27 @@ fn chrono_timestamp() -> i64 {
         .as_secs() as i64
 }
 
-/// The message an older Napstr answers with when it cannot parse a request it
+/// The message an older Deadwax answers with when it cannot parse a request it
 /// has never heard of.
-const UNKNOWN_REQUEST: &str = "invalid Napstrfy request";
-/// The longest seek that can be meant: nothing Napstr plays is a day long.
+const UNKNOWN_REQUEST: &str = "invalid Deadwax request";
+/// The longest seek that can be meant: nothing Deadwax plays is a day long.
 const MAX_SEEK_MS: u64 = 24 * 60 * 60 * 1000;
 const PLAYBACK_UNAVAILABLE: &str =
-    "This Napstr cannot be driven from a phone yet. Update Napstr on your computer.";
+    "This Deadwax cannot be driven from a phone yet. Update Deadwax on your computer.";
 const READ_ONLY_CODE_UNAVAILABLE: &str =
-    "This Napstr cannot create read-only codes yet. Update Napstr on your computer.";
+    "This Deadwax cannot create read-only codes yet. Update Deadwax on your computer.";
 const REPORT_UNAVAILABLE: &str =
-    "This Napstr cannot publish reports yet. Update Napstr on your computer.";
+    "This Deadwax cannot publish reports yet. Update Deadwax on your computer.";
 const DISCUSSION_UNAVAILABLE: &str =
-    "This Napstr cannot show track discussions yet. Update Napstr on your computer.";
+    "This Deadwax cannot show track discussions yet. Update Deadwax on your computer.";
 /// The same for the two things a phone says with its own key. They are separate
 /// sentences because the suggestion is the same and the reason is not: a comment
 /// this phone signed is a request an older computer has never heard of, and being
 /// told it cannot "show track discussions" would describe the wrong half of it.
 const DEVICE_COMMENT_UNAVAILABLE: &str =
-    "This Napstr cannot take a comment signed by this phone yet. Update Napstr on your computer.";
+    "This Deadwax cannot take a comment signed by this phone yet. Update Deadwax on your computer.";
 const DEVICE_PLAYLIST_UNAVAILABLE: &str =
-    "This Napstr cannot publish a playlist signed by this phone yet. Update Napstr on your computer.";
+    "This Deadwax cannot publish a playlist signed by this phone yet. Update Deadwax on your computer.";
 
 /// A host that does not know a request answers with a parse error, which says
 /// nothing useful to the person holding the phone.
@@ -5843,7 +5843,7 @@ fn safe_qr_svg(value: &str) -> String {
 fn unexpected_response(response: &ServerResponse) -> String {
     match response {
         ServerResponse::Error { message } => message.clone(),
-        _ => "Napstr returned an unexpected response".into(),
+        _ => "Deadwax returned an unexpected response".into(),
     }
 }
 
@@ -5971,7 +5971,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
         // The integration has already delivered any link in `argv`; this only
         // keeps the launch visible while developing.
-        eprintln!("Napstrfy is already running; opened with {argv:?}");
+        eprintln!("Deadwax is already running; opened with {argv:?}");
     }));
     builder
         .plugin(tauri_plugin_deep_link::init())
@@ -6081,7 +6081,7 @@ pub fn run() {
             prefetch_remote_audio
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Napstrfy");
+        .expect("error while running Deadwax");
 }
 
 #[cfg(test)]
@@ -6556,11 +6556,11 @@ mod tests {
         let legacy = directory.join(LEGACY_PAIRED_FILE);
         let list = directory.join(PAIRED_HOSTS_FILE);
 
-        let old = host("legacy", DeviceRights::full(), "Old Napstr");
+        let old = host("legacy", DeviceRights::full(), "Old Deadwax");
         fs::write(&legacy, serde_json::to_vec(&old).unwrap()).unwrap();
         let hosts = load_hosts(&list, &legacy);
         assert_eq!(hosts.len(), 1);
-        assert_eq!(hosts[0].desktop_name, "Old Napstr");
+        assert_eq!(hosts[0].desktop_name, "Old Deadwax");
         assert_eq!(hosts[0].grant(), DeviceRights::full());
 
         // Once the list is there it is what is read, even with the old file still
@@ -6575,14 +6575,14 @@ mod tests {
     /// widen a friend's access without unpairing anything.
     #[test]
     fn pairing_a_known_computer_replaces_what_was_known_about_it() {
-        let mut hosts = vec![host("a", DeviceRights::read_only(), "Ada's Napstr")];
-        upsert_host(&mut hosts, host("a", DeviceRights::full(), "Ada's Napstr"));
+        let mut hosts = vec![host("a", DeviceRights::read_only(), "Ada's Deadwax")];
+        upsert_host(&mut hosts, host("a", DeviceRights::full(), "Ada's Deadwax"));
         assert_eq!(hosts.len(), 1);
         assert_eq!(hosts[0].grant(), DeviceRights::full());
 
         upsert_host(
             &mut hosts,
-            host("b", DeviceRights::read_only(), "Bob's Napstr"),
+            host("b", DeviceRights::read_only(), "Bob's Deadwax"),
         );
         assert_eq!(hosts.len(), 2);
         assert_eq!(hosts[1].grant(), DeviceRights::read_only());
@@ -6593,8 +6593,8 @@ mod tests {
     /// none of them do, which is the single computer a lent phone has ever had.
     #[test]
     fn the_phone_acts_through_the_computer_that_lets_it_own() {
-        let friend = host("friend", DeviceRights::read_only(), "Ada's Napstr");
-        let own = host("own", DeviceRights::full(), "My Napstr");
+        let friend = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
+        let own = host("own", DeviceRights::full(), "My Deadwax");
 
         assert_eq!(
             home_host(&[friend.clone(), own.clone()], None)
@@ -6625,7 +6625,7 @@ mod tests {
     fn a_chosen_home_computer_wins_over_the_rule() {
         let desktop = host("desktop", DeviceRights::full(), "Studio");
         let laptop = host("laptop", DeviceRights::full(), "Laptop");
-        let friend = host("friend", DeviceRights::read_only(), "Ada's Napstr");
+        let friend = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
         let hosts = vec![desktop.clone(), laptop.clone(), friend.clone()];
 
         // Without a choice, the rule decides - and both of these are privileged,
@@ -6653,7 +6653,7 @@ mod tests {
     /// boolean, which is what that boolean has always meant.
     #[test]
     fn a_computer_that_never_said_keeps_the_meaning_of_the_boolean() {
-        let mut saved = host("legacy", DeviceRights::full(), "Old Napstr");
+        let mut saved = host("legacy", DeviceRights::full(), "Old Deadwax");
         saved.rights = None;
         saved.stream_only = false;
         assert_eq!(saved.grant(), DeviceRights::full());
@@ -6670,8 +6670,8 @@ mod tests {
     /// first whatever order they were paired in.
     #[test]
     fn the_computers_this_phone_may_read_are_asked_own_first() {
-        let friend = host("friend", DeviceRights::read_only(), "Ada's Napstr");
-        let own = host("own", DeviceRights::full(), "My Napstr");
+        let friend = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
+        let own = host("own", DeviceRights::full(), "My Deadwax");
         let nothing = host("none", DeviceRights::default(), "A Laptop");
 
         let asked = readable_hosts(&[friend.clone(), nothing.clone(), own.clone()], None).unwrap();
@@ -6687,7 +6687,7 @@ mod tests {
         assert!(readable_hosts(&[nothing], None).is_err());
         assert_eq!(
             readable_hosts(&[], None).unwrap_err(),
-            "Pair Napstrfy with Napstr first"
+            "Pair Deadwax with Deadwax first"
         );
     }
 
@@ -6770,8 +6770,8 @@ mod tests {
     /// take audio.
     #[test]
     fn a_file_is_asked_for_from_the_computer_that_answered_with_it() {
-        let own = host("own", DeviceRights::full(), "My Napstr");
-        let friend = host("friend", DeviceRights::read_only(), "Ada's Napstr");
+        let own = host("own", DeviceRights::full(), "My Deadwax");
+        let friend = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
         let reader = host(
             "reader",
             DeviceRights {
@@ -6835,8 +6835,8 @@ mod tests {
     /// phone never held is refused rather than quietly leaving it a host short.
     #[test]
     fn forgetting_a_computer_keeps_the_others() {
-        let own = host("own", DeviceRights::full(), "My Napstr");
-        let friend = host("friend", DeviceRights::read_only(), "Ada's Napstr");
+        let own = host("own", DeviceRights::full(), "My Deadwax");
+        let friend = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
 
         let remaining = without_host(vec![own.clone(), friend.clone()], "friend").unwrap();
         assert_eq!(remaining.len(), 1);
@@ -6852,8 +6852,8 @@ mod tests {
     /// as though it had never been paired.
     #[test]
     fn a_computer_left_out_is_not_read_from() {
-        let own = host("own", DeviceRights::full(), "My Napstr");
-        let mut left_out = host("friend", DeviceRights::read_only(), "Ada's Napstr");
+        let own = host("own", DeviceRights::full(), "My Deadwax");
+        let mut left_out = host("friend", DeviceRights::read_only(), "Ada's Deadwax");
         left_out.included = false;
 
         let asked = readable_hosts(&[own.clone(), left_out.clone()], None).unwrap();
@@ -6877,7 +6877,7 @@ mod tests {
     /// is what every computer has always been.
     #[test]
     fn a_computer_file_without_the_answer_is_included() {
-        let legacy = r#"{"endpointId":"legacy","endpointAddr":"{}","desktopName":"Old Napstr","streamOnly":false,"pubkey":""}"#;
+        let legacy = r#"{"endpointId":"legacy","endpointAddr":"{}","desktopName":"Old Deadwax","streamOnly":false,"pubkey":""}"#;
         let host: SavedHost = serde_json::from_str(legacy).unwrap();
         assert!(host.included);
         assert_eq!(host.grant(), DeviceRights::full());
@@ -7104,7 +7104,7 @@ mod tests {
                     remote.hosts.write().await.push(SavedHost {
                         endpoint_id: endpoint_id.clone(),
                         endpoint_addr: String::new(),
-                        desktop_name: "Test Napstr".into(),
+                        desktop_name: "Test Deadwax".into(),
                         stream_only: true,
                         rights: Some(DeviceRights::read_only()),
                         included: true,
@@ -7200,7 +7200,7 @@ mod tests {
             file_id: file_id.clone(),
             filename: "offline.mp3".into(),
             title: "Offline".into(),
-            artist: "Napstr".into(),
+            artist: "Deadwax".into(),
             album: String::new(),
             format: "MP3".into(),
             mime: "audio/mpeg".into(),
@@ -7246,7 +7246,7 @@ mod tests {
                 file_id: file_id.to_string(),
                 filename: format!("{file_id}.mp3"),
                 title: file_id.to_string(),
-                artist: "Napstr".into(),
+                artist: "Deadwax".into(),
                 album: String::new(),
                 format: "MP3".into(),
                 mime: "audio/mpeg".into(),
@@ -7318,7 +7318,7 @@ mod tests {
             file_id: "a".repeat(64),
             filename: "a.mp3".into(),
             title: "Untitled".into(),
-            artist: "Napstr".into(),
+            artist: "Deadwax".into(),
             album: String::new(),
             format: "MP3".into(),
             mime: "audio/mpeg".into(),

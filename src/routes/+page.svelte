@@ -21,7 +21,7 @@
   const CHAT_PAGE_SIZE = 100;
   const VISIBLE_SEEDER_LIMIT = 100;
 
-  type View = 'Search' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Napstrfy' | 'Covers';
+  type View = 'Search' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Deadwax' | 'Covers';
   type PlayerMode = 'single' | 'folder' | 'all';
   type PlayerOrigin = 'search' | 'downloads' | 'shared' | 'audiobook' | 'direct';
   /** Repeat, as the phone offers it and this window now plays it. */
@@ -85,7 +85,7 @@
     { label: 'Profile', icon: '☺' },
     { label: 'Settings', icon: '⚙' },
     { label: 'Trollbox', icon: '▣' },
-    { label: 'Napstrfy', icon: '▯' },
+    { label: 'Deadwax', icon: '▯' },
     { label: 'Covers', icon: '▨' }
   ];
 
@@ -226,11 +226,11 @@
   let clockNow = Date.now();
   let desktopRuntime = false;
   let nativeReady = false;
-  let activityMessage: string | Message = msg("Starting Napstr…");
+  let activityMessage: string | Message = msg("Starting Deadwax…");
   let napstrFolder = '';
   let nostrRelays = 'wss://relay.damus.io, wss://nos.lol, wss://relay.nostr.com, wss://relay.primal.net, wss://relay.snort.social, wss://nostr.mom, wss://relay.nostr.band';
   let displayName = 'napstr-user';
-  let profileAbout = 'Sharing files privately with Napstr. napstr.net';
+  let profileAbout = 'Sharing files privately with Deadwax. deadwax.rip';
   let profilePicture = '';
   let indexedBytes = 0;
   let networkConnected = false;
@@ -578,7 +578,7 @@
   }
 
   function folderName(folder: string) {
-    return folder || '(Napstr folder)';
+    return folder || '(Deadwax folder)';
   }
 
   function libraryFolders(files = sharedFiles) {
@@ -1059,7 +1059,7 @@
       case 'handoff':
         playerPlaying = false;
         playerEnded = true;
-        activityMessage = msg("Napstrfy took playback over");
+        activityMessage = msg("Deadwax took playback over");
         break;
       case 'playTrack':
         await playRemoteQueue(command.fileId, command.queue, command.positionMs ?? 0);
@@ -1209,7 +1209,7 @@
     selectResult(results[0] ?? null);
     searchedQuery = 'local catalogue';
     transfers = mapTransfers(snapshot.transfers);
-    activityMessage = snapshot.files.length ? msg("{p0} local files indexed and ready", { p0: snapshot.files.length }) : msg("Choose a Napstr folder to begin");
+    activityMessage = snapshot.files.length ? msg("{p0} local files indexed and ready", { p0: snapshot.files.length }) : msg("Choose a Deadwax folder to begin");
   }
 
   async function refreshSnapshot() {
@@ -1287,7 +1287,7 @@
     try {
       await invoke('open_napstrfy_website');
     } catch (error) {
-      activityMessage = msg("Could not open the Napstrfy website: {p0}", { p0: String(error) });
+      activityMessage = msg("Could not open the Deadwax website: {p0}", { p0: String(error) });
     }
   }
 
@@ -1363,7 +1363,7 @@
   //
   // Reading the covers other people published needs no opt-in: it is an
   // ordinary relay query, and it happens as results appear. The two switches
-  // here are the parts that leave Napstr — asking a central service, and
+  // here are the parts that leave Deadwax — asking a central service, and
   // signing with the user's own key. Both are stored by the backend, and the
   // backend's worker acts on them by itself: there is no button to press for a
   // pass to happen, and leaving one on means it resumes after a restart.
@@ -1439,7 +1439,7 @@
   let allowedArtHosts = '';
   let allowedArtHostsSaved = '';
   /**
-   * The hosts Napstr itself reads art from, and the list to offer somebody who
+   * The hosts Deadwax itself reads art from, and the list to offer somebody who
    * wants the filter on without having to work out the domains by hand. Apple
    * is named at `mzstatic.com` because that is where its artwork redirects to:
    * `itunes.apple.com` answers the search, not the picture.
@@ -2168,7 +2168,7 @@
   function activateView(view: View) {
     activeView = view;
     if (view === 'Trollbox') void refreshTrollbox();
-    if (view === 'Napstrfy') void openMobileConnect();
+    if (view === 'Deadwax') void openMobileConnect();
     if (view === 'Covers') void refreshCovers();
     if (view === 'Playlists') void refreshPlaylists();
   }
@@ -2526,7 +2526,7 @@
         playerLoading = false;
         playerCurrentTime = 0;
         playerDuration = 0;
-        activityMessage = msg("Stopped playback because the file was removed from the Napstr folder");
+        activityMessage = msg("Stopped playback because the file was removed from the Deadwax folder");
       } else if (currentTrack) {
         playerQueue = queueForTrack(currentTrack, playerMode);
         playerQueueIndex = playerQueue.findIndex((item) => item.fileId === currentTrack?.fileId);
@@ -3293,7 +3293,7 @@
   async function chooseNapstrFolder() {
     if (!nativeReady) { activityMessage = msg("Folder selection is available in the packaged desktop app"); return; }
     try {
-      const selectedPath = await open({ directory: true, multiple: false, title: $t("Choose the folder Napstr uses for downloads and sharing"), defaultPath: napstrFolder || undefined });
+      const selectedPath = await open({ directory: true, multiple: false, title: $t("Choose the folder Deadwax uses for downloads and sharing"), defaultPath: napstrFolder || undefined });
       if (!selectedPath || Array.isArray(selectedPath)) return;
       activityMessage = msg("Indexing files and calculating SHA-256 hashes…");
       const report = await invoke<{ fileCount: number; totalBytes: number; errors: string[]; errorCount: number; changedFiles: number }>('set_napstr_folder', { path: selectedPath });
@@ -3304,13 +3304,13 @@
   async function openNapstrFolder() {
     if (!nativeReady) return;
     try { await invoke('open_napstr_folder'); }
-    catch (error) { activityMessage = msg("Could not open Napstr folder: {p0}", { p0: String(error) }); }
+    catch (error) { activityMessage = msg("Could not open Deadwax folder: {p0}", { p0: String(error) }); }
   }
 
   async function rescanSharedFolder() {
     if (!nativeReady || rescanPending) return;
     rescanPending = true;
-    activityMessage = msg("Rescanning Napstr folder…");
+    activityMessage = msg("Rescanning Deadwax folder…");
     try {
       const report = await invoke<{ fileCount: number; totalBytes: number; changedFiles: number }>('rescan_napstr_folder');
       activityMessage = msg("Indexed {p0} files, {p1}", { p0: report.fileCount, p1: readableSize(report.totalBytes) });
@@ -3550,7 +3550,7 @@
     const mobileTimer = window.setInterval(() => {
       if (mobilePairing && mobilePairing.expiresAt <= Math.floor(Date.now() / 1000)) mobilePairing = null;
       if (mobileStreamPairing && mobileStreamPairing.expiresAt <= Math.floor(Date.now() / 1000)) mobileStreamPairing = null;
-      if (activeView === 'Napstrfy') void refreshMobileStatus();
+      if (activeView === 'Deadwax') void refreshMobileStatus();
     }, 3000);
     return () => {
       destroyed = true;
@@ -3570,11 +3570,11 @@
   });
 </script>
 
-<svelte:head><title>{$t("Napstr - own your music again")}</title></svelte:head>
+<svelte:head><title>{$t("Deadwax - own your music again")}</title></svelte:head>
 
 {#if desktopRuntime}
 <main class="desktop">
-  <section class="app-window" style={`--transfer-height: ${transferPaneHeight}px`} aria-label={$t("Napstr application window")}>
+  <section class="app-window" style={`--transfer-height: ${transferPaneHeight}px`} aria-label={$t("Deadwax application window")}>
     <button class="window-resize-handle resize-n" aria-label={$t("Resize window from top")} onpointerdown={(event) => beginWindowResize(event, 'North')}></button>
     <button class="window-resize-handle resize-e" aria-label={$t("Resize window from right")} onpointerdown={(event) => beginWindowResize(event, 'East')}></button>
     <button class="window-resize-handle resize-s" aria-label={$t("Resize window from bottom")} onpointerdown={(event) => beginWindowResize(event, 'South')}></button>
@@ -3585,15 +3585,15 @@
     <button class="window-resize-handle resize-nw" aria-label={$t("Resize window from top left")} onpointerdown={(event) => beginWindowResize(event, 'NorthWest')}></button>
 
     <header class="titlebar" data-tauri-drag-region>
-      <div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Napstr - own your music again")}</span></div>
+      <div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Deadwax - own your music again")}</span></div>
       <div class="window-controls" aria-hidden="true">
         <button tabindex="-1" onclick={() => windowCommand('minimise_window')}>_</button><button tabindex="-1" onclick={() => windowCommand('toggle_maximise')}>□</button><button tabindex="-1" onclick={() => windowCommand('close_window')}>×</button>
       </div>
     </header>
 
     <div class="toolbar">
-      <div class="toolbar-brand" title={$t("Napstr home")}>
-        <img src="/napstr-logo.png" alt="Napstr" />
+      <div class="toolbar-brand" title={$t("Deadwax home")}>
+        <img src="/napstr-logo.png" alt="Deadwax" />
       </div>
       <div class="toolbar-separator"></div>
       {#each views as view}
@@ -3604,7 +3604,7 @@
       {/each}
       <div class="toolbar-spacer"></div>
       {#if newRelease}
-        <button class="release-button" onclick={openNewRelease} title={$t("Open Napstr {p0} on GitHub", { p0: newRelease.version })}>
+        <button class="release-button" onclick={openNewRelease} title={$t("Open Deadwax {p0} on GitHub", { p0: newRelease.version })}>
           <span class="release-arrow">⇧</span>
           <span><strong>{$t("New release")}</strong><small>{newRelease.version} {$t("available")}</small></span>
         </button>
@@ -3622,7 +3622,7 @@
       <span class="strip-right"><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button> <i class:amber={!nativeReady} class="led"></i></span>
     </div>
 
-    <section class="player-bar" aria-label={$t("Napstr audio player")}>
+    <section class="player-bar" aria-label={$t("Deadwax audio player")}>
       <div class="player-display">
         <span class:playing={playerPlaying} class="player-led">{playerLoading ? '···' : playerPlaying ? '▶' : '■'}</span>
         <div><strong>{currentTrack?.name ?? $t("No track selected")}</strong><small>{currentTrack ? `${currentTrack.artist || 'Unknown artist'} · ${folderName(currentTrack.folder)}` : $t("Choose a local song to begin")}</small></div>
@@ -3669,7 +3669,7 @@
     <div class="workspace">
       {#if activeView === 'Search'}
         <section class="panel search-panel">
-          <div class="panel-title"><span></span><b>{$t("Search the Napstr network")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Search the Deadwax network")}</b><span></span></div>
           <form class="search-form" onsubmit={(e) => { e.preventDefault(); search(); }}>
             <label for="search-query">{$t("Search:")}</label>
             <input id="search-query" bind:value={query} placeholder={$t("punk, rock, jazz, audiobook")} />
@@ -3814,7 +3814,7 @@
               </fieldset>
               <div class="detail-actions">{#if !isLocalFile(selected.fileId)}<button class="classic-button primary" disabled={startingDownloads.has(selected.fileId)} onclick={() => startDownload()}>{startingDownloads.has(selected.fileId) ? $t("… Requesting") : $t("⇩ Download")}</button><button class="classic-button" onclick={() => (sourceProfile = selected?.sourceDetails?.[selectedSource] ?? null)}>{$t("View profile")}</button>{:else}<button class="classic-button primary" onclick={playSelectedAudio}>{$t("▶ Play")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button>{/if}</div>
               {#if !isLocalFile(selected.fileId)}<div class="detail-actions moderation-actions"><button class="classic-button" onclick={blockSelectedFile}>{$t("Block file")}</button><button class="classic-button" onclick={blockSelectedUser}>{$t("Block user")}</button></div>{/if}
-              {#if !isLocalFile(selected.fileId)}<p class="privacy-note"><span>♜</span> {$t("Transfer will use the seeder’s private, app-session Tor onion service.")}</p>{:else}<p class="privacy-note"><span>♬</span> {$t("Downloaded and verified · ready to play from your Napstr folder.")}</p>{/if}
+              {#if !isLocalFile(selected.fileId)}<p class="privacy-note"><span>♜</span> {$t("Transfer will use the seeder’s private, app-session Tor onion service.")}</p>{:else}<p class="privacy-note"><span>♬</span> {$t("Downloaded and verified · ready to play from your Deadwax folder.")}</p>{/if}
               <section class="track-discussion" aria-label={$t("Discussion for {p0}", { p0: selected.name })}>
                 <div class="track-discussion-title"><b>{$t("Track discussion")}</b><small>{$t(trackDiscussionLoading ? "Loading…" : "Public · Nostr")}</small></div>
                 <div class="track-discussion-log" use:openChatLog bind:this={trackDiscussionLog} aria-live="polite" aria-busy={trackDiscussionLoading} onscroll={(event) => { if (event.currentTarget.scrollTop < 32) void refreshTrackDiscussion(selected?.fileId, false, true); }}>
@@ -3837,7 +3837,7 @@
       {:else if activeView === 'Downloads'}
         <section class="full-panel downloads-view">
           <div class="panel-title"><span></span><b>{$t("Download Manager")}</b><span></span></div>
-          <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Ⅱ Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Napstr folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
+          <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Ⅱ Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Deadwax folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
           <div class="download-queue">
             {#each audiobookDownloads as book}
               <div class="audiobook-download-row"><span class="audiobook-glyph">▥</span><b>{book.title}</b><div class="progress"><span style={`width:${book.chapters.length ? (book.nextIndex / book.chapters.length) * 100 : 0}%`}></span><b>{book.nextIndex}/{book.chapters.length}</b></div><span>{book.activeFileId ? $t("Downloading chapter {p0}", { p0: book.nextIndex + 1 }) : $t("Preparing next chapter")}</span></div>
@@ -3870,7 +3870,7 @@
         <section class="full-panel">
           <div class="panel-title"><span></span><b>{$t("My Shared Files")}</b><span></span></div>
           <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
-          <div class="folder-path"><b>{$t("Napstr folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
+          <div class="folder-path"><b>{$t("Deadwax folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
           <div class="library-filter">
             <span class="library-filter-label">{$t("View folder:")}</span>
             <div class="folder-picker" use:containLibraryFolderMenu>
@@ -3896,9 +3896,9 @@
         </section>
       {:else if activeView === 'Trollbox'}
         <section class="full-panel trollbox-view">
-          <div class="panel-title"><span></span><b>{$t("Napstr Trollbox")}</b><span></span></div>
-          <div class="trollbox-status"><span><i class:amber={!networkConnected} class="led"></i> {$t("Public Nostr chat:")} <b>#napstr-trollbox</b></span><small>{$t(trollboxLoading ? "Loading…" : "NIP-C7 messages are public and signed by your Napstr Nostr identity.")}</small></div>
-          <div class="trollbox-log" use:openChatLog bind:this={trollboxLog} aria-live="polite" aria-busy={trollboxLoading} onscroll={(event) => { if (event.currentTarget.scrollTop < 32) void refreshTrollbox(true); }} aria-label={$t("Napstr public chat messages")}>
+          <div class="panel-title"><span></span><b>{$t("Deadwax Trollbox")}</b><span></span></div>
+          <div class="trollbox-status"><span><i class:amber={!networkConnected} class="led"></i> {$t("Public Nostr chat:")} <b>#napstr-trollbox</b></span><small>{$t(trollboxLoading ? "Loading…" : "NIP-C7 messages are public and signed by your Deadwax Nostr identity.")}</small></div>
+          <div class="trollbox-log" use:openChatLog bind:this={trollboxLog} aria-live="polite" aria-busy={trollboxLoading} onscroll={(event) => { if (event.currentTarget.scrollTop < 32) void refreshTrollbox(true); }} aria-label={$t("Deadwax public chat messages")}>
             {#if trollboxLoading && !trollboxMessages.length}<p class="trollbox-notice">{$t("Connecting to the trollbox…")}</p>{/if}
             {#if !trollboxLoading && trollboxMessages.length === 0 && !trollboxError}<p class="trollbox-notice">{$t("No messages yet. Say hello.")}</p>{/if}
             {#each trollboxMessages as message (message.eventId)}
@@ -4069,7 +4069,7 @@
         </section>
       {:else if activeView === 'Covers'}
         <section class="full-panel cover-scan-view">
-          <div class="panel-title" title={$t("Napstr finds album art in two steps. Reading the kind") + ' 30427 ' + $t("claims other people published needs nothing switched on: it is an ordinary relay query, and it happens by itself as results appear. The two switches below are the steps that leave Napstr. Napstr acts on them on its own — there is nothing else to press — and they are stored, so leaving one on means it carries on after a restart.")}><span></span><b>{$t("Album covers")}</b><span></span></div>
+          <div class="panel-title" title={$t("Deadwax finds album art in two steps. Reading the kind") + ' 30427 ' + $t("claims other people published needs nothing switched on: it is an ordinary relay query, and it happens by itself as results appear. The two switches below are the steps that leave Deadwax. Deadwax acts on them on its own — there is nothing else to press — and they are stored, so leaving one on means it carries on after a restart.")}><span></span><b>{$t("Album covers")}</b><span></span></div>
 
           <!--
             Everything a person comes here for, in one line: what is held, how
@@ -4093,7 +4093,7 @@
           <div class="cover-subtabs">
             <button class="cover-subtab" class:active={coverPanel === 'waiting'} title={'The albums the worker would touch next'} onclick={() => setCoverPanel('waiting')}>{'Waiting'}</button>
             <button class="cover-subtab" class:active={coverPanel === 'found'} title={'Every album of your own music with no cover claim, worst first. A failure comes first because a lookup that fell over looks identical to an album nobody has art for.'} onclick={() => setCoverPanel('found')}>{'Covers found'}</button>
-            <button class="cover-subtab" class:active={coverPanel === 'activity'} title={'What the last pass did, and the reason for every lookup that did not work. Nothing else in Napstr keeps that reason.'} onclick={() => setCoverPanel('activity')}>{'Activity'}</button>
+            <button class="cover-subtab" class:active={coverPanel === 'activity'} title={'What the last pass did, and the reason for every lookup that did not work. Nothing else in Deadwax keeps that reason.'} onclick={() => setCoverPanel('activity')}>{'Activity'}</button>
             <button class="cover-subtab" class:active={coverPanel === 'settings'} title={'What this computer is allowed to do about your album art, and what it is holding.'} onclick={() => setCoverPanel('settings')}>{'Settings'}</button>
           </div>
 
@@ -4118,7 +4118,7 @@
                 Which hosts art may come from. This is the interim answer to art
                 arriving from an address nobody vouched for — a stranger's claim, or
                 a link somebody pastes — until the cover NIP's own trust model
-                carries it. Empty is the honest default: it is how Napstr behaved
+                carries it. Empty is the honest default: it is how Deadwax behaved
                 before the list existed, so nobody's library loses its covers to a
                 filter they never asked for. The reasoning lives in the label's
                 title rather than in a paragraph under the box.
@@ -4176,7 +4176,7 @@
                   </div>
                 {/each}
                 {#if !coverLoading && coverQueue.length === 0}
-                  <p class="empty-state compact">{coverOptIn(coverStatus) ? 'Nothing is waiting. New music and new browsing wake Napstr by themselves.' : 'Switch one of these on and Napstr starts on its own.'}</p>
+                  <p class="empty-state compact">{coverOptIn(coverStatus) ? 'Nothing is waiting. New music and new browsing wake Deadwax by themselves.' : 'Switch one of these on and Deadwax starts on its own.'}</p>
                 {/if}
               </div>
               <div class="cover-art-hosts-actions">
@@ -4244,17 +4244,17 @@
 
           {#if coverError}<div class="trollbox-error">{coverError}</div>{/if}
         </section>
-      {:else if activeView === 'Napstrfy'}
+      {:else if activeView === 'Deadwax'}
         <section class="full-panel mobile-connect-view">
-          <div class="panel-title"><span></span><b>{$t("Napstrfy")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Deadwax")}</b><span></span></div>
           <div class="mobile-connect-status">
             <span><i class:amber={!mobileStatusValue?.online} class:error={Boolean(mobileStatusValue?.error)} class="led"></i><b>{mobileStatusValue?.online ? $t("Iroh ready") : mobileStatusValue?.running ? $t("Iroh connecting…") : $t("Iroh unavailable")}</b></span>
-            <small>{$t("Napstr stays in control of discovery and Tor downloads.")}</small>
+            <small>{$t("Deadwax stays in control of discovery and Tor downloads.")}</small>
           </div>
           {#if mobileError}<div class="trollbox-error">{$t(mobileError)}</div>{/if}
           <div class="mobile-connect-grid">
             <section class="pair-phone-card">
-              <h2>{$t("Pair Napstrfy")}</h2>
+              <h2>{$t("Pair Deadwax")}</h2>
               <div class="pairing-tabs" role="tablist" aria-label={$t("Pairing access")}>
                 {#each [false, true] as streamOnly}
                   <button type="button" role="tab" id={`pairing-tab-${streamOnly ? 'stream' : 'full'}`} aria-controls={`pairing-panel-${streamOnly ? 'stream' : 'full'}`} aria-selected={mobileStreamOnly === streamOnly} tabindex={mobileStreamOnly === streamOnly ? 0 : -1} onclick={() => (mobileStreamOnly = streamOnly)} onkeydown={navigatePairingTabs}>{streamOnly ? $t("uncle jim") : $t("Full access")}</button>
@@ -4263,10 +4263,10 @@
             {#each [false, true] as streamOnly}
               {@const offer = streamOnly ? mobileStreamPairing : mobilePairing}
               <div role="tabpanel" id={`pairing-panel-${streamOnly ? 'stream' : 'full'}`} aria-labelledby={`pairing-tab-${streamOnly ? 'stream' : 'full'}`} hidden={mobileStreamOnly !== streamOnly} tabindex="0">
-                <p>{streamOnly ? $t("Read-only, listen to and cache your local music and audiobooks. The connection cannot ask Napstr to download new songs.") : $t("Browse, listen, save songs for offline listening, and ask Napstr to download tracks over Tor.")}</p>
-                <p>{$t("Scan in")} <a href="https://napstr.net/napstrfy.html" onclick={openNapstrfyWebsite}>Napstrfy</a>{$t(". Keep Napstr open while streaming.")}</p>
+                <p>{streamOnly ? $t("Read-only, listen to and cache your local music and audiobooks. The connection cannot ask Deadwax to download new songs.") : $t("Browse, listen, save songs for offline listening, and ask Deadwax to download tracks over Tor.")}</p>
+                <p>{$t("Scan in")} <a href="https://deadwax.rip/napstrfy.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
                 {#if offer}
-                  <div class="pairing-qr" aria-label={streamOnly ? $t("Read-only Napstrfy pairing QR code") : $t("Full-access Napstrfy pairing QR code")}>{@html offer.qrSvg}</div>
+                  <div class="pairing-qr" aria-label={streamOnly ? $t("Read-only Deadwax pairing QR code") : $t("Full-access Deadwax pairing QR code")}>{@html offer.qrSvg}</div>
                   <p class="pairing-expiry">{$t("One use · expires")} {new Date(offer.expiresAt * 1000).toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' })}</p>
                   <details><summary>{$t("Pair without a camera")}</summary><textarea readonly value={offer.ticket} aria-label={streamOnly ? $t("Manual read-only pairing code") : $t("Manual full-access pairing code")}></textarea></details>
                   <button class="classic-button" onclick={() => createMobilePairing(streamOnly)} disabled={mobileLoading}>{mobileLoading ? $t("Preparing…") : $t("Create a new code")}</button>
@@ -4278,7 +4278,7 @@
             {/each}
             </section>
             <section class="paired-devices-card">
-              <p>{$t("Napstrfy creates a private, encrypted tunnel from your phone to Napstr, letting you listen to your catalogue by connecting directly to your Napstr instance. Only for your own use and for people you trust.")}</p>
+              <p>{$t("Deadwax creates a private, encrypted tunnel from your phone to Deadwax, letting you listen to your catalogue by connecting directly to your Deadwax instance. Only for your own use and for people you trust.")}</p>
               <h2>{$t("Paired phones")}</h2>
               <p>{$t("Each phone keeps the access its code gave it, and you can change it here at any time.")}</p>
               <div class="paired-device-list">
@@ -4315,14 +4315,14 @@
         </section>
       {:else if activeView === 'Profile'}
         <section class="full-panel profile-view">
-          <div class="panel-title"><span></span><b>{$t("Napstr Profile")}</b><span></span></div>
-          <div class="profile-card"><div class="avatar"><img src="/napstr-logo.png" alt={$t("Napstr mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Napstr Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
+          <div class="panel-title"><span></span><b>{$t("Deadwax Profile")}</b><span></span></div>
+          <div class="profile-card"><div class="avatar"><img src="/napstr-logo.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
           <fieldset class="edit-profile"><legend>{$t("Profile")}</legend><label>{$t("Display name")} <input bind:value={displayName} /></label><label>{$t("About")} <input bind:value={profileAbout} /></label><label>{$t("Picture URL")} <input bind:value={profilePicture} placeholder="https://…" /></label><button class="classic-button primary" onclick={persistSettings}>{$t("Save profile")}</button></fieldset>
           <p class="privacy-note wide"><span>i</span> {$t("Your profile and shared catalogue are public on Nostr. Transfer addresses and credentials are never published.")}</p>
         </section>
       {:else}
         <section class="full-panel settings-view">
-          <div class="panel-title"><span></span><b>{$t("Napstr Settings")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Deadwax Settings")}</b><span></span></div>
           <fieldset><legend>{$t("Language")}</legend><LanguageSelect /><small>{$t("Saved automatically on this device.")}</small></fieldset>
           <fieldset><legend>{$t("Network")}</legend><label><input type="checkbox" checked disabled /> {$t("Connect automatically at startup")}</label><label>{$t("Nostr relays")} <input bind:value={nostrRelays} /></label><label>Tor <input value={$t("Bundled, managed automatically")} readonly /></label></fieldset>
           <fieldset><legend>{$t("Files")}</legend><label>{$t("Downloads and shared audio")} <input value={napstrFolder} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></label><label>{$t("Transfer mode")} <select disabled><option>{$t("Whole file")}</option></select></label><label><input type="checkbox" checked disabled /> {$t("Downloaded audio is automatically shared")}</label><label><input type="checkbox" checked disabled /> {$t("Verify the complete file with SHA-256")}</label></fieldset>
@@ -4357,10 +4357,10 @@
 
   {#if aboutOpen}
     <div class="modal-backdrop" role="presentation" onclick={() => (aboutOpen = false)}>
-      <dialog class="dialog" open aria-label={$t("About Napstr")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') aboutOpen = false; }}>
-        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("About Napstr")}</span></div><div class="window-controls"><button onclick={() => (aboutOpen = false)}>×</button></div></header>
+      <dialog class="dialog" open aria-label={$t("About Deadwax")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') aboutOpen = false; }}>
+        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("About Deadwax")}</span></div><div class="window-controls"><button onclick={() => (aboutOpen = false)}>×</button></div></header>
         <div class="dialog-body about-dialog-body">
-          <div class="about-summary"><div class="about-logo"><img src="/napstr-logo.png" alt="" /></div><div><h2>Napstr</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
+          <div class="about-summary"><div class="about-logo"><img src="/napstr-logo.png" alt="" /></div><div><h2>Deadwax</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
           <p class="about-donation">{$t("donations welcome!")}<br /><code>bc1qwgms685z3j69qtgalyjtrfuqg5f6pt302z0k60</code></p>
         </div>
         <div class="dialog-actions"><button class="classic-button primary" onclick={() => (aboutOpen = false)}>{$t("OK")}</button></div>
@@ -4370,8 +4370,8 @@
 
   {#if sourceProfile}
     <div class="modal-backdrop" role="presentation" onclick={() => (sourceProfile = null)}>
-      <dialog class="dialog" open aria-label={$t("Napstr public profile")} onclick={(e) => e.stopPropagation()}>
-        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Public Napstr Profile")}</span></div><div class="window-controls"><button onclick={() => (sourceProfile = null)}>×</button></div></header>
+      <dialog class="dialog" open aria-label={$t("Deadwax public profile")} onclick={(e) => e.stopPropagation()}>
+        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Public Deadwax Profile")}</span></div><div class="window-controls"><button onclick={() => (sourceProfile = null)}>×</button></div></header>
         <div class="dialog-body"><div class="about-logo">☺</div><div><h2><button class="user-name" onclick={() => browseUser(sourceProfile!)}>{sourceProfile.displayName}</button></h2><p>{sourceProfile.about || $t("No profile description published.")}</p><code>{sourceProfile.npub}</code></div></div>
         <div class="dialog-actions"><button class="classic-button primary" onclick={() => (sourceProfile = null)}>{$t("OK")}</button></div>
       </dialog>
@@ -4383,7 +4383,7 @@
       <dialog class="dialog audiobook-dialog" open aria-label={$t("Group folder as audiobook")} onclick={(event) => event.stopPropagation()} onkeydown={(event) => { if (event.key === 'Escape' && !audiobookSaving) audiobookEditorOpen = false; }}>
         <header class="titlebar"><div class="title-left"><span class="app-icon">▥</span><span>{$t("Publish Audiobook")}</span></div><div class="window-controls"><button disabled={audiobookSaving} onclick={() => (audiobookEditorOpen = false)}>×</button></div></header>
         <div class="audiobook-dialog-body">
-          <p>{$t("Napstr will publish this folder as one ordered audiobook while retaining its normal chapter file events.")}</p>
+          <p>{$t("Deadwax will publish this folder as one ordered audiobook while retaining its normal chapter file events.")}</p>
           <label>{$t("Title")} <input bind:value={audiobookTitle} maxlength="256" /></label>
           <label>{$t("Author")} <input bind:value={audiobookAuthor} maxlength="256" /></label>
           <label>{$t("Narrator")} <input bind:value={audiobookNarrator} maxlength="256" /></label>

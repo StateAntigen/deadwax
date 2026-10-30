@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-capability",
-  "description": "Napstrfy desktop companion",
+  "description": "Deadwax desktop companion",
   "windows": [
     "main"
   ],

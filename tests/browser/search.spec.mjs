@@ -4,7 +4,7 @@ import { mockNative } from './helpers/native.mjs';
 const catalogs = Object.fromEntries(await Promise.all(['en', 'zh', 'ar'].map(async (code) => [code, JSON.parse(await readFile(new URL(`../../shared/i18n/locales/${code}.json`, import.meta.url)))])));
 
 for (const code of ['en', 'zh', 'ar']) {
-  test(`Napstr ${code}: search, pagination and Tor-to-Local update without leaving the screen`, async ({ page }) => {
+  test(`Deadwax ${code}: search, pagination and Tor-to-Local update without leaving the screen`, async ({ page }) => {
     await mockNative(page, { app: 'napstr', saved: code });
     await page.addInitScript(() => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
@@ -71,7 +71,7 @@ for (const code of ['en', 'zh', 'ar']) {
     await expect(page.locator('.shared-table tbody tr')).toHaveCount(5);
   });
 
-  test(`Napstr ${code}: Surprise me fills 50 unowned tracks across pages and ignores old filters`, async ({ page }) => {
+  test(`Deadwax ${code}: Surprise me fills 50 unowned tracks across pages and ignores old filters`, async ({ page }) => {
     await mockNative(page, { app: 'napstr', saved: code });
     await page.addInitScript(() => {
       const invoke = window.__TAURI_INTERNALS__.invoke;

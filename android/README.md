@@ -1,8 +1,8 @@
-# Napstrfy
+# Deadwax
 
-Napstr's companion player for Android, Windows, Linux, and macOS.
+Deadwax's companion player for Android, Windows, Linux, and macOS.
 
-For desktop pairing, paste the code from Napstr's **Napstrfy → Pair without a camera**.
+For desktop pairing, paste the code from Deadwax's **Deadwax → Pair without a camera**.
 
 ## Desktop
 
@@ -70,7 +70,7 @@ adb devices
 
 ## Run on a phone
 
-Napstrfy keeps the screen awake while the app is open in the foreground. The power
+Deadwax keeps the screen awake while the app is open in the foreground. The power
 button still locks the phone, and the normal screen timeout applies after leaving
 the app.
 
@@ -95,14 +95,14 @@ npm run android:build -- --debug --apk
 adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
 
-Pair the phone from Napstr's **Napstrfy** page. Napstr must remain running to browse or fetch its audio; songs already cached on the phone can play offline.
+Pair the phone from Deadwax's **Deadwax** page. Deadwax must remain running to browse or fetch its audio; songs already cached on the phone can play offline.
 
-The Napstrfy page offers two independent, one-use QR codes:
+The Deadwax page offers two independent, one-use QR codes:
 
 - **Full access** keeps the usual library search, Tor download requests, and verified offline audio cache.
-- **Read only** lets a phone browse, play, and cache music and audiobooks already on this Napstr. Playback uses the same verified offline audio cache, seeking, and next-track prefetching as full access. Napstr rejects requests to download new songs on the host and access its transfer history. Update both apps to get this playback behaviour.
+- **Read only** lets a phone browse, play, and cache music and audiobooks already on this Deadwax. Playback uses the same verified offline audio cache, seeking, and next-track prefetching as full access. Deadwax rejects requests to download new songs on the host and access its transfer history. Update both apps to get this playback behaviour.
 
-A code says what a phone may do *to begin with*. Every right can be changed afterwards from the paired-phone list on the Napstrfy page, one tick at a time:
+A code says what a phone may do *to begin with*. Every right can be changed afterwards from the paired-phone list on the Deadwax page, one tick at a time:
 
 - **Read the library** — the index: library pages, searches within it, playlists, audiobooks, album art, comments.
 - **Play and keep audio** — be handed this computer's audio and cache it.
@@ -116,7 +116,7 @@ Each code expires after five minutes. Generating a replacement affects only that
 
 ## The phone's own key
 
-Napstrfy generates a Nostr key for itself when it is first run and keeps it on the device. It is the phone's identity rather than the computer's: the phone's own playlists and its liked songs are filed under that key, so two phones paired with one computer have two separate sets, and the computer does not own either. Settings shows the public key and offers the secret key for export, which is what lets the same lists come back on a replacement phone.
+Deadwax generates a Nostr key for itself when it is first run and keeps it on the device. It is the phone's identity rather than the computer's: the phone's own playlists and its liked songs are filed under that key, so two phones paired with one computer have two separate sets, and the computer does not own either. Settings shows the public key and offers the secret key for export, which is what lets the same lists come back on a replacement phone.
 
 Nothing under that key can be read or written until the phone has proved the key to the computer, which it does by signing a challenge the computer made up. That is one exchange, remembered afterwards, and it needs no connection to the network — it costs a fraction of a second. If a phone is refused with "not said which key is its own yet", it has not proved one yet; reinstalling the app is not the fix, and restoring an exported key is what keeps the same lists.
 
@@ -124,14 +124,14 @@ A phone's playlists therefore live in the computer's store under the phone's key
 
 ## Several computers at once
 
-A phone may be paired with more than one Napstr. One of them is its **home computer**: the one whose player, download queue and status the app is drawn from, and the one it signs through. The others are libraries to read and play from, and their music appears in the same list.
+A phone may be paired with more than one Deadwax. One of them is its **home computer**: the one whose player, download queue and status the app is drawn from, and the one it signs through. The others are libraries to read and play from, and their music appears in the same list.
 
-The home computer is chosen in Napstrfy's Settings, which is what makes it useful to own two: a desktop and a laptop that both let the phone act as their owner are both valid homes, and only the person holding the phone knows which one is home. Without a choice it is the first computer paired that lets the phone act as its owner.
+The home computer is chosen in Deadwax's Settings, which is what makes it useful to own two: a desktop and a laptop that both let the phone act as their owner are both valid homes, and only the person holding the phone knows which one is home. Without a choice it is the first computer paired that lets the phone act as its owner.
 
 When one of them is unreachable the rest still work. The status line says how many answered (`1/2 Online`), the library and search read from whichever computers are there, and the settings list marks each one with whether it may download for this phone.
 
 A tunnel that hears *nothing at all* is given up on after fifteen seconds and opened again, so a computer that has been asleep costs one question rather than a minute of them. That decision belongs to the transport and not to the app: QUIC heartbeats are answered by the other machine's transport rather than by its application, so silence there means the path is gone, while a computer that is slow to answer is still answering. The request level cannot tell those two apart — a request that went unanswered says nothing about the connection it was asked over — so nothing at that level drops a tunnel. The phone simply stops handing out one the transport has already closed.
 
-Podcasts are independent of Napstr: Napstrfy searches a public podcast directory and streams or downloads episodes directly from their publishers.
+Podcasts are independent of Deadwax: Deadwax searches a public podcast directory and streams or downloads episodes directly from their publishers.
 
 The same codebase can later be built for iOS from a Mac using `npm run ios:init` and `npm run ios:dev`.

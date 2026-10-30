@@ -47,7 +47,7 @@ async function search(page, query = 'talked') {
   await expect(page.locator('.search-results-table tbody tr')).toHaveCount(2);
 }
 
-test('Napstr marks the results people have been talking about', async ({ page }) => {
+test('Deadwax marks the results people have been talking about', async ({ page }) => {
   await search(page);
   const rows = page.locator('.search-results-table tbody tr');
   const marked = rows.filter({ hasText: 'Talked about' }).locator('.discussion-mark');
@@ -75,7 +75,7 @@ test('Napstr marks the results people have been talking about', async ({ page })
   expect([...aboutTheseRows[0]].sort()).toEqual([talkedAbout.fileId, quiet.fileId].sort());
 });
 
-test('Napstr reads the discussion the mark points at', async ({ page }) => {
+test('Deadwax reads the discussion the mark points at', async ({ page }) => {
   // The mark is only worth drawing if the place it points at answers: selecting
   // the row is what opens the panel that reads the conversation itself.
   await search(page);

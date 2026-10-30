@@ -38,8 +38,8 @@ const theirs = track(id('b'), 'Ada Ripped This');
 const full = { browse: true, fetch: true, control: true, download: true, privileged: true };
 const readable = { browse: true, fetch: true, control: false, download: false, privileged: false };
 
-const myComputer = { endpointId: 'endpoint', desktopName: 'My Napstr', rights: full, home: true, included: true, online: true, mayDownload: true };
-const friend = { endpointId: id('f'), desktopName: "Ada's Napstr", rights: readable, home: false, included: true, online: true, mayDownload: false };
+const myComputer = { endpointId: 'endpoint', desktopName: 'My Deadwax', rights: full, home: true, included: true, online: true, mayDownload: true };
+const friend = { endpointId: id('f'), desktopName: "Ada's Deadwax", rights: readable, home: false, included: true, online: true, mayDownload: false };
 
 async function openApp(page, { known = [myComputer, friend], library = [mine], libraries = {}, fileHosts = {}, offline = [] } = {}) {
   await mockNative(page, { platform: 'android' });
@@ -87,7 +87,7 @@ const lastLibraryCall = (page) =>
     return { count: calls.length, source: calls.at(-1)?.args?.source ?? null };
   });
 
-test('Napstrfy shows every computer\u2019s music as one list', async ({ page }) => {
+test('Deadwax shows every computer\u2019s music as one list', async ({ page }) => {
   await openApp(page, { libraries: { [friend.endpointId]: [theirs] } });
 
   // The phone's own music first, then what the friend holds, and no control for
@@ -98,7 +98,7 @@ test('Napstrfy shows every computer\u2019s music as one list', async ({ page }) 
   expect(asked.source).toBe(null);
 });
 
-test('Napstrfy marks a track that came from another computer', async ({ page }) => {
+test('Deadwax marks a track that came from another computer', async ({ page }) => {
   await openApp(page, {
     libraries: { [friend.endpointId]: [theirs] },
     fileHosts: { [theirs.fileId]: id('f') }
@@ -110,7 +110,7 @@ test('Napstrfy marks a track that came from another computer', async ({ page }) 
   // computer's colour and names it.
   await expect(rows.first().locator('.track-badge.elsewhere')).toHaveCount(0);
   await expect(rows.last().locator('.track-badge.elsewhere')).toHaveCount(1);
-  await expect(rows.last().locator('.track-badge')).toHaveAttribute('aria-label', "Stored on Ada's Napstr");
+  await expect(rows.last().locator('.track-badge')).toHaveAttribute('aria-label', "Stored on Ada's Deadwax");
 });
 
 /** Opens the settings sheet. */
@@ -119,7 +119,7 @@ async function openSettings(page) {
   await expect(page.getByRole('button', { name: 'Add a computer' })).toBeVisible();
 }
 
-test('Napstrfy lists the computers it may read, and forgets one without the rest', async ({ page }) => {
+test('Deadwax lists the computers it may read, and forgets one without the rest', async ({ page }) => {
   const asked = [];
   page.on('dialog', (dialog) => {
     asked.push(dialog.message());
@@ -132,27 +132,27 @@ test('Napstrfy lists the computers it may read, and forgets one without the rest
   await expect(rows).toHaveCount(2);
   // The computer this phone acts through is named as such, so the two are not
   // just two names.
-  await expect(rows.first()).toContainText('My Napstr');
+  await expect(rows.first()).toContainText('My Deadwax');
   await expect(rows.first()).toContainText("This phone's home computer");
-  await expect(rows.last()).toContainText("Ada's Napstr");
+  await expect(rows.last()).toContainText("Ada's Deadwax");
 
-  await page.getByRole('button', { name: "Forget Ada's Napstr" }).click();
+  await page.getByRole('button', { name: "Forget Ada's Deadwax" }).click();
 
   // The forgetting is the computer's to do, so the call is the assertion - and
   // the person is asked before anything happens.
   await expect
     .poll(() => page.evaluate(() => window.calls.filter((call) => call.cmd === 'forget_mobile_host').map((call) => call.args.endpointId)))
     .toEqual([id('f')]);
-  expect(asked.some((message) => message.includes("Forget Ada's Napstr"))).toBe(true);
+  expect(asked.some((message) => message.includes("Forget Ada's Deadwax"))).toBe(true);
   // The computer went, and the row that adds one is still there.
   await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText('My Napstr');
+  await expect(rows.first()).toContainText('My Deadwax');
   await expect(page.getByRole('button', { name: 'Add a computer' })).toBeVisible();
   // And the library on screen is the phone's own computer's again.
   await expect(page.locator('.track-row strong')).toHaveText(['My Song']);
 });
 
-test('Napstrfy adds a computer from settings, and the choice appears', async ({ page }) => {
+test('Deadwax adds a computer from settings, and the choice appears', async ({ page }) => {
   await openApp(page, { known: [myComputer] });
   // One computer is all this phone may read for now.
   await expect(page.locator('.track-row strong')).toHaveText(['My Song']);
@@ -180,7 +180,7 @@ test('Napstrfy adds a computer from settings, and the choice appears', async ({ 
   await expect(page.locator('.computer-row').last()).toContainText('Music computer');
 });
 
-test('Napstrfy leaves the adding screen on a back press rather than the app', async ({ page }) => {
+test('Deadwax leaves the adding screen on a back press rather than the app', async ({ page }) => {
   await openApp(page, { known: [myComputer] });
   await openSettings(page);
   await page.getByRole('button', { name: 'Add a computer' }).click();
@@ -194,7 +194,7 @@ test('Napstrfy leaves the adding screen on a back press rather than the app', as
   expect(await page.evaluate(() => window.appExits)).toBe(0);
 });
 
-test('Napstrfy leaves a computer out without unpairing it', async ({ page }) => {
+test('Deadwax leaves a computer out without unpairing it', async ({ page }) => {
   await openApp(page, { libraries: { [friend.endpointId]: [theirs] } });
   await expect(page.locator('.track-row strong')).toHaveText(['My Song', 'Ada Ripped This']);
 
@@ -213,7 +213,7 @@ test('Napstrfy leaves a computer out without unpairing it', async ({ page }) => 
   await expect(page.locator('.computer-row')).toHaveCount(2);
 });
 
-test('Napstrfy counts the computers that answered in the status line', async ({ page }) => {
+test('Deadwax counts the computers that answered in the status line', async ({ page }) => {
   await openApp(page, { known: [{ ...friend, online: false }, myComputer] });
 
   const chip = page.locator('.status-chip');
@@ -252,7 +252,7 @@ test('a phone whose own computer is asleep still reads the one that answered', a
   await expect(page.locator('.track-row strong')).toHaveText(['Ada Ripped This']);
 });
 
-test('Napstrfy lets the home computer be chosen, and keeps the choice', async ({ page }) => {
+test('Deadwax lets the home computer be chosen, and keeps the choice', async ({ page }) => {
   await openApp(page);
   await openSettings(page);
 
@@ -263,7 +263,7 @@ test('Napstrfy lets the home computer be chosen, and keeps the choice', async ({
   const choose = page.locator('.computer-row button:has-text("Make home")');
   await expect(choose).toHaveCount(1);
 
-  await rows.last().getByRole('button', { name: "Make Ada's Napstr the home computer" }).click();
+  await rows.last().getByRole('button', { name: "Make Ada's Deadwax the home computer" }).click();
 
   // The choice is the phone's to keep, so the call is the assertion - and the
   // list on screen follows it rather than guessing.

@@ -3,7 +3,7 @@ name = "napstr-remote-protocol"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Small shared wire format for Napstr and Napstrfy"
+description = "Small shared wire format for Deadwax and Deadwax"
 
 [dependencies]
 base64 = "0.22"

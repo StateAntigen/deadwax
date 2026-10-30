@@ -63,7 +63,7 @@ if [[ -r /etc/NIXOS && -z "${NAPSTR_APPIMAGE_CONTAINER:-}" ]]; then
     "$project_dir/.cache/appimage/tauri" \
     "$project_dir/src-tauri/target/appimage-container"
 
-  echo "Building Napstr in the Ubuntu 22.04 container..."
+  echo "Building Deadwax in the Ubuntu 22.04 container..."
   docker run --rm \
     --user "$(id -u):$(id -g)" \
     --env HOME=/tmp/napstr-builder \
