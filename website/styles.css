@@ -36,7 +36,7 @@ a:hover { color: #b01a16; }
   left: 0;
   top: 0;
   opacity: .075;
-  background: url("assets/napstr-logo.png") left center / 390px auto no-repeat;
+  background: url("assets/deadwax-logo.png") left center / 390px auto no-repeat;
   filter: grayscale(1);
   pointer-events: none;
 }
@@ -367,10 +367,10 @@ footer em { display: block; }
 }
 
 .napstrfy-panel .content-body { min-height: 650px; }
-.napstrfy-wordmark { margin: 4px 0 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.napstrfy-wordmark img { width: 62px; height: 62px; }
-.napstrfy-wordmark strong { color: #fff; font: 900 italic 48px/.9 "Arial Black", Arial, sans-serif; letter-spacing: -4px; text-shadow: 1px 1px #444; -webkit-text-stroke: 1px #22245e; }
-.napstrfy-tagline { margin: 4px 0 15px; color: #29236d; font-size: 11px; letter-spacing: 3px; text-align: center; }
+.mobile-wordmark { margin: 4px 0 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.mobile-wordmark img { width: 62px; height: 62px; }
+.mobile-wordmark strong { color: #fff; font: 900 italic 48px/.9 "Arial Black", Arial, sans-serif; letter-spacing: -4px; text-shadow: 1px 1px #444; -webkit-text-stroke: 1px #22245e; }
+.mobile-tagline { margin: 4px 0 15px; color: #29236d; font-size: 11px; letter-spacing: 3px; text-align: center; }
 .trust-warning { margin: 17px 0; padding: 8px 9px; color: #3c2100; background: #fff4b7; border: 2px ridge #c8b35c; }
 .trust-warning > strong { display: block; margin-bottom: 5px; color: #74110f; font-size: 15px; }
 .trust-warning p { margin: 3px 0 7px; font-size: 13px; line-height: 16px; }

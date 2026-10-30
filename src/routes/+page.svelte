@@ -3585,7 +3585,7 @@
     <button class="window-resize-handle resize-nw" aria-label={$t("Resize window from top left")} onpointerdown={(event) => beginWindowResize(event, 'NorthWest')}></button>
 
     <header class="titlebar" data-tauri-drag-region>
-      <div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Deadwax - own your music again")}</span></div>
+      <div class="title-left"><span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span><span>{$t("Deadwax - own your music again")}</span></div>
       <div class="window-controls" aria-hidden="true">
         <button tabindex="-1" onclick={() => windowCommand('minimise_window')}>_</button><button tabindex="-1" onclick={() => windowCommand('toggle_maximise')}>□</button><button tabindex="-1" onclick={() => windowCommand('close_window')}>×</button>
       </div>
@@ -3593,7 +3593,7 @@
 
     <div class="toolbar">
       <div class="toolbar-brand" title={$t("Deadwax home")}>
-        <img src="/napstr-logo.png" alt="Deadwax" />
+        <img src="/deadwax-logo.png" alt="Deadwax" />
       </div>
       <div class="toolbar-separator"></div>
       {#each views as view}
@@ -4264,7 +4264,7 @@
               {@const offer = streamOnly ? mobileStreamPairing : mobilePairing}
               <div role="tabpanel" id={`pairing-panel-${streamOnly ? 'stream' : 'full'}`} aria-labelledby={`pairing-tab-${streamOnly ? 'stream' : 'full'}`} hidden={mobileStreamOnly !== streamOnly} tabindex="0">
                 <p>{streamOnly ? $t("Read-only, listen to and cache your local music and audiobooks. The connection cannot ask Deadwax to download new songs.") : $t("Browse, listen, save songs for offline listening, and ask Deadwax to download tracks over Tor.")}</p>
-                <p>{$t("Scan in")} <a href="https://deadwax.rip/napstrfy.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
+                <p>{$t("Scan in")} <a href="https://deadwax.rip/mobile.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
                 {#if offer}
                   <div class="pairing-qr" aria-label={streamOnly ? $t("Read-only Deadwax pairing QR code") : $t("Full-access Deadwax pairing QR code")}>{@html offer.qrSvg}</div>
                   <p class="pairing-expiry">{$t("One use · expires")} {new Date(offer.expiresAt * 1000).toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' })}</p>
@@ -4316,7 +4316,7 @@
       {:else if activeView === 'Profile'}
         <section class="full-panel profile-view">
           <div class="panel-title"><span></span><b>{$t("Deadwax Profile")}</b><span></span></div>
-          <div class="profile-card"><div class="avatar"><img src="/napstr-logo.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
+          <div class="profile-card"><div class="avatar"><img src="/deadwax-logo.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
           <fieldset class="edit-profile"><legend>{$t("Profile")}</legend><label>{$t("Display name")} <input bind:value={displayName} /></label><label>{$t("About")} <input bind:value={profileAbout} /></label><label>{$t("Picture URL")} <input bind:value={profilePicture} placeholder="https://…" /></label><button class="classic-button primary" onclick={persistSettings}>{$t("Save profile")}</button></fieldset>
           <p class="privacy-note wide"><span>i</span> {$t("Your profile and shared catalogue are public on Nostr. Transfer addresses and credentials are never published.")}</p>
         </section>
@@ -4358,9 +4358,9 @@
   {#if aboutOpen}
     <div class="modal-backdrop" role="presentation" onclick={() => (aboutOpen = false)}>
       <dialog class="dialog" open aria-label={$t("About Deadwax")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') aboutOpen = false; }}>
-        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("About Deadwax")}</span></div><div class="window-controls"><button onclick={() => (aboutOpen = false)}>×</button></div></header>
+        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span><span>{$t("About Deadwax")}</span></div><div class="window-controls"><button onclick={() => (aboutOpen = false)}>×</button></div></header>
         <div class="dialog-body about-dialog-body">
-          <div class="about-summary"><div class="about-logo"><img src="/napstr-logo.png" alt="" /></div><div><h2>Deadwax</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
+          <div class="about-summary"><div class="about-logo"><img src="/deadwax-logo.png" alt="" /></div><div><h2>Deadwax</h2><p>{$t("Version")} {appVersion}</p><p>{$t("Public discovery over Nostr.")}<br />{$t("Private verified transfers over Tor.")}</p></div></div>
           <p class="about-donation">{$t("donations welcome!")}<br /><code>bc1qwgms685z3j69qtgalyjtrfuqg5f6pt302z0k60</code></p>
         </div>
         <div class="dialog-actions"><button class="classic-button primary" onclick={() => (aboutOpen = false)}>{$t("OK")}</button></div>
@@ -4371,7 +4371,7 @@
   {#if sourceProfile}
     <div class="modal-backdrop" role="presentation" onclick={() => (sourceProfile = null)}>
       <dialog class="dialog" open aria-label={$t("Deadwax public profile")} onclick={(e) => e.stopPropagation()}>
-        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/napstr-logo.png" alt="" /></span><span>{$t("Public Deadwax Profile")}</span></div><div class="window-controls"><button onclick={() => (sourceProfile = null)}>×</button></div></header>
+        <header class="titlebar"><div class="title-left"><span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span><span>{$t("Public Deadwax Profile")}</span></div><div class="window-controls"><button onclick={() => (sourceProfile = null)}>×</button></div></header>
         <div class="dialog-body"><div class="about-logo">☺</div><div><h2><button class="user-name" onclick={() => browseUser(sourceProfile!)}>{sourceProfile.displayName}</button></h2><p>{sourceProfile.about || $t("No profile description published.")}</p><code>{sourceProfile.npub}</code></div></div>
         <div class="dialog-actions"><button class="classic-button primary" onclick={() => (sourceProfile = null)}>{$t("OK")}</button></div>
       </dialog>

@@ -297,7 +297,7 @@ test('Deadwax desktop pins the player as its own column with artwork, likes and 
     const invoke = window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke = async (cmd, args = {}) => {
       if (cmd === 'remote_covers') {
-        return (args.keys ?? []).map((key) => ({ key, art: '/napstr-logo-small.png', thumb: '/napstr-logo-small.png',
+        return (args.keys ?? []).map((key) => ({ key, art: '/deadwax-logo-small.png', thumb: '/deadwax-logo-small.png',
           artHash: '', thumbHash: hashes.thumb,
           mbid: '', year: '', genre: '', collection: '', source: 'itunes', coverFileId: '', mime: 'image/png', author: '', seeder: false }));
       }
@@ -540,12 +540,12 @@ test('website suggests language without redirecting; explicit changes preserve p
 test('website language links and sharing metadata work without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false, locale: 'fr-FR' });
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:15175/preview/napstrfy.html');
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://deadwax.rip/assets/napstrfy-share.png');
+  await page.goto('http://127.0.0.1:15175/preview/mobile.html');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://deadwax.rip/assets/companion-share.png');
   await page.locator('.language-links summary').click();
   await expect(page.locator('.language-links a')).toHaveCount(10);
   await page.locator('.language-links a[lang="fr"]').click();
-  await expect(page).toHaveURL(/\/preview\/fr\/napstrfy.html$/);
+  await expect(page).toHaveURL(/\/preview\/fr\/mobile.html$/);
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   await context.close();
 });
@@ -563,7 +563,7 @@ test('website downloads select the right product and display translated release 
   await page.goto('http://127.0.0.1:15175/es/download.html');
   await expect(page.locator('[data-release-platform="windows"]').first()).toHaveAttribute('href', /Deadwax_0.2.2_x64.exe$/);
   await expect(page.locator('#release-status')).toContainText('0.2.2');
-  await page.goto('http://127.0.0.1:15175/es/napstrfy.html');
+  await page.goto('http://127.0.0.1:15175/es/mobile.html');
   await expect(page.locator('[data-release-platform="windows"]')).toHaveAttribute('href', /Deadwax_0.2.2_x64.exe$/);
 });
 
@@ -579,17 +579,17 @@ test('Deadwax downloads follow newly published assets and keep unavailable clien
       name, size: 1234567, browser_download_url: `https://github.com/${RELEASE_REPOSITORY}/releases/download/v${version}/${name}`
     }))
   } }));
-  await page.goto('http://127.0.0.1:15175/napstrfy.html');
+  await page.goto('http://127.0.0.1:15175/mobile.html');
   await expect(page.locator('[data-release-version="windows"]')).toHaveText('Unavailable');
   await expect(page.locator('[data-release-platform="windows"]')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('[data-release-platform="windows"]')).not.toHaveAttribute('href');
-  await expect(page.locator('[data-release-platform="napstrfy-android"]')).toHaveAttribute('href', /Deadwax_0.2.1_android.apk$/);
+  await expect(page.locator('[data-release-platform="android"]')).toHaveAttribute('href', /Deadwax_0.2.1_android.apk$/);
   await expect(page.locator('#release-status')).toContainText('some installers are not available');
   version = '0.2.2';
   clients = ['android.apk', 'x64.exe', 'amd64.AppImage', 'aarch64.dmg', 'x64.dmg'];
   await page.reload();
   await expect(page.locator('#release-status')).toHaveText('Deadwax 0.2.2 downloads are ready.');
-  for (const [platform, file] of Object.entries({ windows: 'x64.exe', linux: 'amd64.AppImage', 'macos-arm64': 'aarch64.dmg', 'macos-intel': 'x64.dmg', 'napstrfy-android': 'android.apk' })) {
+  for (const [platform, file] of Object.entries({ windows: 'x64.exe', linux: 'amd64.AppImage', 'macos-arm64': 'aarch64.dmg', 'macos-intel': 'x64.dmg', 'android': 'android.apk' })) {
     await expect(page.locator(`[data-release-platform="${platform}"]`)).toHaveAttribute('href', `https://github.com/${RELEASE_REPOSITORY}/releases/download/v0.2.2/Deadwax_0.2.2_${file}`);
     await expect(page.locator(`[data-release-version="${platform}"]`)).toHaveText('0.2.2');
   }
@@ -600,7 +600,7 @@ test('Deadwax downloads follow newly published assets and keep unavailable clien
 
 test('Deadwax downloads retain a release-page fallback when GitHub is unavailable', async ({ page }) => {
   await page.route('https://api.github.com/**', (route) => route.fulfill({ status: 403, json: { message: 'API rate limit exceeded' } }));
-  await page.goto('http://127.0.0.1:15175/napstrfy.html');
+  await page.goto('http://127.0.0.1:15175/mobile.html');
   await expect(page.locator('#release-status')).toHaveText('The automatic download list is temporarily unavailable.');
   await expect(page.locator('#release-page')).toHaveAttribute('href', `https://github.com/${RELEASE_REPOSITORY}/releases/latest`);
   await expect(page.locator('[data-release-version="windows"]')).toHaveText('Unavailable');

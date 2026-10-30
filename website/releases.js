@@ -46,7 +46,7 @@ export async function loadLatestRelease(t, locale) {
       'macos-intel': safeAssets.find((asset) =>
         /\.dmg$/i.test(asset.name) && /(x86_64|x64|amd64|intel)/i.test(asset.name)
       ),
-      'napstrfy-android': safeAssets.find((asset) => /\.apk$/i.test(asset.name))
+      'android': safeAssets.find((asset) => /\.apk$/i.test(asset.name))
     };
   }
 
@@ -95,9 +95,9 @@ export async function loadLatestRelease(t, locale) {
         const platform = element.dataset.releaseVersion;
         element.textContent = !platform || matched[platform] ? version : t('Unavailable');
       });
-      const napstrfyPage = document.body.dataset.releaseProduct === 'napstrfy';
-      const expectedPlatforms = napstrfyPage
-        ? ['windows', 'linux', 'macos-arm64', 'macos-intel', 'napstrfy-android']
+      const companionPage = document.body.dataset.releaseProduct === 'companion';
+      const expectedPlatforms = companionPage
+        ? ['windows', 'linux', 'macos-arm64', 'macos-intel', 'android']
         : ['windows', 'linux', 'macos-arm64', 'macos-intel'];
       const available = Object.entries(matched)
         .filter(([platform, asset]) => expectedPlatforms.includes(platform) && enableLinks(platform, asset))

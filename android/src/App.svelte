@@ -7597,7 +7597,7 @@
     onclickcapture={swallowLikedSwipeClick}
   >
     {#if !loading && !searchingNetwork && tracks.length === 0}
-      <div class="empty-library"><img src="/napstr-logo-small.png" alt="" /><h2>{emptyTitle}</h2><p>{emptyHint}</p></div>
+      <div class="empty-library"><img src="/deadwax-logo-small.png" alt="" /><h2>{emptyTitle}</h2><p>{emptyHint}</p></div>
     {/if}
     {#each tracks as track (track.fileId)}
       {@render trackRow(track)}
@@ -9530,7 +9530,7 @@
               <!-- The mark in the middle is drawn over the code rather than cut
                    out of it: the code is rendered at the highest correction
                    level it can carry, which is what leaves room for this. -->
-              <img class="actions-code-mark" src="/napstr-logo-mark.png" alt="" />
+              <img class="actions-code-mark" src="/deadwax-logo-mark.png" alt="" />
             </div>
           {:else if trackCodeError}
             <p class="error">{trackCodeError}</p>

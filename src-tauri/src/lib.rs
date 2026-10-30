@@ -2142,7 +2142,7 @@ fn open_release_url(url: String) -> Result<(), String> {
 #[tauri::command]
 fn open_napstrfy_website() -> Result<(), String> {
     open_with_system(
-        Path::new("https://deadwax.rip/napstrfy.html"),
+        Path::new("https://deadwax.rip/mobile.html"),
         "Deadwax website",
     )
 }

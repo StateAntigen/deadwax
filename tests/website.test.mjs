@@ -17,8 +17,8 @@ test('all generated pages keep legacy filenames, valid links, anchors and locali
     assert.equal(locations.length, 50);
     assert.equal(new Set(locations).size, 50);
     assert.match(await readFile(join(output, 'robots.txt'), 'utf8'), /Sitemap: https:\/\/deadwax.rip\/sitemap.xml/);
-    for (const product of ['napstr', 'napstrfy']) {
-      const png = await readFile(join(output, `assets/${product}-share.png`));
+    for (const client of ['desktop', 'companion']) {
+      const png = await readFile(join(output, `assets/${client}-share.png`));
       assert.equal(png.subarray(1, 4).toString(), 'PNG');
       assert.equal(png.readUInt32BE(16), 1200);
       assert.equal(png.readUInt32BE(20), 630);
@@ -37,7 +37,7 @@ test('all generated pages keep legacy filenames, valid links, anchors and locali
       assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`));
       assert.ok(html.includes(`<link rel="alternate" hreflang="${code}" href="${canonical}">`));
       assert.ok(html.includes(`<link rel="alternate" hreflang="x-default" href="${pageUrl(slug, 'en')}">`));
-      const image = `https://deadwax.rip/assets/${slug === 'napstrfy' ? 'napstrfy' : 'napstr'}-share.png`;
+      const image = `https://deadwax.rip/assets/${slug === 'mobile' ? 'companion' : 'desktop'}-share.png`;
       assert.ok(html.includes(`<meta property="og:image" content="${image}">`));
       assert.ok(html.includes(`<meta name="twitter:image" content="${image}">`));
       assert.ok(html.includes(`<meta property="og:url" content="${canonical}">`));

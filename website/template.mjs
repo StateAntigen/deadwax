@@ -1,7 +1,7 @@
 export const pages = {
   index: { title: 'Home', description: 'Public music discovery over Nostr and private audio transfers over Tor.' },
   download: { title: 'Download', description: 'Download Deadwax for Windows, Linux, and macOS.' },
-  napstrfy: { title: 'Deadwax', description: 'Listen to your Deadwax library on another computer or phone.' },
+  mobile: { title: 'Mobile', description: 'Listen to your Deadwax library on another computer or phone.' },
   nostr: { title: 'Nostr', description: 'How Deadwax uses Nostr for public discovery and encrypted download requests.' },
   tor: { title: 'Tor', description: 'How Deadwax uses Tor for private, verified audio transfers.' }
 };
@@ -22,7 +22,7 @@ export function template({ slug, language, languages, direction, content, t, cat
   const canonical = pageUrl(slug, language);
   // The share images are still the forked artwork and keep their file names until
   // new ones are drawn; only the words around them changed.
-  const socialImage = `${siteOrigin}/assets/${slug === 'napstrfy' ? 'napstrfy' : 'napstr'}-share.png`;
+  const socialImage = `${siteOrigin}/assets/${slug === 'mobile' ? 'companion' : 'desktop'}-share.png`;
   const nav = Object.entries(pages).map(([name, page]) => `<a href="${name}.html"${slug === name ? ' class="active" aria-current="page"' : ''}>${t(page.title)}</a>`).join('');
   return `<!doctype html>
 <html lang="${language}" dir="${direction}">
@@ -59,10 +59,10 @@ export function template({ slug, language, languages, direction, content, t, cat
   <script id="page-translations" type="application/json">${JSON.stringify(catalog).replace(/</g, '\\u003c')}</script>
   <script type="module" src="${base}site.js"></script>
 </head>
-<body data-page="${slug}" data-release-product="${slug === 'napstrfy' ? 'napstrfy' : 'napstr'}">
+<body data-page="${slug}" data-release-product="${slug === 'mobile' ? 'companion' : 'desktop'}">
   <div class="site-shell">
     <header class="masthead">
-      <a class="brand" href="index.html" aria-label="${t('Deadwax home')}"><img src="${base}assets/napstr-logo.png" alt="Deadwax"></a>
+      <a class="brand" href="index.html" aria-label="${t('Deadwax home')}"><img src="${base}assets/deadwax-logo.png" alt="Deadwax"></a>
       <blockquote>${t('Owning something means you are free to share and pass it on.')}</blockquote>
     </header>
     <div class="page-grid">
@@ -75,7 +75,7 @@ export function template({ slug, language, languages, direction, content, t, cat
         </details>
         <div class="sidebar-meta"><span>${t('Community Build')}</span><span>${t('Privacy First')}</span></div>
       </aside>
-      <main class="content-panel${slug === 'download' || slug === 'napstrfy' ? ' download-panel' : ''}">
+      <main class="content-panel${slug === 'download' || slug === 'mobile' ? ' download-panel' : ''}">
         <section class="content-body">${content}</section>
         <footer><nav aria-label="${t('Footer navigation')}">${nav}</nav><em><a href="https://github.com/StateAntigen/deadwax/blob/main/LICENSE">${t('Deadwax is FLOSS — MIT License')}</a></em></footer>
       </main>
