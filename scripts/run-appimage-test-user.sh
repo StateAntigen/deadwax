@@ -40,7 +40,7 @@ elif [[ -r /etc/NIXOS ]]; then
 fi
 
 echo "Starting isolated Deadwax test user: $profile"
-echo "Data: $profile_root/data/social.napstr.desktop"
+echo "Data: $profile_root/data/social.deadwax.desktop"
 echo "Identity: OS keyring account nostr-identity-$profile"
 
 exec env \

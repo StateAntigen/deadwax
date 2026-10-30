@@ -71,7 +71,7 @@ if (!manifest.includes('android:windowSoftInputMode=')) {
 }
 await writeFile(manifestPath, manifest);
 
-const javaDirectory = resolve(main, 'java/net/napstr/nostrfy');
+const javaDirectory = resolve(main, 'java/net/deadwax/app');
 await mkdir(javaDirectory, { recursive: true });
 for (const filename of [
   'MainActivity.kt',

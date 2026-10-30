@@ -3,7 +3,7 @@
   "productName": "Deadwax",
   "mainBinaryName": "napstrfy",
   "version": "0.2.4-fork",
-  "identifier": "net.napstr.nostrfy",
+  "identifier": "net.deadwax.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1421",

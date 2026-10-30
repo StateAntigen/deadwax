@@ -15,8 +15,8 @@ export const credentialNames = [
   'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_SPECIFIC_PASSWORD'
 ];
 const products = {
-  napstr: { directory: root, name: 'Deadwax', client: 'desktop', binary: 'napstr', identifier: 'social.napstr.desktop' },
-  napstrfy: { directory: join(root, 'android'), name: 'Deadwax', client: 'companion', binary: 'napstrfy', identifier: 'net.napstr.nostrfy' }
+  napstr: { directory: root, name: 'Deadwax', client: 'desktop', binary: 'napstr', identifier: 'social.deadwax.desktop' },
+  napstrfy: { directory: join(root, 'android'), name: 'Deadwax', client: 'companion', binary: 'napstrfy', identifier: 'net.deadwax.app' }
 };
 const profile = 'napstr-notarization';
 const machMagic = new Set(['feedface', 'cefaedfe', 'feedfacf', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca']);

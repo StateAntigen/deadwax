@@ -1,4 +1,4 @@
-package net.napstr.nostrfy
+package net.deadwax.app
 
 import android.content.Context
 import android.net.ConnectivityManager

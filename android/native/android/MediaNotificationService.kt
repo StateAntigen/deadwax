@@ -1,4 +1,4 @@
-package net.napstr.nostrfy
+package net.deadwax.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -444,16 +444,16 @@ class MediaNotificationService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   companion object {
-    const val ACTION_UPDATE = "net.napstr.nostrfy.media.UPDATE"
-    const val ACTION_CLEAR = "net.napstr.nostrfy.media.CLEAR"
-    const val ACTION_PLAY = "net.napstr.nostrfy.media.PLAY"
-    const val ACTION_PAUSE = "net.napstr.nostrfy.media.PAUSE"
-    const val ACTION_PREVIOUS = "net.napstr.nostrfy.media.PREVIOUS"
-    const val ACTION_NEXT = "net.napstr.nostrfy.media.NEXT"
-    const val ACTION_LIKE = "net.napstr.nostrfy.media.LIKE"
-    const val ACTION_REPEAT = "net.napstr.nostrfy.media.REPEAT"
-    const val ACTION_REWIND = "net.napstr.nostrfy.media.REWIND"
-    const val ACTION_FORWARD = "net.napstr.nostrfy.media.FORWARD"
+    const val ACTION_UPDATE = "net.deadwax.app.media.UPDATE"
+    const val ACTION_CLEAR = "net.deadwax.app.media.CLEAR"
+    const val ACTION_PLAY = "net.deadwax.app.media.PLAY"
+    const val ACTION_PAUSE = "net.deadwax.app.media.PAUSE"
+    const val ACTION_PREVIOUS = "net.deadwax.app.media.PREVIOUS"
+    const val ACTION_NEXT = "net.deadwax.app.media.NEXT"
+    const val ACTION_LIKE = "net.deadwax.app.media.LIKE"
+    const val ACTION_REPEAT = "net.deadwax.app.media.REPEAT"
+    const val ACTION_REWIND = "net.deadwax.app.media.REWIND"
+    const val ACTION_FORWARD = "net.deadwax.app.media.FORWARD"
     const val EXTRA_TITLE = "title"
     const val EXTRA_ARTIST = "artist"
     const val EXTRA_ARTWORK = "artwork"

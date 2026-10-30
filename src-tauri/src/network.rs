@@ -5632,13 +5632,27 @@ fn retire_downloads_for_local_files(connection: &Connection) -> Result<usize, St
         .map_err(|error| error.to_string())
 }
 
+/// The keyring is namespaced by service name, so a renamed application would be
+/// handed a brand-new identity: every profile, playlist and request it had
+/// published would look like it came from a stranger.
+const KEYRING_SERVICE: &str = "social.deadwax.desktop";
+const PREVIOUS_KEYRING_SERVICE: &str = "social.napstr.desktop";
+
 fn load_or_create_identity() -> Result<Keys, String> {
     if let Ok(nsec) = std::env::var("NAPSTR_NSEC") {
         return Keys::parse(&nsec).map_err(|error| error.to_string());
     }
     let account = profile_keyring_account(std::env::var("NAPSTR_PROFILE").ok().as_deref())?;
-    let entry = Entry::new("social.napstr.desktop", &account).map_err(|error| error.to_string())?;
+    let entry = Entry::new(KEYRING_SERVICE, &account).map_err(|error| error.to_string())?;
     if let Ok(secret) = entry.get_password() {
+        return Keys::parse(&secret).map_err(|error| error.to_string());
+    }
+    // An identity stored under the previous name is copied across rather than
+    // ignored, so the next start finds it where this build looks for it.
+    if let Some(secret) = previous_identity(&account) {
+        entry.set_password(&secret).map_err(|error| {
+            format!("could not store Nostr identity in the operating-system keyring: {error}")
+        })?;
         return Keys::parse(&secret).map_err(|error| error.to_string());
     }
     let keys = Keys::generate();
@@ -5650,6 +5664,17 @@ fn load_or_create_identity() -> Result<Keys, String> {
         format!("could not store Nostr identity in the operating-system keyring: {error}")
     })?;
     Ok(keys)
+}
+
+/// The secret the build before the rename stored, if there is a readable one.
+/// A keyring that refuses to answer is not an error here: the caller creates a
+/// fresh identity, which is what a first run does anyway.
+fn previous_identity(account: &str) -> Option<String> {
+    let entry = Entry::new(PREVIOUS_KEYRING_SERVICE, account).ok()?;
+    entry
+        .get_password()
+        .ok()
+        .filter(|secret| Keys::parse(secret).is_ok())
 }
 
 /// This identity's public key, which is the author half of a playlist's

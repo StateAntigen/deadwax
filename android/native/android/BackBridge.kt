@@ -1,4 +1,4 @@
-package net.napstr.nostrfy
+package net.deadwax.app
 
 import android.webkit.JavascriptInterface
 import android.webkit.WebView

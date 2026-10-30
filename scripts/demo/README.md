@@ -69,7 +69,7 @@ false, and it recovers on its own. To tell "the host is gone" from "the chip is
 stale", watch the desktop's log grow after a phone action:
 
 ```powershell
-(Get-Item "$env:APPDATA\social.napstr.desktop\napstr.log").Length
+(Get-Item "$env:APPDATA\social.deadwax.desktop\napstr.log").Length
 ```
 
 The file is live and rotates to `napstr.log.1`, so a truncated directory listing

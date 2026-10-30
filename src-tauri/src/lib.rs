@@ -2934,6 +2934,42 @@ async fn report_cover(
     state.network.report_cover(key, reason, note).await
 }
 
+/// The bundle identifier is also the application data directory, so renaming the
+/// application would otherwise start it beside an 80 MB library and an identity
+/// that both look missing.
+///
+/// This copies the folder the previous build used into the new one, once. It
+/// copies rather than moves, so going back to the old build still works, and it
+/// treats "the new folder already has a database" as done, so an interrupted
+/// copy is repaired by simply running again.
+fn adopt_previous_data_directory(app_data: &Path) -> Option<PathBuf> {
+    const PREVIOUS_IDENTIFIER: &str = "social.napstr.desktop";
+    let previous = app_data.parent()?.join(PREVIOUS_IDENTIFIER);
+    if previous == app_data
+        || !previous.is_dir()
+        || app_data.join("napstr.sqlite3").is_file()
+    {
+        return None;
+    }
+    copy_missing_entries(&previous, app_data).ok()?;
+    Some(previous)
+}
+
+fn copy_missing_entries(from: &Path, to: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            copy_missing_entries(&entry.path(), &target)?;
+        } else if file_type.is_file() && !target.exists() {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // reqwest is built without a TLS provider, so one has to be installed before
@@ -2950,11 +2986,21 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|error| error.to_string())?;
+            // The identifier *is* the data directory, so the folder has to be
+            // adopted before anything opens a database and decides the library
+            // is empty.
+            let adopted = adopt_previous_data_directory(&app_data);
             // Before anything else that can go wrong, so that going wrong is in
             // the log: a desktop that will not start is the one case where the
             // file has to already exist by the time somebody looks for it.
             diag::start(&app_data);
             diag::note(&format!("Deadwax starting from {}", app_data.display()));
+            if let Some(from) = adopted {
+                diag::note(&format!(
+                    "adopted the library kept under the previous name in {}",
+                    from.display()
+                ));
+            }
             let resource_dir = app
                 .path()
                 .resource_dir()
@@ -3256,6 +3302,37 @@ mod tests {
         assert!(!is_trusted_release_url(
             "https://github.com/lnbits/napstr/releases/tag/v0.2.3"
         ));
+    }
+
+    #[test]
+    fn a_renamed_application_adopts_the_library_it_already_had() {
+        let parent = test_directory("adopt");
+        let _ = fs::remove_dir_all(&parent);
+        let previous = parent.join("social.napstr.desktop");
+        let current = parent.join("social.deadwax.desktop");
+        fs::create_dir_all(previous.join("art")).unwrap();
+        fs::write(previous.join("napstr.sqlite3"), b"library").unwrap();
+        fs::write(previous.join("art/cover.bin"), b"cover").unwrap();
+
+        assert_eq!(adopt_previous_data_directory(&current), Some(previous));
+        assert_eq!(fs::read(current.join("napstr.sqlite3")).unwrap(), b"library");
+        assert_eq!(fs::read(current.join("art/cover.bin")).unwrap(), b"cover");
+        // The second start finds a database of its own and copies nothing.
+        assert_eq!(adopt_previous_data_directory(&current), None);
+        fs::remove_dir_all(&parent).unwrap();
+    }
+
+    #[test]
+    fn a_first_install_has_nothing_to_adopt() {
+        let parent = test_directory("adopt-empty");
+        let _ = fs::remove_dir_all(&parent);
+        fs::create_dir_all(&parent).unwrap();
+        assert_eq!(
+            adopt_previous_data_directory(&parent.join("social.deadwax.desktop")),
+            None
+        );
+        assert!(!parent.join("social.deadwax.desktop").exists());
+        fs::remove_dir_all(&parent).unwrap();
     }
 
     #[test]
