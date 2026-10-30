@@ -76,6 +76,25 @@ const save = (page) => page.getByRole('button', { name: 'Save', exact: true }).c
 const publish = (page) => page.getByRole('button', { name: 'Publish', exact: true }).click();
 const back = (page) => page.locator('.playlist-title [title="Back to playlists"]').click();
 
+/**
+ * Open a row and then the editor.
+ *
+ * Choosing a playlist is a look: it fills the right-hand column, which is where a
+ * person reads what they picked. Editing - or keeping a copy of somebody else's -
+ * is a second, deliberate press.
+ */
+async function openEditor(page, target) {
+  const row = target ?? page.locator('.playlist-row').first();
+  await row.locator('.playlist-open').click();
+  const edit = page.getByRole('button', { name: 'Edit', exact: true });
+  if (await edit.count()) {
+    await edit.click();
+  } else {
+    await page.getByRole('button', { name: 'Copy', exact: true }).click();
+  }
+  await expect(page.locator('.playlist-editor')).toBeVisible();
+}
+
 test('the page lists what this computer holds, and says what each row is', async ({ page }) => {
   await openPlaylists(page);
   // What the relays answered for this identity: the published one is there and
@@ -128,7 +147,7 @@ test('a public playlist somebody else published is listed read-only, and saving 
   await expect(rowEl.locator('.classic-button')).toHaveCount(0);
 
   // Opening it is a look, not an edit.
-  await rowEl.locator('.playlist-open').click();
+  await openEditor(page, rowEl);
   await expect(page.getByLabel('Title', { exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
   await expect(page.locator('.playlist-member [title="Move down"]')).toBeDisabled();
@@ -240,7 +259,7 @@ test('a member nobody seeds is shown as unavailable rather than dropped', async 
     { fileId: gone, seeders: 0 }
   ]);
   await refresh(page);
-  await page.locator('.playlist-open').click();
+  await openEditor(page, undefined);
 
   const members = page.locator('.playlist-member');
   await expect(members).toHaveCount(3);
@@ -254,7 +273,9 @@ test('an empty list says so rather than looking broken', async ({ page }) => {
   await openPlaylists(page);
   await seed(page, []);
   await refresh(page);
-  await expect(page.locator('.playlist-view .empty-state')).toHaveText('No playlists yet');
+  await expect(page.locator('.playlist-list .empty-state')).toHaveText('No playlists yet');
+  // …and the right-hand column says how to fill it, rather than sitting blank.
+  await expect(page.locator('.playlist-side .empty-state')).toHaveText('Choose a playlist to see it here.');
 });
 
 test('a new playlist is filed under a fresh id and saved without being published', async ({ page }) => {
@@ -294,7 +315,7 @@ test('the order on screen is the order that is saved', async ({ page }) => {
     })
   ]);
   await refresh(page);
-  await page.locator('.playlist-open').click();
+  await openEditor(page, undefined);
   await expect(page.locator('.playlist-member')).toHaveCount(2);
   await expect(page.locator('.playlist-member').first()).toContainText('Enter Sandman');
 
@@ -415,7 +436,7 @@ test('a playlist that names a picture shows it, and can forget it', async ({ pag
   await openPlaylists(page);
   await seed(page, [row({ image: '9'.repeat(64) })]);
   await refresh(page);
-  await page.locator('.playlist-open').click();
+  await openEditor(page, undefined);
   const artwork = page.locator('.playlist-id').filter({ hasText: 'Artwork' });
   await expect(artwork.locator('code')).toHaveText('9'.repeat(64));
   await artwork.locator('button').click();

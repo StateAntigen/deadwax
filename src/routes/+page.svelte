@@ -21,7 +21,7 @@
   const CHAT_PAGE_SIZE = 100;
   const VISIBLE_SEEDER_LIMIT = 100;
 
-  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Deadwax' | 'Covers';
+  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Clients' | 'Covers';
 
   /** One count with the thing counted beside it, as the host sends it. */
   type CatalogueCount = { label: string; count: number };
@@ -103,7 +103,7 @@
     { label: 'Profile', icon: '☺' },
     { label: 'Settings', icon: '⚙' },
     { label: 'Trollbox', icon: '▣' },
-    { label: 'Deadwax', icon: '▯' },
+    { label: 'Clients', icon: '▯' },
     { label: 'Covers', icon: '▨' }
   ];
 
@@ -123,7 +123,7 @@
     Profile: 'M12 4.4a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2zM4.8 20c1.2-3.6 3.9-5.4 7.2-5.4s6 1.8 7.2 5.4',
     Settings: 'M12 8.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8zM12 3.6V6M12 18v2.4M3.6 12H6M18 12h2.4M6.1 6.1l1.7 1.7M16.2 16.2l1.7 1.7M17.9 6.1l-1.7 1.7M7.8 16.2l-1.7 1.7',
     Trollbox: 'M4.5 6h15v9.6H9.4L4.5 19V6z',
-    Deadwax: 'M9.2 3h5.6v18H9.2zM12 18.2h.01',
+    Clients: 'M9.2 3h5.6v18H9.2zM12 18.2h.01',
     Covers: 'M4 4h6.6v6.6H4zM13.4 4H20v6.6h-6.6zM4 13.4h6.6V20H4zM13.4 13.4H20V20h-6.6z'
   };
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
@@ -149,7 +149,7 @@
   type IndexProgress = { scanning: boolean; processedFiles: number; indexedFiles: number; message: string };
   type IndexBatch = { files: NativeFile[]; fileCount: number; totalBytes: number };
   type DeviceRights = { browse: boolean; fetch: boolean; control: boolean; download: boolean; privileged: boolean };
-  type MobileDevice = { endpointId: string; name: string; pairedAt: string; lastSeen: string; rights: DeviceRights };
+  type MobileDevice = { endpointId: string; name: string; pairedAt: string; lastSeen: string; rights: DeviceRights; pubkey: string; likes: number; dislikes: number; playlists: number };
   type MobileStatus = { running: boolean; online: boolean; endpointId: string; error: string; devices: MobileDevice[] };
   type MobilePairingOffer = { ticket: string; qrSvg: string; expiresAt: number; endpointId: string };
   type BlockConfirmation =
@@ -241,6 +241,45 @@
     railExpanded = !railExpanded;
     try { window.localStorage.setItem('deadwax-rail', railExpanded ? '1' : '0'); } catch { /* a blocked store is not a reason to fail */ }
   }
+  /**
+   * Which skin the window draws with.
+   *
+   * `app.html` sets it before the first paint from the same key, so the only job
+   * here is to keep the two in step when a person presses the toggle.
+   */
+  let theme: 'dark' | 'light' = 'dark';
+  function applyTheme(next: 'dark' | 'light', remember: boolean) {
+    theme = next;
+    document.documentElement.dataset.theme = next;
+    if (!remember) return;
+    try { window.localStorage.setItem('deadwax-theme', next); } catch { /* a blocked store leaves this session's choice */ }
+  }
+  function toggleTheme() { applyTheme(theme === 'light' ? 'dark' : 'light', true); }
+  /** The album the player's art belongs to, for a track that came from the queue. */
+  let playerAlbum = '';
+  $: playerAlbum = currentTrack ? sharedFiles.find((file) => file.fileId === currentTrack!.fileId)?.album ?? '' : '';
+
+  /**
+   * What the box offers while somebody types.
+   *
+   * The host answers from the catalogue it has mirrored and from this computer's
+   * own library, so the list is the network's own vocabulary rather than a guess.
+   * Nothing is asked for until a pause, because a suggestion is never worth a
+   * request per keystroke.
+   */
+  let searchSuggestions: string[] = [];
+  let suggestionTimer: ReturnType<typeof setTimeout> | null = null;
+  function queueSuggestions(prefix: string) {
+    if (suggestionTimer) clearTimeout(suggestionTimer);
+    const wanted = prefix.trim();
+    if (!wanted) { searchSuggestions = []; return; }
+    suggestionTimer = setTimeout(() => {
+      void invoke<string[]>('search_suggestions', { prefix: wanted })
+        .then((words) => { if (query.trim() === wanted) searchSuggestions = Array.isArray(words) ? words : []; })
+        .catch(() => { /* a suggestion that does not arrive is not an error */ });
+    }, 180);
+  }
+  $: queueSuggestions(query);
   let results: Result[] = [];
   let resultPage = 0;
   let query = '';
@@ -304,9 +343,16 @@
   let catalogueStats: CatalogueStats | null = null;
   let catalogueStatsPending = false;
   let catalogueStatsError: string | Message = '';
-  let mobilePairing: MobilePairingOffer | null = null;
+  /** One page of the peers behind the catalogue, and where the pager is. */
+  type SeederRow = { pubkey: string; npub: string; name: string; announced: number; live: number };
+  type SeederPage = { rows: SeederRow[]; total: number };
+  const SEEDER_PAGE_SIZE = 12;
+  let seedersPage: SeederPage = { rows: [], total: 0 };
+  let seederPageIndex = 0;
+  let seedersPending = false;
+  let seederError = '';
+  let showQuietSeeders = false;
   let mobileStreamPairing: MobilePairingOffer | null = null;
-  let mobileStreamOnly = false;
   let mobileLoading = false;
   let mobileStatusPending = false;
   let mobileError: string | Message = '';
@@ -1503,18 +1549,60 @@
   let coverRevision = 0;
   let lastCoverRevisionAt = 0;
   /**
-   * Which of the Covers tab's panels is open.
+   * The album list.
    *
-   * One at a time, because the tab used to stack six panels with a paragraph
-   * under each: what a person comes here for is in the summary line above them,
-   * and the long explanations are in the titles of the things they explain.
-   * Deliberately not stored - a fresh look at the tab should start on what is
-   * waiting, which is the only panel with something to do in it.
+   * The tab used to be four panels that each answered a different half-question,
+   * which is why it read as disjointed. It is one list now, sorted five ways, with
+   * the pass's own log underneath it: every album this computer knows about, what
+   * it holds, and who signed the picture it uses.
    */
-  let coverPanel: 'waiting' | 'found' | 'activity' | 'settings' = 'waiting';
+  type CoverRow = { key: string; artist: string; album: string; held: boolean; thumb: boolean; outcome: string; signedBy: string; reason: string };
+  type CoverInventory = { rows: CoverRow[]; total: number };
+  const COVER_PAGE_SIZE = 20;
+  const coverSorts = [
+    { id: 'missing' as const, label: 'Missing art' },
+    { id: 'held' as const, label: 'Art held here' },
+    { id: 'claimed' as const, label: 'Signed by somebody' },
+    { id: 'failed' as const, label: 'Lookups that failed' },
+    { id: 'album' as const, label: 'A–Z' },
+  ];
+  let coverSort: (typeof coverSorts)[number]['id'] = 'missing';
+  let coverPageIndex = 0;
+  let coverInventory: CoverInventory = { rows: [], total: 0 };
 
-  function setCoverPanel(panel: 'waiting' | 'found' | 'activity' | 'settings') {
-    coverPanel = panel;
+  /** What the row's picture column says, in the plainest word that is true. */
+  function coverRowState(row: CoverRow) {
+    if (row.held) return 'Held here';
+    if (row.reason) return 'Lookup failed';
+    if (row.outcome === 'none') return 'Nobody has one';
+    if (row.outcome === 'found') return 'Found, not fetched';
+    return 'Not looked up yet';
+  }
+
+  function setCoverSort(sort: (typeof coverSorts)[number]['id']) {
+    if (coverSort === sort) return;
+    coverSort = sort;
+    coverPageIndex = 0;
+    void refreshCoverInventory();
+  }
+
+  function changeCoverPage(page: number) {
+    const next = Math.max(0, page);
+    if (next === coverPageIndex) return;
+    coverPageIndex = next;
+    void refreshCoverInventory();
+  }
+
+  async function refreshCoverInventory() {
+    try {
+      coverInventory = await invoke<CoverInventory>('cover_inventory', {
+        sort: coverSort,
+        offset: coverPageIndex * COVER_PAGE_SIZE,
+        limit: COVER_PAGE_SIZE,
+      });
+    } catch (error) {
+      coverError = String(error);
+    }
   }
 
   // ---- Results presentation ------------------------------------------------
@@ -1579,6 +1667,7 @@
       // tab: an album that just failed is the thing a person came here to see.
       coverMissing = await invoke<CoverGap[]>('cover_missing', { limit: COVER_GAP_PREVIEW });
       coverLog = await invoke<CoverLogRow[]>('cover_lookup_log', { limit: COVER_LOG_PREVIEW });
+      await refreshCoverInventory();
     } catch (error) {
       coverError = String(error);
     } finally {
@@ -1789,6 +1878,24 @@
   let playlistAuthor = '';
   /** The playlist open in the editor, or null while the list is showing. */
   let playlistDraft: PlaylistDetail | null = null;
+  /**
+   * Whether the panel is the editor or the browser.
+   *
+   * A loaded playlist is what the right-hand column shows; the editor is a
+   * deliberate step from it, because opening a playlist to read it and opening it
+   * to change it used to be the same press and that made one of them surprising.
+   */
+  let playlistEditing = false;
+  /** Grid or list, remembered per machine like the results view is. */
+  let playlistView: 'list' | 'grid' = 'list';
+  /** Which row the right-hand column is showing. */
+  let selectedPlaylistKey = '';
+  /**
+   * The picture each playlist's tile draws, resolved the way the phone resolves
+   * it: the first member that has both an artist and an album, in track order.
+   * A summary carries no tags, so this is filled by reading the playlist once.
+   */
+  let playlistArt = new Map<string, { artist: string; album: string }>();
   /** The draft's members in the order the list shows them, which is the order
    *  that gets saved: positions are written from this, never typed. */
   let playlistMembers: PlaylistMember[] = [];
@@ -1906,6 +2013,7 @@
       if (attempt !== playlistRefresh) return;
       playlists = rows;
       playlistRelays = relays;
+      void primePlaylistArt([...rows, ...(relays ?? [])]);
     } catch (error) {
       if (attempt === playlistRefresh) playlistsError = String(error);
     } finally {
@@ -2008,6 +2116,8 @@
         tracks: [],
         total: 0
       };
+      playlistEditing = true;
+      selectedPlaylistKey = '';
       playlistMembers = [];
       playlistCandidates = [];
       playlistCandidateQuery = '';
@@ -2031,6 +2141,8 @@
         return;
       }
       playlistDraft = loaded;
+      playlistEditing = false;
+      selectedPlaylistKey = `${summary.author} ${summary.playlistId}`;
       playlistMembers = [...loaded.tracks];
       playlistCandidates = [];
       playlistCandidateQuery = '';
@@ -2039,14 +2151,73 @@
       playlistSuggestTags = loaded.tags.trim() === '';
       playlistError = '';
       playlistNotice = '';
+      const artful = loaded.tracks.find((track) => track.artist && track.album);
+      if (artful && !playlistArt.has(selectedPlaylistKey)) {
+        playlistArt = new Map(playlistArt).set(selectedPlaylistKey, { artist: artful.artist, album: artful.album });
+      }
       void loadPlaylistAvailability(loaded);
     } catch (error) {
       playlistsError = String(error);
     }
   }
 
+  function playlistKey(row: PlaylistSummary) { return `${row.author} ${row.playlistId}`; }
+  function playlistArtOf(row: PlaylistSummary) { return playlistArt.get(playlistKey(row)) ?? null; }
+
+  /** The first member of what is on screen with art, which is what the tile shows. */
+  $: selectedPlaylistArt = playlistMembers.find((track) => track.artist && track.album) ?? null;
+  $: playlistHasLocalTracks = playlistMembers.some((member) => localFileIds.has(member.fileId));
+
+  function setPlaylistView(view: 'list' | 'grid') {
+    playlistView = view;
+    try { window.localStorage.setItem('deadwax-playlist-view', view); } catch { /* a blocked store only forgets the choice */ }
+  }
+
+  /**
+   * Give every tile its picture, one playlist at a time.
+   *
+   * A summary has no artist or album on it - the wire carries only the first file
+   * id - so the tile's art has to come from reading the playlist. Bounded, because
+   * a library of a hundred playlists should not be a hundred reads on the way in;
+   * a tile that has not been reached yet draws a note instead of nothing.
+   */
+  async function primePlaylistArt(rows: PlaylistSummary[]) {
+    const wanted = rows.filter((row) => !playlistArt.has(playlistKey(row))).slice(0, 24);
+    for (const row of wanted) {
+      try {
+        const loaded = await invoke<PlaylistDetail | null>('playlist', { author: row.author, playlistId: row.playlistId });
+        const artful = loaded?.tracks.find((track) => track.artist && track.album);
+        if (artful) playlistArt = new Map(playlistArt).set(playlistKey(row), { artist: artful.artist, album: artful.album });
+      } catch { /* a tile without art still has a name */ }
+    }
+  }
+
+  /** Play the members this computer holds, in the playlist's own order. */
+  async function playPlaylist() {
+    const order = playlistMembers
+      .map((member) => sharedFiles.find((file) => file.fileId === member.fileId))
+      .filter((file) => Boolean(file))
+      .map((file) => toPlayerTrack(file!));
+    if (!order.length) {
+      activityMessage = msg("None of this playlist is on this computer yet");
+      return;
+    }
+    activePlayerAudiobook = null;
+    playerOrigin = 'direct';
+    playerQueueRemote = false;
+    if (order.length > 1 && playerMode === 'single') {
+      playerMode = 'all';
+      window.localStorage.setItem('napstr-player-mode', playerMode);
+    }
+    playerQueueOrder = order;
+    playerQueue = playerShuffle ? shuffledQueue(order, order[0].fileId) : order;
+    await loadPlayerTrack(Math.max(0, playerQueue.findIndex((item) => item.fileId === order[0].fileId)));
+  }
+
   function closePlaylistEditor() {
+    playlistEditing = false;
     playlistDraft = null;
+    selectedPlaylistKey = '';
     playlistMembers = [];
     playlistCandidates = [];
     playlistCandidateQuery = '';
@@ -2230,24 +2401,18 @@
   function activateView(view: View) {
     activeView = view;
     if (view === 'Trollbox') void refreshTrollbox();
-    if (view === 'Deadwax') void openMobileConnect();
+    if (view === 'Clients') void openMobileConnect();
     if (view === 'Covers') void refreshCovers();
     if (view === 'Playlists') void refreshPlaylists();
     if (view === 'Network') void refreshCatalogueStats();
+    if (view === 'Settings') void refreshCoverStatus();
   }
 
   async function openMobileConnect() {
-    mobileStreamOnly = false;
     await refreshMobileStatus();
-    if (!mobilePairing) await createMobilePairing();
+    // One code, low privilege. The full-access offer was two doors into the same
+    // room and the one people picked by accident was the wide one.
     if (!mobileStreamPairing) await createMobilePairing(true);
-  }
-
-  function navigatePairingTabs(event: KeyboardEvent) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    mobileStreamOnly = event.key === 'Home' ? false : event.key === 'End' ? true : !mobileStreamOnly;
-    document.getElementById(`pairing-tab-${mobileStreamOnly ? 'stream' : 'full'}`)?.focus();
   }
 
   async function refreshMobileStatus() {
@@ -2281,6 +2446,41 @@
     } finally {
       catalogueStatsPending = false;
     }
+    await refreshSeeders();
+  }
+
+  /**
+   * The seeder list is paged, because the mirror knows hundreds of peers and the
+   * card has room for a dozen. Quiet peers - the ones whose heartbeat has
+   * expired, so they announced once and hold nothing now - are hidden until the
+   * switch is turned on, which is what makes the first page worth reading.
+   */
+  async function refreshSeeders() {
+    if (!nativeReady || seedersPending) return;
+    seedersPending = true;
+    try {
+      seedersPage = await invoke<SeederPage>('catalogue_seeders', {
+        offset: seederPageIndex * SEEDER_PAGE_SIZE,
+        limit: SEEDER_PAGE_SIZE,
+        hideQuiet: !showQuietSeeders,
+      });
+    } catch (error) {
+      seederError = String(error);
+    } finally {
+      seedersPending = false;
+    }
+  }
+
+  function changeSeederPage(page: number) {
+    const next = Math.max(0, page);
+    if (next === seederPageIndex) return;
+    seederPageIndex = next;
+    void refreshSeeders();
+  }
+
+  /** A peer's kind-0 name, or the npub when nobody has published one. */
+  function seederLabel(row: SeederRow) {
+    return row.name || shortKey(row.npub || row.pubkey);
   }
 
   const countFormat = new Intl.NumberFormat();
@@ -2304,7 +2504,6 @@
     try {
       const offer = await invoke<MobilePairingOffer>('create_mobile_pairing', { rights: streamOnly ? READ_ONLY_RIGHTS : FULL_RIGHTS });
       if (streamOnly) mobileStreamPairing = offer;
-      else mobilePairing = offer;
       await refreshMobileStatus();
     } catch (error) {
       mobileError = String(error);
@@ -3492,6 +3691,19 @@
 
   onMount(() => {
     try { railExpanded = window.localStorage.getItem('deadwax-rail') === '1'; } catch { /* a blocked store leaves the rail closed */ }
+    try {
+      const stored = window.localStorage.getItem('deadwax-playlist-view');
+      if (stored === 'list' || stored === 'grid') playlistView = stored;
+    } catch { /* the default view is a tile grid */ }
+  });
+
+  onMount(() => {
+    try {
+      const stored = window.localStorage.getItem('deadwax-theme');
+      const light = stored ? stored === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches;
+      theme = light ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+    } catch { /* app.html has already picked one */ }
   });
 
   onMount(() => {
@@ -3649,9 +3861,8 @@
       }).catch(() => {});
     }, 250);
     const mobileTimer = window.setInterval(() => {
-      if (mobilePairing && mobilePairing.expiresAt <= Math.floor(Date.now() / 1000)) mobilePairing = null;
       if (mobileStreamPairing && mobileStreamPairing.expiresAt <= Math.floor(Date.now() / 1000)) mobileStreamPairing = null;
-      if (activeView === 'Deadwax') void refreshMobileStatus();
+      if (activeView === 'Clients') void refreshMobileStatus();
     }, 3000);
     return () => {
       destroyed = true;
@@ -3721,62 +3932,31 @@
           <span class="connection-status"><i class:amber={!torRunning} class:error={Boolean(torError)} class="led"></i><span>{$t(torStatusLabel())}</span></span>
         </button>
         <button class="ghost user-chip" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button>
+        <button class="ghost theme-toggle" onclick={toggleTheme} title={$t("Switch between light and dark")} aria-label={$t("Switch between light and dark")} aria-pressed={theme === 'light'}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            {#if theme === 'light'}
+              <circle cx="12" cy="12" r="4.1" />
+              <path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.9 5.9l1.4 1.4M16.7 16.7l1.4 1.4M18.1 5.9l-1.4 1.4M7.3 16.7l-1.4 1.4" />
+            {:else}
+              <path d="M20 14.4A8.4 8.4 0 0 1 9.6 4a8.4 8.4 0 1 0 10.4 10.4z" />
+            {/if}
+          </svg>
+        </button>
         <div class="window-controls" aria-hidden="true">
           <button tabindex="-1" onclick={() => windowCommand('minimise_window')}>_</button><button tabindex="-1" onclick={() => windowCommand('toggle_maximise')}>□</button><button tabindex="-1" onclick={() => windowCommand('close_window')}>×</button>
         </div>
       </header>
 
-    <section class="player-bar" aria-label={$t("Deadwax audio player")}>
-      <div class="player-display">
-        <span class:playing={playerPlaying} class="player-led">{playerLoading ? '···' : playerPlaying ? '▶' : '■'}</span>
-        <div><strong>{currentTrack?.name ?? $t("No track selected")}</strong><small>{currentTrack ? `${currentTrack.artist || 'Unknown artist'} · ${folderName(currentTrack.folder)}` : $t("Choose a local song to begin")}</small></div>
-      </div>
-      <div class="player-controls">
-        <button onclick={previousPlayerTrack} disabled={!currentTrack || playerLoading} title={$t("Previous track")}>|◀</button>
-        <button class="player-primary" onclick={togglePlayer} disabled={playerLoading} title={playerPlaying ? $t("Pause") : $t("Play")}>{playerLoading ? '…' : playerPlaying ? 'Ⅱ' : '▶'}</button>
-        <button onclick={stopPlayer} disabled={!currentTrack || playerLoading} title={$t("Stop")}>■</button>
-        <button onclick={nextPlayerTrack} disabled={playerLoading || playerQueueIndex < 0 || playerQueueIndex + 1 >= playerQueue.length} title={$t("Next track")}>▶|</button>
-      </div>
-      <div class="player-seek">
-        <input aria-label={$t("Track position")} type="range" min="0" max={Math.max(0, playerDuration || 0)} step="0.1" value={playerCurrentTime} oninput={seekPlayer} disabled={!currentTrack} />
-        <span>{formatPlayerTime(playerCurrentTime)} / {formatPlayerTime(playerDuration)}</span>
-      </div>
-      <label class="player-mode">{$t("After track")}
-        <select bind:value={playerMode} onchange={changePlayerMode}>
-          <option value="single">{$t("Stop")}</option>
-          <option value="folder">{$t("Play folder")}</option>
-          <option value="all">{$t("Play all")}</option>
-        </select>
-      </label>
-      <label class="player-volume">{$t("Vol")} <input aria-label={$t("Volume")} type="range" min="0" max="1" step="0.05" value={playerVolume} oninput={changePlayerVolume} /></label>
-    </section>
-
-    {#if coverPicker}
-      <CoverPicker
-        artist={coverPicker.artist}
-        album={coverPicker.album}
-        currentArt={coverPicker.currentArt}
-        onClose={() => (coverPicker = null)}
-        onApplied={coverPickApplied}
-      />
-    {/if}
-
-    {#if coverReport}
-      <CoverReport
-        albumKey={coverReport.key}
-        label={coverReport.label}
-        onClose={() => (coverReport = null)}
-        onReported={(message: string) => (activityMessage = message)}
-      />
-    {/if}
-
     <div class="workspace">
       {#if activeView === 'Search'}
         <section class="panel search-panel">
-          <div class="panel-title"><span></span><b>{$t("Search the Deadwax network")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Search the network")}</b><span></span></div>
           <form class="search-form" onsubmit={(e) => { e.preventDefault(); search(); }}>
             <label for="search-query">{$t("Search:")}</label>
-            <input id="search-query" bind:value={query} placeholder={$t("punk, rock, jazz, audiobook")} />
+            <input id="search-query" bind:value={query} list="search-suggestions" autocomplete="off" placeholder={$t("punk, rock, jazz, audiobook")} />
+            <datalist id="search-suggestions">
+              {#each searchSuggestions as word}<option value={word}></option>{/each}
+            </datalist>
             <label for="format">{$t("File type:")}</label>
             <select id="format" bind:value={format} disabled={searchAction !== null} onchange={() => void search()}><option value="Audio only">{$t("Audio only")}</option><option value="Audiobooks">{$t("Audiobooks")}</option></select>
             <button class="classic-button primary search-button" type="submit" disabled={searchAction !== null} aria-busy={searchAction === 'search'}>
@@ -3820,15 +4000,18 @@
                     onclick={(event) => selectResultRange(item, event)}
                     ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}
                   >
-                    {#if item.audiobook}
-                      <span class="cover-art medium empty" aria-hidden="true">▥</span>
-                    {:else}
-                      <CoverArt artist={item.artist ?? ''} album={item.album ?? ''} preferThumb size="medium" revision={coverRevision} />
-                    {/if}
-                    <b title={item.name}>{item.name}</b>
-                    <small title={item.artist || undefined}>{item.artist || $t('Unknown artist')}</small>
-                    <small class="result-card-album" title={item.album || undefined}>{item.album || '—'}</small>
-                    <span class="result-card-meta"><i class="source-dot"></i>{item.sources} {item.sources === 1 ? $t('seeder') : $t('seeders')} · {item.size}</span>
+                    <span class="result-art">
+                      {#if item.audiobook}
+                        <span class="cover-art medium empty" aria-hidden="true">▥</span>
+                      {:else}
+                        <CoverArt artist={item.artist ?? ''} album={item.album ?? ''} preferThumb size="medium" revision={coverRevision} />
+                      {/if}
+                      <span class="result-overlay">
+                        <b title={item.name}>{item.name}</b>
+                        <small title={[item.artist, item.album].filter(Boolean).join(' · ') || undefined}>{item.artist || $t('Unknown artist')}{item.album ? ` · ${item.album}` : ''}</small>
+                        <span class="result-card-meta"><i class="source-dot"></i>{item.sources} {item.sources === 1 ? $t('seeder') : $t('seeders')} · {item.size}</span>
+                      </span>
+                    </span>
                     {#if discussionActivity[item.fileId]}
                       <span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].authors}
@@ -3848,7 +4031,7 @@
                       onclick={(event) => selectResultRange(item, event)}
                       onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event); } }}
                       ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}>
-                      <td><span class:audiobook-icon={Boolean(item.audiobook)} class="file-icon">{item.audiobook ? '▥' : '▶'}</span>{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].authors}</span>{/if}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td><td>{item.length}</td>
+                      <td>{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].authors}</span>{/if}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td><td>{item.length}</td>
                     </tr>
                   {/each}
                 </tbody>
@@ -3893,17 +4076,25 @@
                 <div class="detail-actions">{#if selectedAudiobookIsComplete}<button class="classic-button primary" onclick={playSelectedAudiobook}>{$t("▶ Play book")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button>{:else}<button class="classic-button primary" disabled={selectedAudiobookIsDownloading} onclick={downloadSelectedAudiobook}>⇩ {selectedAudiobookIsDownloading ? $t("Downloading…") : $t("Download book")}</button>{/if}</div>
                 {#if !selected.audiobook.local}<p class="privacy-note"><span>♜</span> {$t("Chapters download first-to-last through private Tor onion services. Play each chapter as soon as it shows Ready.")}</p>{:else}<p class="privacy-note"><span>♬</span> {$t("This complete audiobook is ready to play.")}</p>{/if}
               {:else}
-              <div class="detail-cover">
+              <div class="detail-hero">
                 <CoverArt artist={selected.artist ?? ''} album={selected.album ?? ''} size="large" revision={coverRevision} />
+                <span class="detail-hero-scrim" aria-hidden="true"></span>
+                <span class="detail-hero-text">
+                  <b title={selected.name}>{selected.name}</b>
+                  <small>{selected.artist || $t('Unknown artist')}{selected.album ? ` · ${selected.album}` : ''}</small>
+                  <span class="detail-hero-meta">{selected.format} · {selected.size} · {selected.length}</span>
+                </span>
+                {#if selected.artist && selected.album}
+                  <span class="detail-hero-tools">
+                    <button class="icon-button" title={$t("Fix album art…")} aria-label={$t("Fix album art…")} onclick={() => void openCoverPicker(selected?.artist ?? '', selected?.album ?? '')}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 17.2 15.8 5.9a2 2 0 0 1 2.8 0l.5.5a2 2 0 0 1 0 2.8L7.8 20H4.5z" /><path d="M14.6 7.1 17 9.5" /></svg>
+                    </button>
+                    <button class="icon-button" title={$t("Report cover…")} aria-label={$t("Report cover…")} onclick={() => openCoverReport(selected?.artist ?? '', selected?.album ?? '')}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.6v16.8" /><path d="M6 4.6h10.6l-2.1 3.6 2.1 3.6H6z" /></svg>
+                    </button>
+                  </span>
+                {/if}
               </div>
-              {#if selected.artist && selected.album}
-                <div class="detail-actions"><button class="classic-button" onclick={() => void openCoverPicker(selected?.artist ?? '', selected?.album ?? '')}>{$t("Fix album art…")}</button><button class="classic-button" title={$t("Report the cover published for this album as a NIP-56 report")} onclick={() => openCoverReport(selected?.artist ?? '', selected?.album ?? '')}>{$t("Report cover…")}</button></div>
-              {/if}
-              <div class="selected-file">
-                <div class="large-file-icon">▶</div>
-                <div><strong>{selected.name}</strong><span>{selected.format} · {selected.size} · {selected.length}</span><small>{$t("File ID:")} {selected.fileId}</small></div>
-              </div>
-              {#if selected.artist || selected.album}<div class="file-metadata"><small>{selected.artist ? $t("Artist: {p0}", { p0: selected.artist }) : ''}{selected.artist && selected.album ? ' · ' : ''}{selected.album ? $t("Album: {p0}", { p0: selected.album }) : ''}</small></div>{/if}
               {#if selected.tags}<div class="file-metadata"><small>{$t("Tags:")} {selected.tags}</small></div>{/if}
               <fieldset><legend>{$t("Seeders")}</legend>
                 <div class="sources-list">
@@ -3948,7 +4139,7 @@
             {/each}
             <table class="file-table download-table"><thead><tr><th>{$t("Download order")}</th><th>{$t("Progress")}</th><th>{$t("Size")}</th><th>{$t("Speed")}</th><th>{$t("Status")}</th><th></th></tr></thead><tbody>
               {#each transfers as transfer}
-                <tr class:transfer-complete={isCompleteTransfer(transfer)} ondblclick={() => { if (isCompleteTransfer(transfer)) playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }}><td><span class="download-arrow">{isCompleteTransfer(transfer) ? '▶' : '⇩'}</span>{transfer.name}</td><td><div class="progress"><span style={`width:${transfer.progress}%`}></span><b>{Math.round(transfer.progress)}%</b></div></td><td>{transfer.size}</td><td>{isCompleteTransfer(transfer) ? $t("Local") : transfer.speed}</td><td>{isCompleteTransfer(transfer) ? $t("Ready to play") : transfer.status}</td><td class="transfer-actions">{#if isCompleteTransfer(transfer)}<button class="classic-button transfer-play" onclick={(event) => { event.stopPropagation(); playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }} title={$t("Play verified audio")}>{$t("▶ Play")}</button>{/if}<button class="tiny-button" disabled={clearingTransfers || removingTransfers.has(transfer.id)} onclick={(event) => { event.stopPropagation(); removeTransfer(transfer.id); }} aria-label={$t("Remove transfer: {p0}", { p0: transfer.name })} title={$t("Cancel and clear entry; keep completed audio")}>×</button></td></tr>
+                <tr class:transfer-complete={isCompleteTransfer(transfer)} ondblclick={() => { if (isCompleteTransfer(transfer)) playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }}><td>{transfer.name}</td><td><div class="progress"><span style={`width:${transfer.progress}%`}></span><b>{Math.round(transfer.progress)}%</b></div></td><td>{transfer.size}</td><td>{isCompleteTransfer(transfer) ? $t("Local") : transfer.speed}</td><td>{isCompleteTransfer(transfer) ? $t("Ready to play") : transfer.status}</td><td class="transfer-actions">{#if isCompleteTransfer(transfer)}<button class="classic-button transfer-play" onclick={(event) => { event.stopPropagation(); playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }} title={$t("Play verified audio")}>{$t("▶ Play")}</button>{/if}<button class="tiny-button" disabled={clearingTransfers || removingTransfers.has(transfer.id)} onclick={(event) => { event.stopPropagation(); removeTransfer(transfer.id); }} aria-label={$t("Remove transfer: {p0}", { p0: transfer.name })} title={$t("Cancel and clear entry; keep completed audio")}>×</button></td></tr>
               {/each}
             </tbody></table>
             {#if transfers.length === 0}<p class="empty-state compact">{$t("There are no downloads in the queue.")}</p>{/if}
@@ -4029,7 +4220,7 @@
 
           {#if playlistsError}<div class="trollbox-error">{$t(playlistsError)}</div>{/if}
 
-          {#if playlistDraft}
+          {#if playlistDraft && playlistEditing}
             <div class="playlist-editor">
               <div class="playlist-fields">
                 <label>{$t("Title")}
@@ -4119,55 +4310,122 @@
               </div>
             </div>
           {:else}
-            <div class="playlist-list">
-              {#if playlistTiers.mine.length > 0}
-                <p class="playlist-group">{$t("Your playlists")}</p>
-              {/if}
-              {#each playlistTiers.mine as row (row.author + " " + row.playlistId)}
-                <div class="playlist-row">
-                  <button class="playlist-open" title={$t("Open")} onclick={() => void openPlaylist(row)}>
-                    <b>{row.title}</b>
-                    <small>{row.trackCount} {$t("Tracks")} · {row.displayName || row.author.slice(0, 12)}</small>
-                  </button>
-                  <span class="playlist-badges">
-                    {#if row.state === 'relays'}
-                      <i class="playlist-badge">{$t("On the relays only")}</i>
-                    {:else if row.state === 'local'}
-                      <i class="playlist-badge" title={$t("This is published, so it will be withdrawn from the relays as well.")}>{$t("Only on this computer")}</i>
-                    {:else if row.state === 'draft'}
-                      <i class="playlist-badge">{$t("Draft")}</i>
-                    {:else}
-                      <i class="playlist-badge">{$t("Held locally")}</i>
-                      <i class="playlist-badge">{row.published ? $t("Published") : $t("Draft")}</i>
+            <div class="split-content playlist-split">
+              <section class="playlist-browse" aria-label={$t("Playlists")}>
+                <div class="section-caption">
+                  <span>{playlists.length} {$t("Playlists")}</span>
+                  <div class="results-caption-tools">
+                    <button type="button" class="view-toggle" class:active={playlistView === 'list'} title={$t("Show these as a list")} aria-pressed={playlistView === 'list'} onclick={() => setPlaylistView('list')}>▤</button>
+                    <button type="button" class="view-toggle" class:active={playlistView === 'grid'} title={$t("Show these as tiles")} aria-pressed={playlistView === 'grid'} onclick={() => setPlaylistView('grid')}>▦</button>
+                  </div>
+                </div>
+                {#if playlistView === 'grid'}
+                  <div class="result-grid playlist-grid" aria-label={$t("Playlists as tiles")}>
+                    {#each [...playlistTiers.mine, ...playlistTiers.theirs] as row (playlistKey(row))}
+                      <button type="button" class="result-card" class:selected={selectedPlaylistKey === playlistKey(row)} aria-pressed={selectedPlaylistKey === playlistKey(row)} onclick={() => void openPlaylist(row)}>
+                        <span class="result-art">
+                          {#if playlistArtOf(row)}<CoverArt artist={playlistArtOf(row)!.artist} album={playlistArtOf(row)!.album} preferThumb size="medium" revision={coverRevision} />{:else}<span class="cover-art medium empty" aria-hidden="true">♪</span>{/if}
+                          <span class="result-overlay">
+                            <b title={row.title}>{row.title}</b>
+                            <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                          </span>
+                        </span>
+                      </button>
+                    {/each}
+                    {#if playlistsLoading}<p class="empty-state compact">···</p>{:else if playlists.length === 0}<p class="empty-state compact">{$t("No playlists yet")}</p>{/if}
+                  </div>
+                {:else}
+                  <div class="playlist-list">
+                    {#if playlistTiers.mine.length > 0}
+                      <p class="playlist-group">{$t("Your playlists")}</p>
                     {/if}
-                  </span>
-                  {#if row.state === 'relays'}
-                    <button class="classic-button" disabled={playlistSaving} onclick={() => void restorePlaylist(row)}>{$t("Restore")}</button>
-                  {:else}
-                    <button class="classic-button" title={row.withdrawable ? $t("Withdraw") : $t("Delete")} disabled={playlistSaving} onclick={() => void deletePlaylist(row)}>×</button>
-                  {/if}
-                </div>
-              {/each}
+                    {#each playlistTiers.mine as row (playlistKey(row))}
+                      <div class="playlist-row" class:selected={selectedPlaylistKey === playlistKey(row)}>
+                        <button class="playlist-open" title={$t("Show this playlist")} onclick={() => void openPlaylist(row)}>
+                          <b>{row.title}</b>
+                          <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                        </button>
+                        <span class="playlist-badges">
+                          {#if row.state === 'relays'}
+                            <i class="playlist-badge">{$t("On the relays only")}</i>
+                          {:else if row.state === 'local'}
+                            <i class="playlist-badge" title={$t("This is published, so it will be withdrawn from the relays as well.")}>{$t("Only on this computer")}</i>
+                          {:else if row.state === 'draft'}
+                            <i class="playlist-badge">{$t("Draft")}</i>
+                          {:else}
+                            <i class="playlist-badge">{$t("Held locally")}</i>
+                            <i class="playlist-badge">{row.published ? $t("Published") : $t("Draft")}</i>
+                          {/if}
+                        </span>
+                        {#if row.state === 'relays'}
+                          <button class="classic-button" disabled={playlistSaving} onclick={() => void restorePlaylist(row)}>{$t("Restore")}</button>
+                        {:else}
+                          <button class="classic-button" title={row.withdrawable ? $t("Withdraw") : $t("Delete")} disabled={playlistSaving} onclick={() => void deletePlaylist(row)}>×</button>
+                        {/if}
+                      </div>
+                    {/each}
 
-              {#if playlistTiers.theirs.length > 0}
-                <p class="playlist-group">{$t("From everyone else")}</p>
-              {/if}
-              {#each playlistTiers.theirs as row (row.author + " " + row.playlistId)}
-                <div class="playlist-row">
-                  <button class="playlist-open" title={$t("Open")} onclick={() => void openPlaylist(row)}>
-                    <b>{row.title}</b>
-                    <small>{row.trackCount} {$t("Tracks")} · {row.displayName || row.author.slice(0, 12)}</small>
-                  </button>
-                  <span class="playlist-badges"><i class="playlist-badge">{$t("Read-only")}</i></span>
-                  <span></span>
-                </div>
-              {/each}
+                    {#if playlistTiers.theirs.length > 0}
+                      <p class="playlist-group">{$t("From everyone else")}</p>
+                    {/if}
+                    {#each playlistTiers.theirs as row (playlistKey(row))}
+                      <div class="playlist-row" class:selected={selectedPlaylistKey === playlistKey(row)}>
+                        <button class="playlist-open" title={$t("Show this playlist")} onclick={() => void openPlaylist(row)}>
+                          <b>{row.title}</b>
+                          <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                        </button>
+                        <span class="playlist-badges"><i class="playlist-badge">{$t("Read-only")}</i></span>
+                        <span></span>
+                      </div>
+                    {/each}
 
-              {#if playlistsLoading}
-                <p class="empty-state compact">···</p>
-              {:else if playlistTiers.mine.length === 0 && playlistTiers.theirs.length === 0}
-                <p class="empty-state compact">{$t("No playlists yet")}</p>
-              {/if}
+                    {#if playlistsLoading}
+                      <p class="empty-state compact">···</p>
+                    {:else if playlistTiers.mine.length === 0 && playlistTiers.theirs.length === 0}
+                      <p class="empty-state compact">{$t("No playlists yet")}</p>
+                    {/if}
+                  </div>
+                {/if}
+              </section>
+
+              <aside class="details-pane playlist-side" aria-label={$t("Playlist details")}>
+                {#if playlistDraft}
+                  <div class="detail-hero playlist-hero">
+                    {#if selectedPlaylistArt}<CoverArt artist={selectedPlaylistArt.artist} album={selectedPlaylistArt.album} preferThumb size="large" revision={coverRevision} />{:else}<span class="cover-art large empty" aria-hidden="true">♪</span>{/if}
+                    <span class="detail-hero-scrim" aria-hidden="true"></span>
+                    <span class="detail-hero-text">
+                      <b title={playlistDraft.title}>{playlistDraft.title || $t("Untitled playlist")}</b>
+                      <small>{playlistDraftIsMine ? $t("Yours") : playlistDraft.displayName || shortKey(playlistDraft.author)}</small>
+                      <span class="detail-hero-meta">{$t("{p0} tracks", { p0: playlistMembers.length })}</span>
+                    </span>
+                  </div>
+                  <div class="playlist-side-actions">
+                    <button class="classic-button primary" disabled={!playlistHasLocalTracks} onclick={playPlaylist} title={playlistHasLocalTracks ? $t("Play the tracks of this playlist that are on this computer") : $t("None of this playlist is on this computer yet")}>{$t("▶ Play")}</button>
+                    {#if playlistDraftIsMine}
+                      <button class="classic-button" onclick={() => (playlistEditing = true)}>{$t("Edit")}</button>
+                      {#if !playlistDraft.published}<button class="classic-button" disabled={playlistSaving || !playlistDraft.title.trim()} onclick={() => void publishPlaylist()}>{$t("Publish")}</button>{/if}
+                    {:else}
+                      <button class="classic-button" title={$t("Save your own copy of this playlist")} onclick={() => (playlistEditing = true)}>{$t("Copy")}</button>
+                    {/if}
+                  </div>
+                  <div class="playlist-side-members">
+                    {#each playlistMembers.slice(0, 60) as member}
+                      <div class="playlist-side-member">
+                        <span class="playlist-member-position">{member.position}</span>
+                        <div class="playlist-member-copy">
+                          <b>{member.title || member.fileId.slice(0, 12)}</b>
+                          <small>{member.artist}{member.album ? ` · ${member.album}` : ''}</small>
+                        </div>
+                        {#if localFileIds.has(member.fileId)}<i class="playlist-badge">{$t("On this computer")}</i>{:else}<i class="playlist-badge">{memberAvailability(member.fileId, playlistAvailability, localFileIds) ?? $t("From the playlist")}</i>{/if}
+                      </div>
+                    {/each}
+                    {#if playlistMembers.length === 0}<p class="empty-state compact">{$t("No tracks yet")}</p>{/if}
+                    {#if playlistMembers.length > 60}<p class="empty-state compact">{$t("{p0} more tracks", { p0: playlistMembers.length - 60 })}</p>{/if}
+                  </div>
+                {:else}
+                  <p class="empty-state">{$t("Choose a playlist to see it here.")}</p>
+                {/if}
+              </aside>
             </div>
           {/if}
         </section>
@@ -4194,163 +4452,79 @@
             <button class="cover-summary-refresh" onclick={() => void refreshCovers()} disabled={coverLoading} title={$t("Refresh")}>{coverLoading ? '…' : '⟳'}</button>
           </div>
 
-          <div class="cover-subtabs">
-            <button class="cover-subtab" class:active={coverPanel === 'waiting'} title={'The albums the worker would touch next'} onclick={() => setCoverPanel('waiting')}>{'Waiting'}</button>
-            <button class="cover-subtab" class:active={coverPanel === 'found'} title={'Every album of your own music with no cover claim, worst first. A failure comes first because a lookup that fell over looks identical to an album nobody has art for.'} onclick={() => setCoverPanel('found')}>{'Covers found'}</button>
-            <button class="cover-subtab" class:active={coverPanel === 'activity'} title={'What the last pass did, and the reason for every lookup that did not work. Nothing else in Deadwax keeps that reason.'} onclick={() => setCoverPanel('activity')}>{'Activity'}</button>
-            <button class="cover-subtab" class:active={coverPanel === 'settings'} title={'What this computer is allowed to do about your album art, and what it is holding.'} onclick={() => setCoverPanel('settings')}>{'Settings'}</button>
+          <div class="cover-subtabs" role="group" aria-label={$t("Sort the album list")}>
+            {#each coverSorts as option}
+              <button class="cover-subtab" class:active={coverSort === option.id} aria-pressed={coverSort === option.id} onclick={() => setCoverSort(option.id)}>{$t(option.label)}</button>
+            {/each}
           </div>
 
           <div class="cover-panel-body">
-            {#if coverPanel === 'settings'}
-              <div class="cover-panel-head">
-                <b>{'Where art may come from'}</b>
-                <span>{'Two switches, both off by default. Everything above happens without them.'}</span>
-              </div>
-              <div class="cover-scan-controls">
-                <label class="cover-scan-toggle">
-                  <input type="checkbox" checked={coverStatus?.lookupExternal ?? false} onchange={(event) => void setCoverPreferences(event.currentTarget.checked, coverStatus?.publishClaims ?? false)} />
-                  <span>{$t("Look up art automatically")}<small>{$t("Asks MusicBrainz and the Cover Art Archive about every album without a cover: the ones on this computer, and the albums the results pane has shown you")}{' '}{'When those have nothing, the iTunes catalogue is asked for the same album, matched on the album and artist names.'}</small></span>
-                </label>
-                <label class="cover-scan-toggle">
-                  <input type="checkbox" checked={coverStatus?.publishClaims ?? false} onchange={(event) => void setCoverPreferences(coverStatus?.lookupExternal ?? false, event.currentTarget.checked)} />
-                  <span>{$t("Sign and publish the covers I resolve")}<small>{$t("A kind")} <code>30427</code> {$t("claim signed with your own identity and sent to your relays, as fast as they can be signed")}</small></span>
-                </label>
-              </div>
-
-              <!--
-                Which hosts art may come from. This is the interim answer to art
-                arriving from an address nobody vouched for — a stranger's claim, or
-                a link somebody pastes — until the cover NIP's own trust model
-                carries it. Empty is the honest default: it is how Deadwax behaved
-                before the list existed, so nobody's library loses its covers to a
-                filter they never asked for. The reasoning lives in the label's
-                title rather than in a paragraph under the box.
-              -->
-              <div class="cover-art-hosts">
-                <div class="cover-panel-head">
-                  <label for="cover-art-hosts" title={"Empty means any HTTPS host, which is what every library had before this list existed. With a list, art is drawn only when it is served from one of these domains or a subdomain of one — somebody else's published claim, art this computer looked up, and a link you paste here, which is refused outright if its host is not listed. It is a filter, not a boundary: the person who sets it is the person it protects, and the real answer is the trust model the cover NIP is heading for."}>{'Art domains to accept'}</label>
-                  <span>{'One per line. A domain covers its subdomains: mzstatic.com admits is1-ssl.mzstatic.com.'}</span>
-                </div>
-                <textarea
-                  id="cover-art-hosts"
-                  rows="3"
-                  spellcheck="false"
-                  placeholder={'coverartarchive.org\narchive.org\nmzstatic.com'}
-                  bind:value={allowedArtHosts}
-                ></textarea>
-                <div class="cover-art-hosts-actions">
-                  <button
-                    class="classic-button primary"
-                    disabled={allowedArtHosts === allowedArtHostsSaved}
-                    onclick={() => void saveAllowedArtHosts(allowedArtHosts)}
-                  >{'Save list'}</button>
-                  <button class="classic-button" onclick={() => void saveAllowedArtHosts(RECOMMENDED_ART_HOSTS.join('\n'))}>{'Use the recommended list'}</button>
-                  <button class="classic-button" onclick={() => void saveAllowedArtHosts('')}>{'Accept any host'}</button>
-                </div>
-              </div>
-
-              <div class="cover-art-hosts">
-                <div class="cover-panel-head">
-                  <b title={"Fetching happens on a schedule of its own, two downloads at a time, and stops with the lookups switch above — a picture means contacting whichever host the claim names. Nothing here is the only copy: every picture can be fetched again from art this computer has already resolved, so clearing them costs time rather than anything that was found. Oldest-used pictures are dropped first when the cache reaches half a gigabyte, so art for albums you actually look at outlives art for albums you only scrolled past."}>{'Artwork held for phones'}</b>
-                  <span>{'Sent over the pairing, so a phone never asks a publisher about itself.'}</span>
-                </div>
-                <div id="cover-art-cache" class="cover-art-hosts-actions">
-                  <button class="classic-button" onclick={() => void setArtPaused(!coverStatus?.artPaused)}>
-                    {coverStatus?.artPaused ? 'Resume fetching' : 'Pause fetching'}
-                  </button>
-                  <button class="classic-button" disabled={(coverStatus?.artCached ?? 0) === 0} onclick={() => void clearArtCache()}>{'Clear the held pictures'}</button>
-                </div>
+            <div class="cover-panel-head">
+              <b>{$t("Every album this computer knows")}</b>
+              <span>{$t("What it holds, what it went and found, and who signed the picture it uses.")}</span>
+            </div>
+            {#if coverInventory.rows.length > 0}
+              <div class="table-wrap">
+                <table class="file-table cover-table">
+                  <thead><tr><th>{$t("Album")}</th><th>{$t("Picture")}</th><th>{$t("Signed by")}</th><th>{$t("Last try")}</th></tr></thead>
+                  <tbody>
+                  {#each coverInventory.rows as row (row.key)}
+                    <tr>
+                      <td><b>{row.album || row.key}</b><small>{row.artist}</small></td>
+                      <td><i class="playlist-badge" class:amber={!row.held && Boolean(row.reason)}>{$t(coverRowState(row))}</i></td>
+                      <td>{#if row.signedBy}<code title={row.signedBy}>{shortKey(row.signedBy)}</code>{:else}<span class="cover-dash">—</span>{/if}</td>
+                      <td><small title={row.reason}>{row.reason || '—'}</small></td>
+                    </tr>
+                  {/each}
+                </tbody>
+                </table>
               </div>
             {/if}
+            {#if !coverLoading && coverInventory.rows.length === 0}<p class="empty-state compact">{$t("Nothing here yet.")}</p>{/if}
+            <div class="results-pager">
+              <button disabled={coverPageIndex === 0 || coverLoading} onclick={() => changeCoverPage(coverPageIndex - 1)}>{$t("◀ Previous")}</button>
+              <span>{$t("Page {page} of {pages}", { page: coverPageIndex + 1, pages: Math.max(1, Math.ceil(coverInventory.total / COVER_PAGE_SIZE)) })}{' · '}{$t("{p0} albums", { p0: coverInventory.total.toLocaleString() })}</span>
+              <button disabled={coverLoading || (coverPageIndex + 1) * COVER_PAGE_SIZE >= coverInventory.total} onclick={() => changeCoverPage(coverPageIndex + 1)}>{$t("Next ▶")}</button>
+            </div>
+          </div>
 
-            {#if coverPanel === 'waiting'}
-              <div class="cover-panel-head">
-                <b>{'Waiting'}</b>
-                <span>{coverQueue.length} {coverQueue.length === 1 ? 'album' : 'albums'}{' the worker would touch next. This is a window onto the queue, not the queue itself.'}</span>
+          <div class="cover-panel-body">
+            <div class="cover-panel-head">
+              <b>{$t("The last pass")}</b>
+              <span>{$t("Every attempt it made, newest first, and the reason each one has.")}</span>
+            </div>
+            {#if coverStatus}
+              <div class="cover-scan-status">
+                <span><b>{coverStatus.published}</b> {$t("published")}</span>
+                <span><b>{coverStatus.resolved}</b> {$t("resolved, not signed")}</span>
+                <span><b>{coverStatus.alreadyCovered}</b> {$t("covered by others")}</span>
+                <span><b>{coverStatus.noArt}</b> {$t("no art anywhere")}</span>
+                {#if coverStatus.failed}<span><b>{coverStatus.failed}</b> {$t("failed")}</span>{/if}
+                {#if coverStatus.backedOff}<span><b>{coverStatus.backedOff}</b> {$t("throttled waits")}</span>{/if}
               </div>
-              <div class="cover-candidate-list">
-                {#each coverQueue as candidate (candidate.key)}
-                  <div class="cover-candidate">
-                    <div><b>{candidate.album}</b><small>{candidate.artist}</small></div>
-                    <span>{candidate.trackCount} {candidate.trackCount === 1 ? 'track' : 'tracks'} · {candidate.source}</span>
-                    <code title={candidate.key}>{candidate.key}</code>
-                    <button class="classic-button" onclick={() => void openCoverPicker(candidate.artist, candidate.album)}>{$t("Find art…")}</button>
-                    <button class="classic-button" title={$t("Report the cover published for this album")} onclick={() => openCoverReport(candidate.artist, candidate.album)}>{$t("Report")}</button>
-                  </div>
-                {/each}
-                {#if !coverLoading && coverQueue.length === 0}
-                  <p class="empty-state compact">{coverOptIn(coverStatus) ? 'Nothing is waiting. New music and new browsing wake Deadwax by themselves.' : 'Switch one of these on and Deadwax starts on its own.'}</p>
-                {/if}
-              </div>
-              <div class="cover-art-hosts-actions">
-                {#if coverStatus?.running}
-                  <button class="classic-button" onclick={() => void stopCoverPass()}>{$t("Stop")}</button>
-                {:else}
-                  <button class="classic-button" onclick={() => void lookForCoversNow()} disabled={!coverOptIn(coverStatus)}>{$t("Look now")}</button>
-                {/if}
-              </div>
+              {#if coverStatus.message}<p class="cover-scan-message">{coverStatus.message}</p>{/if}
             {/if}
-
-            {#if coverPanel === 'found'}
-              <div class="cover-panel-head">
-                <b title={"A failure comes first because a lookup that fell over looks identical to an album nobody has art for."}>{'Covers found'}</b>
-                <span>{coverMissing.length} {coverMissing.length === 1 ? 'album' : 'albums'}{" of this computer's own music, worst first."}</span>
-              </div>
-              <div id="cover-gap-list" class="cover-gap-list">
-                {#each coverMissing as gap (gap.key)}
-                  <div class="cover-gap">
-                    <div><b>{gap.album}</b><small>{gap.artist}</small></div>
-                    <span class:cover-gap-failed={gap.state === 'failed'} class="cover-gap-state">{coverGapState(gap.state)}</span>
-                    <span>{gap.tracks} {gap.tracks === 1 ? 'track' : 'tracks'}</span>
-                    <button class="classic-button" onclick={() => void openCoverPicker(gap.artist, gap.album)}>{$t("Find art…")}</button>
-                    {#if gap.note}<small class="cover-gap-note" title={gap.note}>{gap.note}</small>{/if}
-                  </div>
-                {/each}
-                {#if !coverLoading && coverMissing.length === 0}
-                  <p class="empty-state compact">{'Every album this computer holds has a cover claim, or has not been scanned yet.'}</p>
-                {/if}
-              </div>
-            {/if}
-
-            {#if coverPanel === 'activity'}
-              {#if coverStatus}
-                <div class="cover-scan-status">
-                  <span><b>{coverStatus.published}</b> {$t("published")}</span>
-                  <span><b>{coverStatus.resolved}</b> {$t("resolved, not signed")}</span>
-                  <span><b>{coverStatus.alreadyCovered}</b> {$t("covered by others")}</span>
-                  <span><b>{coverStatus.noArt}</b> {$t("no art anywhere")}</span>
-                  {#if coverStatus.failed}<span><b>{coverStatus.failed}</b> {$t("failed")}</span>{/if}
-                  {#if coverStatus.backedOff}<span><b>{coverStatus.backedOff}</b> {$t("throttled waits")}</span>{/if}
+            <div id="cover-log-list" class="cover-log-list">
+              {#each coverLog as line (line.at + line.key + line.outcome)}
+                <div class="cover-log-line">
+                  <time>{coverLogTime(line.at)}</time>
+                  <span class:cover-gap-failed={line.outcome === 'failed'} class:cover-log-throttled={line.outcome === 'throttled' || line.outcome === 'slow'} class="cover-log-outcome">{line.outcome}</span>
+                  <span class="cover-log-album">{line.album}{line.artist ? ` — ${line.artist}` : ''}</span>
+                  {#if line.source}<span class="cover-log-source">{line.source}</span>{/if}
+                  {#if line.message}<small class="cover-gap-note" title={line.message}>{line.message}</small>{/if}
                 </div>
-                {#if coverStatus.message}<p class="cover-scan-message">{coverStatus.message}</p>{/if}
+              {/each}
+              {#if !coverLoading && coverLog.length === 0}
+                <p class="empty-state compact">{'No lookups have run yet.'}</p>
               {/if}
-              <div class="cover-panel-head">
-                <b>{'Lookup log'}</b>
-                <span>{'Newest first, last '}{COVER_LOG_PREVIEW}{' attempts, kept across restarts.'}</span>
-              </div>
-              <div id="cover-log-list" class="cover-log-list">
-                {#each coverLog as line (line.at + line.key + line.outcome)}
-                  <div class="cover-log-line">
-                    <time>{coverLogTime(line.at)}</time>
-                    <span class:cover-gap-failed={line.outcome === 'failed'} class:cover-log-throttled={line.outcome === 'throttled' || line.outcome === 'slow'} class="cover-log-outcome">{line.outcome}</span>
-                    <span class="cover-log-album">{line.album}{line.artist ? ` — ${line.artist}` : ''}</span>
-                    {#if line.source}<span class="cover-log-source">{line.source}</span>{/if}
-                    {#if line.message}<small class="cover-gap-note" title={line.message}>{line.message}</small>{/if}
-                  </div>
-                {/each}
-                {#if !coverLoading && coverLog.length === 0}
-                  <p class="empty-state compact">{'No lookups have run yet.'}</p>
-                {/if}
-              </div>
-            {/if}
+            </div>
           </div>
 
           {#if coverError}<div class="trollbox-error">{coverError}</div>{/if}
         </section>
-      {:else if activeView === 'Deadwax'}
+      {:else if activeView === 'Clients'}
         <section class="full-panel mobile-connect-view">
-          <div class="panel-title"><span></span><b>{$t("Deadwax")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Clients")}</b><span></span></div>
           <div class="mobile-connect-status">
             <span><i class:amber={!mobileStatusValue?.online} class:error={Boolean(mobileStatusValue?.error)} class="led"></i><b>{mobileStatusValue?.online ? $t("Iroh ready") : mobileStatusValue?.running ? $t("Iroh connecting…") : $t("Iroh unavailable")}</b></span>
             <small>{$t("Deadwax stays in control of discovery and Tor downloads.")}</small>
@@ -4358,43 +4532,44 @@
           {#if mobileError}<div class="trollbox-error">{$t(mobileError)}</div>{/if}
           <div class="mobile-connect-grid">
             <section class="pair-phone-card">
-              <h2>{$t("Pair Deadwax")}</h2>
-              <div class="pairing-tabs" role="tablist" aria-label={$t("Pairing access")}>
-                {#each [false, true] as streamOnly}
-                  <button type="button" role="tab" id={`pairing-tab-${streamOnly ? 'stream' : 'full'}`} aria-controls={`pairing-panel-${streamOnly ? 'stream' : 'full'}`} aria-selected={mobileStreamOnly === streamOnly} tabindex={mobileStreamOnly === streamOnly ? 0 : -1} onclick={() => (mobileStreamOnly = streamOnly)} onkeydown={navigatePairingTabs}>{streamOnly ? $t("uncle jim") : $t("Full access")}</button>
-                {/each}
-              </div>
-            {#each [false, true] as streamOnly}
-              {@const offer = streamOnly ? mobileStreamPairing : mobilePairing}
-              <div role="tabpanel" id={`pairing-panel-${streamOnly ? 'stream' : 'full'}`} aria-labelledby={`pairing-tab-${streamOnly ? 'stream' : 'full'}`} hidden={mobileStreamOnly !== streamOnly} tabindex="0">
-                <p>{streamOnly ? $t("Read-only, listen to and cache your local music and audiobooks. The connection cannot ask Deadwax to download new songs.") : $t("Browse, listen, save songs for offline listening, and ask Deadwax to download tracks over Tor.")}</p>
-                <p>{$t("Scan in")} <a href="https://deadwax.rip/mobile.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
-                {#if offer}
-                  <div class="pairing-qr" aria-label={streamOnly ? $t("Read-only Deadwax pairing QR code") : $t("Full-access Deadwax pairing QR code")}>{@html offer.qrSvg}</div>
-                  <p class="pairing-expiry">{$t("One use · expires")} {new Date(offer.expiresAt * 1000).toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' })}</p>
-                  <details><summary>{$t("Pair without a camera")}</summary><textarea readonly value={offer.ticket} aria-label={streamOnly ? $t("Manual read-only pairing code") : $t("Manual full-access pairing code")}></textarea></details>
-                  <button class="classic-button" onclick={() => createMobilePairing(streamOnly)} disabled={mobileLoading}>{mobileLoading ? $t("Preparing…") : $t("Create a new code")}</button>
-                {:else}
-                  <button class="classic-button primary" onclick={() => createMobilePairing(streamOnly)} disabled={mobileLoading}>{mobileLoading ? $t("Preparing Iroh…") : $t("Create pairing code")}</button>
-                  <div class="pairing-placeholder"><span>▦</span><b>{$t("Your one-use QR code will appear here")}</b></div>
-                {/if}
-              </div>
-            {/each}
+              <h2>{$t("Pair a client")}</h2>
+              <p>{$t("The code below gives the new client read-only access: it can browse, listen, and keep copies for offline listening, but it cannot ask this computer to download anything.")}</p>
+              <p>{$t("Scan in")} <a href="https://deadwax.rip/mobile.html" onclick={openNapstrfyWebsite}>Deadwax</a>{$t(". Keep Deadwax open while streaming.")}</p>
+              {#if mobileStreamPairing}
+                <div class="pairing-qr" aria-label={$t("Read-only Deadwax pairing QR code")}>{@html mobileStreamPairing.qrSvg}</div>
+                <p class="pairing-expiry">{$t("One use · expires")} {new Date(mobileStreamPairing.expiresAt * 1000).toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' })}</p>
+                <details><summary>{$t("Pair without a camera")}</summary><textarea readonly value={mobileStreamPairing.ticket} aria-label={$t("Manual read-only pairing code")}></textarea></details>
+                <button class="classic-button" onclick={() => createMobilePairing(true)} disabled={mobileLoading}>{mobileLoading ? $t("Preparing…") : $t("Create a new code")}</button>
+              {:else}
+                <button class="classic-button primary" onclick={() => createMobilePairing(true)} disabled={mobileLoading}>{mobileLoading ? $t("Preparing Iroh…") : $t("Create pairing code")}</button>
+                <div class="pairing-placeholder"><span>▦</span><b>{$t("Your one-use QR code will appear here")}</b></div>
+              {/if}
+              <p class="privacy-note wide"><span>i</span> {$t("The QR secret is random, expires after five minutes, and is invalidated by the first successful pairing. Removing a client immediately revokes future connections. Deadwax makes a private, encrypted tunnel from your phone to this computer, only for your own use and for people you trust.")}</p>
             </section>
             <section class="paired-devices-card">
-              <p>{$t("Deadwax creates a private, encrypted tunnel from your phone to Deadwax, letting you listen to your catalogue by connecting directly to your Deadwax instance. Only for your own use and for people you trust.")}</p>
-              <h2>{$t("Paired phones")}</h2>
-              <p>{$t("Each phone keeps the access its code gave it, and you can change it here at any time.")}</p>
+              <h2>{$t("Paired clients")}</h2>
+              <p>{$t("Each client keeps the access its code gave it, and you can change it here at any time.")}</p>
               <div class="paired-device-list">
                 {#each mobileStatusValue?.devices ?? [] as device (device.endpointId)}
                   <div class="paired-device-block">
                     <div class="paired-device">
                       <span class="phone-glyph">▯</span>
-                      <!-- The ticks below are what this phone may do, so the row
+                      <!-- The switches below are what this client may do, so the row
                            does not also summarise it: "read only" was already
                            untrue of a device lent the index alone. -->
-                      <div><b>{device.name}</b><small>{$t("Last connected")} {mobileLastSeen(device.lastSeen)}</small><code title={device.endpointId}>{device.endpointId}</code></div>
+                      <div>
+                        <b>{device.name}</b>
+                        <small>{$t("Last connected")} {mobileLastSeen(device.lastSeen)}</small>
+                        <code title={device.endpointId}>{device.endpointId}</code>
+                      </div>
                       <button class="classic-button" onclick={() => revokeMobileDevice(device)}>{$t("Remove")}</button>
+                    </div>
+                    <div class="device-facts">
+                      <span class="playlist-badge">{device.likes} {$t("likes")}</span>
+                      <span class="playlist-badge">{device.dislikes} {$t("dislikes")}</span>
+                      <span class="playlist-badge">{device.playlists} {$t("Playlists")}</span>
+                      <span class="playlist-badge" title={device.pubkey}>{device.pubkey ? shortKey(device.pubkey) : $t("No key proved")}</span>
+                      <span class="playlist-badge">{$t("Paired")} {new Date(device.pairedAt).toLocaleDateString($locale)}</span>
                     </div>
                     <div class="device-rights" role="group" aria-label={$t("What {p0} may do", { p0: device.name })}>
                       {#each deviceRightChoices() as choice}
@@ -4411,9 +4586,8 @@
                     </div>
                   </div>
                 {/each}
-                {#if (mobileStatusValue?.devices.length ?? 0) === 0}<p class="empty-state compact">{$t("No phones are paired yet.")}</p>{/if}
+                {#if (mobileStatusValue?.devices.length ?? 0) === 0}<p class="empty-state compact">{$t("No clients are paired yet.")}</p>{/if}
               </div>
-              <p class="privacy-note wide"><span>i</span> {$t("The QR secret is random, expires after five minutes, and is invalidated by the first successful pairing. Removing a phone immediately revokes future connections.")}</p>
             </section>
           </div>
         </section>
@@ -4435,20 +4609,21 @@
               <article class="net-kpi live">
                 <span class="net-label">{$t("Playable now")}</span>
                 <b class="net-value">{counted(catalogueStats.liveFiles)}</b>
-                <span class="net-under">{$t("{p0} publishers saying so", { p0: counted(catalogueStats.livePeers) })}</span>
+                <span class="net-under">{$t("{p0} ever announced", { p0: counted(catalogueStats.announced) })}</span>
               </article>
-              <article class="net-kpi" class:behind>
-                <span class="net-label">{$t("Ever announced")}</span>
-                <b class="net-value">{counted(catalogueStats.announced)}</b>
-                <span class="net-under">{$t("{p0} indexed", { p0: counted(catalogueStats.indexed) })}</span>
-              </article>
-              <article class="net-kpi">
-                <span class="net-label">{$t("Publishers")}</span>
-                <b class="net-value">{counted(catalogueStats.publishers)}</b>
+              <article class="net-kpi live">
+                <span class="net-label">{$t("Seeders online")}</span>
+                <b class="net-value">{counted(catalogueStats.livePeers)}</b>
+                <span class="net-under">{$t("{p0} have ever announced", { p0: counted(catalogueStats.publishers) })}</span>
               </article>
               <article class="net-kpi">
                 <span class="net-label">{$t("Your library")}</span>
                 <b class="net-value">{counted(catalogueStats.held)}</b>
+              </article>
+              <article class="net-kpi" class:behind>
+                <span class="net-label">{$t("Searchable")}</span>
+                <b class="net-value">{counted(catalogueStats.indexed)}</b>
+                <span class="net-under">{$t("of {p0} described", { p0: counted(catalogueStats.announced) })}</span>
               </article>
             </div>
             {#if behind}
@@ -4479,19 +4654,32 @@
               </section>
             </div>
             <section class="net-panel net-publishers">
-              <h3>{$t("Top publishers")}</h3>
+              <div class="net-panel-head">
+                <h3>{$t("Seeders")}</h3>
+                <label class="net-toggle">
+                  <input type="checkbox" bind:checked={showQuietSeeders} onchange={() => { seederPageIndex = 0; void refreshSeeders(); }} />
+                  <span>{$t("Show quiet seeders")}</span>
+                </label>
+              </div>
+              {#if seederError}<p class="net-error">{$t(seederError)}</p>{/if}
               <table>
-                <thead><tr><th>{$t("Publisher")}</th><th class="num">{$t("Announced")}</th><th class="num">{$t("Live")}</th></tr></thead>
+                <thead><tr><th>{$t("Seeder")}</th><th class="num">{$t("Live")}</th><th class="num">{$t("Announced")}</th></tr></thead>
                 <tbody>
-                  {#each catalogueStats.publishersTop as publisher (publisher.pubkey)}
+                  {#each seedersPage.rows as seeder (seeder.pubkey)}
                     <tr>
-                      <td><code title={publisher.pubkey}>{shortKey(publisher.pubkey)}</code></td>
-                      <td class="num">{counted(publisher.announced)}</td>
-                      <td class="num" class:quiet={publisher.live === 0}>{counted(publisher.live)}</td>
+                      <td><button class="user-name seeder-name" title={seeder.npub || seeder.pubkey} onclick={() => browseUser({ pubkey: seeder.pubkey, npub: seeder.npub, displayName: seederLabel(seeder) })}>{seederLabel(seeder)}</button>{#if seeder.name}<code class="seeder-key" title={seeder.npub}>{shortKey(seeder.npub || seeder.pubkey)}</code>{/if}</td>
+                      <td class="num" class:quiet={seeder.live === 0}>{counted(seeder.live)}</td>
+                      <td class="num">{counted(seeder.announced)}</td>
                     </tr>
                   {/each}
                 </tbody>
               </table>
+              {#if seedersPage.rows.length === 0}<p class="net-empty">{$t("No seeders on this page.")}</p>{/if}
+              <div class="net-pager">
+                <button onclick={() => changeSeederPage(seederPageIndex - 1)} disabled={seederPageIndex === 0 || seedersPending}>{$t("Previous")}</button>
+                <span>{$t("Page {p0} of {p1}", { p0: seederPageIndex + 1, p1: Math.max(1, Math.ceil(seedersPage.total / SEEDER_PAGE_SIZE)) })}{' · '}{$t("{p0} seeders", { p0: counted(seedersPage.total) })}</span>
+                <button onclick={() => changeSeederPage(seederPageIndex + 1)} disabled={seedersPending || (seederPageIndex + 1) * SEEDER_PAGE_SIZE >= seedersPage.total}>{$t("Next")}</button>
+              </div>
             </section>
             <footer class="net-foot">
               <span>{$t("Last mirror write {p0}", { p0: mirrorWritten(catalogueStats.lastWrite) })}</span>
@@ -4504,7 +4692,8 @@
       {:else if activeView === 'Profile'}
         <section class="full-panel profile-view">
           <div class="panel-title"><span></span><b>{$t("Deadwax Profile")}</b><span></span></div>
-          <div class="profile-card"><div class="avatar"><img src="/deadwax-logo-mark.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.length}</b> {$t("transfers")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
+          <div class="profile-card"><div class="avatar"><img src="/deadwax-logo-mark.png" alt={$t("Deadwax mascot")} /></div><div><h2><button class="user-name" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button></h2><p>{$t("Your dedicated Deadwax Nostr identity.")}</p><code>{identityNpub || $t("Connect to create identity")}</code><div class="profile-stats"><span><b>{sharedFiles.length}</b> {$t("shared files")}</span><span><b>{transfers.filter(isCompleteTransfer).length}</b> {$t("downloads kept")}</span><span><b>{networkConnected ? $t("Nostr online") : $t("Offline")}</b></span></div></div></div>
+          <p class="privacy-note wide"><span>!</span> {$t("Use a pseudonym. This name is published with everything you share, and nothing here ties it to who you are unless you write that down yourself.")}</p>
           <fieldset class="edit-profile"><legend>{$t("Profile")}</legend><label>{$t("Display name")} <input bind:value={displayName} /></label><label>{$t("About")} <input bind:value={profileAbout} /></label><label>{$t("Picture URL")} <input bind:value={profilePicture} placeholder="https://…" /></label><button class="classic-button primary" onclick={persistSettings}>{$t("Save profile")}</button></fieldset>
           <p class="privacy-note wide"><span>i</span> {$t("Your profile and shared catalogue are public on Nostr. Transfer addresses and credentials are never published.")}</p>
         </section>
@@ -4514,6 +4703,22 @@
           <fieldset><legend>{$t("Language")}</legend><LanguageSelect /><small>{$t("Saved automatically on this device.")}</small></fieldset>
           <fieldset><legend>{$t("Network")}</legend><label><input type="checkbox" checked disabled /> {$t("Connect automatically at startup")}</label><label>{$t("Nostr relays")} <input bind:value={nostrRelays} /></label><label>Tor <input value={$t("Bundled, managed automatically")} readonly /></label></fieldset>
           <fieldset><legend>{$t("Files")}</legend><label>{$t("Downloads and shared audio")} <input value={napstrFolder} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></label><label>{$t("Transfer mode")} <select disabled><option>{$t("Whole file")}</option></select></label><label><input type="checkbox" checked disabled /> {$t("Downloaded audio is automatically shared")}</label><label><input type="checkbox" checked disabled /> {$t("Verify the complete file with SHA-256")}</label></fieldset>
+          <fieldset class="cover-settings"><legend>{$t("Album art")}</legend>
+            <label class="settings-switch"><input type="checkbox" checked={coverStatus?.lookupExternal ?? false} onchange={(event) => void setCoverPreferences(event.currentTarget.checked, coverStatus?.publishClaims ?? false)} /><span>{$t("Look up art automatically")}<small>{$t("Asks MusicBrainz and the Cover Art Archive about every album without a cover, and the iTunes catalogue when those have nothing.")}</small></span></label>
+            <label class="settings-switch"><input type="checkbox" checked={coverStatus?.publishClaims ?? false} onchange={(event) => void setCoverPreferences(coverStatus?.lookupExternal ?? false, event.currentTarget.checked)} /><span>{$t("Sign and publish the covers I resolve")}<small>{$t("Sends a claim signed with your own identity to your relays.")}</small></span></label>
+            <label class="settings-hosts">{$t("Art domains to accept")}
+              <textarea id="cover-art-hosts" rows="3" spellcheck="false" placeholder={'coverartarchive.org\narchive.org\nmzstatic.com'} bind:value={allowedArtHosts}></textarea>
+              <small>{$t("One per line. Empty means any HTTPS host.")}</small>
+            </label>
+            <div class="cover-art-hosts-actions">
+              <button class="classic-button primary" disabled={allowedArtHosts === allowedArtHostsSaved} onclick={() => void saveAllowedArtHosts(allowedArtHosts)}>{$t("Save list")}</button>
+              <button class="classic-button" onclick={() => void saveAllowedArtHosts(RECOMMENDED_ART_HOSTS.join('\n'))}>{$t('Use the recommended list')}</button>
+              <button class="classic-button" onclick={() => void saveAllowedArtHosts('')}>{$t('Accept any host')}</button>
+              <button class="classic-button" onclick={() => void setArtPaused(!coverStatus?.artPaused)}>{coverStatus?.artPaused ? $t('Resume fetching') : $t('Pause fetching')}</button>
+              <button class="classic-button" disabled={(coverStatus?.artCached ?? 0) === 0} onclick={() => void clearArtCache()}>{$t('Clear the held pictures')}</button>
+            </div>
+            <small class="settings-note">{$t("{p0} pictures held, using {p1}.", { p0: (coverStatus?.artCached ?? 0).toLocaleString(), p1: readableBytes(coverStatus?.artBytes ?? 0) })}</small>
+          </fieldset>
           <div class="settings-actions"><button class="classic-button primary" onclick={persistSettings}>{$t("OK")}</button><button class="classic-button" onclick={refreshSnapshot}>{$t("Cancel")}</button><button class="classic-button" onclick={persistSettings}>{$t("Apply")}</button></div>
         </section>
       {/if}
@@ -4535,14 +4740,77 @@
           <div class="mini-row audiobook-mini-row"><span class="audiobook-glyph">▥</span><span class="mini-name">{book.title} {$t("· chapter")} {Math.min(book.nextIndex + 1, book.chapters.length)} {$t("of")} {book.chapters.length}</span><div class="progress"><span style={`width:${book.chapters.length ? (book.nextIndex / book.chapters.length) * 100 : 0}%`}></span></div><span class="mini-size">{readableSize(book.chapters.reduce((sum, chapter) => sum + chapter.size, 0))}</span><span class="mini-status">{$t("Book")}</span></div>
         {/each}
         {#each transfers as transfer}
-          <div class:transfer-complete={isCompleteTransfer(transfer)} class="mini-row">{#if isCompleteTransfer(transfer)}<button class="mini-play" onclick={() => playAudio(transfer.fileId, transfer.name, playerMode, 'downloads')} title={$t("Play verified audio")}>▶</button>{:else}<span class="download-arrow">⇩</span>{/if}<span class="mini-name">{transfer.name}</span><div class="progress"><span style={`width:${transfer.progress}%`}></span></div><span class="mini-size">{transfer.size}</span><span class="mini-status" title={isCompleteTransfer(transfer) ? $t("Ready") : transfer.status}>{isCompleteTransfer(transfer) ? $t("Ready") : transfer.speed}</span><button class="tiny-button mini-cancel" onclick={() => removeTransfer(transfer.id)} disabled={clearingTransfers || removingTransfers.has(transfer.id)} aria-label={`${isActiveTransfer(transfer) ? 'Cancel download' : 'Clear entry'}: ${transfer.name}`} title={isActiveTransfer(transfer) ? $t("Cancel download and remove partial file") : $t("Clear entry; keep completed audio")}>×</button></div>
+          <div class:transfer-complete={isCompleteTransfer(transfer)} class="mini-row"><button class="mini-play" disabled={!isCompleteTransfer(transfer)} onclick={() => playAudio(transfer.fileId, transfer.name, playerMode, 'downloads')} title={$t("Play verified audio")} aria-label={$t("Play verified audio")}>▶</button><span class="mini-name">{transfer.name}</span><div class="progress"><span style={`width:${transfer.progress}%`}></span></div><span class="mini-size">{transfer.size}</span><span class="mini-status" title={isCompleteTransfer(transfer) ? $t("Ready") : transfer.status}>{isCompleteTransfer(transfer) ? $t("Ready") : transfer.speed}</span><button class="tiny-button mini-cancel" onclick={() => removeTransfer(transfer.id)} disabled={clearingTransfers || removingTransfers.has(transfer.id)} aria-label={`${isActiveTransfer(transfer) ? 'Cancel download' : 'Clear entry'}: ${transfer.name}`} title={isActiveTransfer(transfer) ? $t("Cancel download and remove partial file") : $t("Clear entry; keep completed audio")}>×</button></div>
         {/each}
       </div>
     </section>
 
     <footer class="statusbar"><span class="prompt">›</span><span class="status-message">{$t(activityMessage)}</span><span class="grow"></span><span class="status-clock">{new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(clockNow)}</span></footer>
+
+    <section class="player-bar" aria-label={$t("Deadwax audio player")}>
+      <div class="player-display">
+        <div class="player-art" class:playing={playerPlaying}>
+          {#if currentTrack}<CoverArt artist={currentTrack.artist ?? ''} album={playerAlbum} preferThumb size="small" revision={coverRevision} />{:else}<span aria-hidden="true">♪</span>{/if}
+        </div>
+        <div class="player-copy">
+          <strong title={currentTrack?.name}>{currentTrack?.name ?? $t("No track selected")}</strong>
+          <small title={currentTrack ? `${currentTrack.artist || 'Unknown artist'} · ${folderName(currentTrack.folder)}` : undefined}>{currentTrack ? `${currentTrack.artist || 'Unknown artist'} · ${folderName(currentTrack.folder)}` : $t("Choose a local song to begin")}</small>
+        </div>
+      </div>
+      <div class="player-controls">
+        <button class="player-step" onclick={previousPlayerTrack} disabled={!currentTrack || playerLoading} title={$t("Previous track")} aria-label={$t("Previous track")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5v14" /><path d="M18 5.6 9.4 12l8.6 6.4z" /></svg>
+        </button>
+        <button class="player-primary" onclick={togglePlayer} disabled={playerLoading} title={playerPlaying ? $t("Pause") : $t("Play")} aria-label={playerPlaying ? $t("Pause") : $t("Play")}>
+          {#if playerLoading}<span class="search-spinner" aria-hidden="true"></span>{:else if playerPlaying}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.5v13M15 5.5v13" /></svg>{:else}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4 18.6 12 8 18.6z" /></svg>{/if}
+        </button>
+        <button class="player-step" onclick={nextPlayerTrack} disabled={playerLoading || playerQueueIndex < 0 || playerQueueIndex + 1 >= playerQueue.length} title={$t("Next track")} aria-label={$t("Next track")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 5v14" /><path d="M6 5.6 14.6 12 6 18.4z" /></svg>
+        </button>
+        <button class="player-step player-stop" onclick={stopPlayer} disabled={!currentTrack || playerLoading} title={$t("Stop")} aria-label={$t("Stop")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6" /></svg>
+        </button>
+      </div>
+      <div class="player-seek">
+        <span class="player-time">{formatPlayerTime(playerCurrentTime)}</span>
+        <input aria-label={$t("Track position")} type="range" min="0" max={Math.max(0, playerDuration || 0)} step="0.1" value={playerCurrentTime} oninput={seekPlayer} disabled={!currentTrack} style={`--fill: ${playerDuration ? (playerCurrentTime / playerDuration) * 100 : 0}%`} />
+        <span class="player-time">{formatPlayerTime(playerDuration)}</span>
+      </div>
+      <div class="player-extras">
+        <label class="player-volume" title={$t("Volume")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 9.4h3L12 5.6v12.8l-4.2-3.8h-3z" /><path d="M15.4 9.2a4 4 0 0 1 0 5.6M17.8 6.8a7.4 7.4 0 0 1 0 10.4" /></svg>
+          <input aria-label={$t("Volume")} type="range" min="0" max="1" step="0.05" value={playerVolume} oninput={changePlayerVolume} style={`--fill: ${playerVolume * 100}%`} />
+        </label>
+        <label class="player-mode" title={$t("After track")}>
+          <select bind:value={playerMode} onchange={changePlayerMode} aria-label={$t("After track")}>
+            <option value="single">{$t("Stop")}</option>
+            <option value="folder">{$t("Play folder")}</option>
+            <option value="all">{$t("Play all")}</option>
+          </select>
+        </label>
+      </div>
+    </section>
     </div>
   </section>
+
+  {#if coverPicker}
+    <CoverPicker
+      artist={coverPicker.artist}
+      album={coverPicker.album}
+      currentArt={coverPicker.currentArt}
+      onClose={() => (coverPicker = null)}
+      onApplied={coverPickApplied}
+    />
+  {/if}
+
+  {#if coverReport}
+    <CoverReport
+      albumKey={coverReport.key}
+      label={coverReport.label}
+      onClose={() => (coverReport = null)}
+      onReported={(message: string) => (activityMessage = message)}
+    />
+  {/if}
 
   {#if aboutOpen}
     <div class="modal-backdrop" role="presentation" onclick={() => (aboutOpen = false)}>
@@ -4595,3 +4863,4 @@
   {/if}
 </main>
 {/if}
+

@@ -17,6 +17,10 @@ const device = (rights = readOnly, overrides = {}) => ({
   pairedAt: '2026-09-20T10:00:00Z',
   lastSeen: '2026-09-28T10:00:00Z',
   rights,
+  pubkey: 'd'.repeat(64),
+  likes: 3,
+  dislikes: 1,
+  playlists: 2,
   ...overrides
 });
 
@@ -25,7 +29,7 @@ async function openPairedPhones(page, devices) {
   await page.addInitScript((rows) => { window.mobileDevices = rows; }, devices);
   await page.goto('http://127.0.0.1:15173');
   await expect(page.locator('.search-button')).toBeEnabled();
-  await page.getByRole('button', { name: 'Deadwax' }).click();
+  await page.getByRole('button', { name: 'Clients' }).click();
   await expect(page.locator('.paired-devices-card')).toBeVisible();
 }
 

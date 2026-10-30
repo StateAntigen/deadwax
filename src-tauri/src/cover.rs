@@ -1288,6 +1288,117 @@ pub(crate) fn last_lookup_messages(
     Ok(messages)
 }
 
+/// One album as the covers page lists it.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoverRow {
+    /// `artist|album`, which is what every other table keys a cover by.
+    pub key: String,
+    pub artist: String,
+    pub album: String,
+    /// This computer holds the picture.
+    pub held: bool,
+    /// …and the small one it sends to a phone.
+    pub thumb: bool,
+    /// The last answer: `found`, `none` or `error`, empty for "never asked".
+    pub outcome: String,
+    /// Who signed the claim this album's picture came from, empty for nobody.
+    pub signed_by: String,
+    /// Why the last attempt did not work, when one did not.
+    pub reason: String,
+}
+
+/// A page of albums, and how many there are to page through.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoverInventory {
+    pub rows: Vec<CoverRow>,
+    pub total: u64,
+}
+
+/// Every album this computer knows anything about, in the order asked for.
+///
+/// "Knows anything about" is the union of the two halves of the cover story: an
+/// album this computer looked up itself (`album_art_lookups`) and an album
+/// somebody else published a claim for (`album_covers`). Listing only the first
+/// would hide the claims, and listing only the second would hide the albums whose
+/// art this computer went and found.
+///
+/// `sort` is one of `album`, `missing`, `failed`, `claimed` or `held`; anything
+/// else is treated as `album`, because an unknown word should show the list rather
+/// than an error.
+pub(crate) fn cover_inventory(
+    connection: &Connection,
+    sort: &str,
+    offset: i64,
+    limit: i64,
+) -> Result<CoverInventory, String> {
+    let order = match sort {
+        "missing" => "held ASC, key",
+        "failed" => "reason <> '' DESC, key",
+        "claimed" => "signed_by <> '' DESC, key",
+        "held" => "held DESC, key",
+        _ => "key",
+    };
+    let rows_sql = format!(
+        "WITH keys AS (
+           SELECT cover_key FROM album_art_lookups
+           UNION SELECT cover_key FROM album_covers WHERE deleted = 0
+         ), rows AS (
+           SELECT k.cover_key AS key,
+                  EXISTS(SELECT 1 FROM art_cache c WHERE c.cover_key = k.cover_key) AS held,
+                  EXISTS(SELECT 1 FROM art_cache c WHERE c.cover_key = k.cover_key AND c.rendition = 'thumb') AS thumb,
+                  COALESCE((SELECT outcome FROM album_art_lookups l WHERE l.cover_key = k.cover_key), '') AS outcome,
+                  COALESCE((SELECT source_pubkey FROM album_covers a
+                             WHERE a.cover_key = k.cover_key AND a.deleted = 0
+                             ORDER BY a.seen_at DESC LIMIT 1), '') AS signed_by,
+                  COALESCE((SELECT message FROM cover_lookup_log g
+                             WHERE g.cover_key = k.cover_key
+                             ORDER BY g.id DESC LIMIT 1), '') AS reason
+             FROM keys k
+         )
+         SELECT key, held, thumb, outcome, signed_by, reason FROM rows ORDER BY {order} LIMIT ?1 OFFSET ?2"
+    );
+    let total: i64 = connection
+        .query_row(
+            "WITH keys AS (
+               SELECT cover_key FROM album_art_lookups
+               UNION SELECT cover_key FROM album_covers WHERE deleted = 0
+             ) SELECT COUNT(*) FROM keys",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare(&rows_sql)
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map(params![limit.max(1), offset.max(0)], |row| {
+            let key: String = row.get(0)?;
+            let (artist, album) = key
+                .split_once('|')
+                .map(|(artist, album)| (artist.to_string(), album.to_string()))
+                .unwrap_or_else(|| (key.clone(), String::new()));
+            Ok(CoverRow {
+                key,
+                artist,
+                album,
+                held: row.get::<_, i64>(1)? != 0,
+                thumb: row.get::<_, i64>(2)? != 0,
+                outcome: row.get(3)?,
+                signed_by: row.get(4)?,
+                reason: row.get(5)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    Ok(CoverInventory {
+        rows,
+        total: total.max(0) as u64,
+    })
+}
+
 /// The verdict held for every album this computer has asked about.
 ///
 /// One pass, like [`suppressed_art_keys`], because a library-sized list is

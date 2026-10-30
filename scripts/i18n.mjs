@@ -11,7 +11,10 @@ const dynamicKeys = [
   'Local', 'Tor connected', 'Tor failed', 'Tor connecting', 'Tor unavailable', 'Ready', 'Waiting',
   'Rock', 'Soundtrack', 'Punk', 'Folk', 'Upbeat', 'Comedy', 'News', 'True Crime', 'Society & Culture',
   'Technology', 'History', 'Business', 'Science', 'Arts', 'Sports', 'Education', 'Music',
-  'Play all', 'Play random', 'Repeat track', 'Play once'
+  'Play all', 'Play random', 'Repeat track', 'Play once',
+  // The covers list names a row's state from a function, so the words are not
+  // literal arguments to `$t` and have to be declared here.
+  'Held here', 'Lookup failed', 'Nobody has one', 'Found, not fetched', 'Not looked up yet'
 ];
 
 export async function requiredMessages() {

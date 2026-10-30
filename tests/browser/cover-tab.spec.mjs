@@ -153,7 +153,7 @@ const busy = {
   }))
 };
 
-test('the Covers tab is a summary line and one panel at a time', async ({ page }) => {
+test('the Covers tab is a summary line and one list, sorted five ways', async ({ page }) => {
   await openCovers(page, busy);
   // The numbers somebody actually came for are together, in one line, and each
   // one says what it counts: a pass position, the pictures held and what they
@@ -165,35 +165,28 @@ test('the Covers tab is a summary line and one panel at a time', async ({ page }
   await expect(summary).toContainText('187.0 MB');
   await expect(summary).toContainText('96 albums to fetch');
   await expect(summary).toContainText('4 albums without a claim');
-  // The three panels are reachable and only one is drawn at a time, so the tab is
-  // a quarter of the height it was.
-  await expect(page.locator('.cover-panel-body')).toHaveCount(1);
-  await expect(page.locator('.cover-candidate-list')).toBeVisible();
-  const shot = (name) =>
-    process.env.COVER_TAB_SCREENSHOTS
-      ? page.screenshot({ path: `test-results/cover-tab-${name}.png`, fullPage: true })
-      : Promise.resolve();
-  await shot('waiting');
 
-  await page.locator('.cover-subtab', { hasText: 'Covers found' }).click();
-  await expect(page.locator('.cover-gap-list')).toBeVisible();
-  await expect(page.locator('.cover-candidate-list')).toHaveCount(0);
-  await expect(page.locator('.cover-panel-body')).toHaveCount(1);
-  await shot('found');
-
-  await page.locator('.cover-subtab', { hasText: 'Activity' }).click();
+  // Every album this computer knows about is one paged list, and the five sorts
+  // are the questions a person actually has of it.
+  await expect(page.locator('.cover-table tbody tr')).toHaveCount(2);
+  await expect(page.locator('.cover-table')).toContainText('Machine Head');
+  await expect(page.locator('.cover-table')).toContainText('Held here');
+  await expect(page.locator('.cover-table')).toContainText('Lookup failed');
+  await expect(page.locator('.cover-subtab')).toHaveText([
+    'Missing art',
+    'Art held here',
+    'Signed by somebody',
+    'Lookups that failed',
+    'A–Z',
+  ]);
+  // The pass's own log is underneath it, always, rather than behind a tab.
   await expect(page.locator('.cover-log-list')).toBeVisible();
-  await expect(page.locator('.cover-gap-list')).toHaveCount(0);
-  await expect(page.locator('.cover-panel-body')).toHaveCount(1);
-  await shot('activity');
-
-  await page.locator('.cover-subtab', { hasText: 'Settings' }).click();
-  await expect(page.locator('#cover-art-hosts')).toBeVisible();
-  await expect(page.locator('#cover-art-cache')).toBeVisible();
-  await expect(page.locator('.cover-log-list')).toHaveCount(0);
-  await expect(page.locator('.cover-panel-body')).toHaveCount(1);
-  await shot('settings');
   // Nothing in the tab is a paragraph any more: every explanation is a title on
   // the thing it explains, which is what the tab was asked for.
   await expect(page.locator('.cover-scan-view .privacy-note')).toHaveCount(0);
+  // And the settings that used to live here are in Settings, where the rest of
+  // what this computer may do lives.
+  await expect(page.locator('#cover-art-hosts')).toHaveCount(0);
+  await page.locator('.tool-button', { hasText: 'Settings' }).click();
+  await expect(page.locator('#cover-art-hosts')).toBeVisible();
 });

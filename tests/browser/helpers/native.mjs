@@ -203,6 +203,29 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
             ],
             ...(window.catalogueStats ?? {})
           };
+          // The seeder list behind the Network page, paged the way the host
+          // pages it. A spec that cares seeds `window.seeders`.
+          case 'catalogue_seeders': {
+            const all = window.seeders ?? [
+              { pubkey: 'a'.repeat(64), npub: 'npub1seedera', name: 'Seeder A', announced: 25630, live: 1400 },
+              { pubkey: 'b'.repeat(64), npub: 'npub1seederb', name: '', announced: 13136, live: 0 }
+            ];
+            const quiet = args?.hideQuiet === false ? all : all.filter((row) => row.live > 0);
+            const offset = args?.offset ?? 0;
+            const limit = args?.limit ?? 12;
+            return { rows: quiet.slice(offset, offset + limit), total: quiet.length };
+          }
+          // What the search box is offered while it is typed into.
+          case 'search_suggestions': return window.searchSuggestions ?? ['Deep Purple', 'Frank Sinatra'];
+          case 'cover_inventory': {
+            const rows = window.coverRows ?? [
+              { key: 'deep purple|machine head', artist: 'Deep Purple', album: 'Machine Head', held: true, thumb: true, outcome: 'found', signedBy: 'a'.repeat(64), reason: '' },
+              { key: 'frank sinatra|blue moon', artist: 'Frank Sinatra', album: 'Blue Moon', held: false, thumb: false, outcome: 'error', signedBy: '', reason: 'the archive did not answer' }
+            ];
+            const offset = args?.offset ?? 0;
+            const limit = args?.limit ?? 20;
+            return { rows: rows.slice(offset, offset + limit), total: rows.length };
+          }
           case 'start_network':
           case 'network_status': return { connected: true, pubkey: 'c'.repeat(64), npub: 'npub1test', relayCount: 1, torRunning: true, torStarting: false, torProgress: 100, torError: '', error: '' };
           case 'network_browse': return { results: [track], cursor: null, totalAvailable: 1 };

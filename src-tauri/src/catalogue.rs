@@ -1119,10 +1119,146 @@ pub(crate) fn network_stats(connection: &Connection, now: i64) -> Result<Network
     })
 }
 
+/// How many words one keystroke in the search box is worth.
+pub(crate) const SUGGESTION_LIMIT: i64 = 8;
+/// What the search box offers as somebody types.
+///
+/// Two sources, because two things are worth completing: the words in the
+/// announcements this computer has mirrored, and the words in its own library. A
+/// prefix match rather than a full-text one, because a person typing "pix" means
+/// the artist long before they mean a title that happens to contain the letters —
+/// and `LIKE 'x%'` over the mirror costs a few milliseconds, where the index
+/// would rank middles of words above beginnings.
+///
+/// Every word is de-duplicated case-insensitively and ordered by how many files
+/// carry it, so the answer is the network's own idea of what that prefix means.
+pub(crate) fn suggestions(
+    connection: &Connection,
+    prefix: &str,
+    limit: i64,
+) -> Result<Vec<String>, String> {
+    let needle = format!("{}%", escape_like(prefix.trim()));
+    if prefix.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut statement = connection
+        .prepare(
+            "SELECT value FROM (
+               SELECT artist AS value, COUNT(*) AS n FROM remote_catalogue
+                WHERE artist <> '' AND lower(artist) LIKE ?1 GROUP BY lower(artist)
+               UNION ALL
+               SELECT album AS value, COUNT(*) AS n FROM remote_catalogue
+                WHERE album <> '' AND lower(album) LIKE ?1 GROUP BY lower(album)
+               UNION ALL
+               SELECT title AS value, COUNT(*) AS n FROM remote_catalogue
+                WHERE title <> '' AND lower(title) LIKE ?1 GROUP BY lower(title)
+               UNION ALL
+               SELECT artist AS value, COUNT(*) AS n FROM files
+                WHERE artist <> '' AND lower(artist) LIKE ?1 GROUP BY lower(artist)
+               UNION ALL
+               SELECT album AS value, COUNT(*) AS n FROM files
+                WHERE album <> '' AND lower(album) LIKE ?1 GROUP BY lower(album)
+             )
+             GROUP BY lower(value) ORDER BY SUM(n) DESC, value LIMIT ?2",
+        )
+        .map_err(|error| error.to_string())?;
+    let words = statement
+        .query_map(params![needle, limit], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    Ok(words)
+}
+
+/// A prefix a person typed, made safe to put in a `LIKE`.
+fn escape_like(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+/// One seeder as the paged list shows them: the key, what they have announced,
+/// and what they are holding right now.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct SeederEntry {
+    pub pubkey: String,
+    pub announced: u64,
+    pub live: u64,
+}
+
+/// A page of seeders, with the size of the whole list so a pager can be honest.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SeederPage {
+    pub rows: Vec<SeederEntry>,
+    pub total: u64,
+}
+
+/// The seeders, most live files first.
+///
+/// `hide_quiet` drops the peers whose heartbeat has expired: they announced once
+/// and are not holding anything now, which is most of the network on any given
+/// day and none of what a person wants to page through by default. The total is
+/// counted with the same filter, so "3 of 12" means twelve rows of this kind
+/// rather than twelve of everything.
+pub(crate) fn seeders_page(
+    connection: &Connection,
+    now: i64,
+    offset: i64,
+    limit: i64,
+    hide_quiet: bool,
+) -> Result<SeederPage, String> {
+    // `UNION` rather than a join off announcements: a peer can be holding a file
+    // this computer has not mirrored, and dropping them would undercount.
+    let peers = "WITH peers AS (
+                    SELECT source_pubkey AS pubkey FROM remote_catalogue
+                    UNION
+                    SELECT pubkey FROM catalogue_seeder WHERE expires_at > ?1
+                  ),
+                  counted AS (
+                    SELECT p.pubkey AS pubkey,
+                           (SELECT COUNT(*) FROM remote_catalogue c WHERE c.source_pubkey = p.pubkey) AS announced,
+                           (SELECT COUNT(*) FROM catalogue_seeder s WHERE s.pubkey = p.pubkey AND s.expires_at > ?1) AS live
+                      FROM peers p
+                  )";
+    let total: i64 = connection
+        .query_row(
+            &format!("{peers} SELECT COUNT(*) FROM counted WHERE ?2 = 0 OR live > 0"),
+            params![now, i64::from(hide_quiet)],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare(&format!(
+            "{peers} SELECT pubkey, announced, live FROM counted
+              WHERE ?2 = 0 OR live > 0
+              ORDER BY live DESC, announced DESC, pubkey LIMIT ?3 OFFSET ?4"
+        ))
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map(
+            params![now, i64::from(hide_quiet), limit.max(1), offset.max(0)],
+            |row| {
+                Ok(SeederEntry {
+                    pubkey: row.get(0)?,
+                    announced: row.get::<_, i64>(1)?.max(0) as u64,
+                    live: row.get::<_, i64>(2)?.max(0) as u64,
+                })
+            },
+        )
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    Ok(SeederPage {
+        rows,
+        total: total.max(0) as u64,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
     /// The catalogue's own tables, plus the three the discover and backfill
     /// questions read: `files`, and the two block lists, belong to the main schema.
     fn database() -> Connection {
@@ -1975,5 +2111,87 @@ mod tests {
                 |row| row.get::<_, i64>(0),
             )
             .is_ok()
+    }
+
+    /// The seeder list is ordered by what is held right now, and the quiet peers
+    /// are only there when they are asked for.
+    #[test]
+    fn the_seeder_list_puts_what_is_live_first_and_can_hide_the_quiet() {
+        let connection = database();
+        let now = 1_700_000_000;
+        // Peer 1 announced two files and is holding one; peer 2 announced one and
+        // holds nothing; peer 3 holds a file this computer never mirrored.
+        announce(&connection, &hex_id(1), 1, "A", "X");
+        announce(&connection, &hex_id(2), 1, "B", "X");
+        announce(&connection, &hex_id(3), 2, "C", "Y");
+        holding(&connection, &hex_id(1), 1, now);
+        holding(&connection, &hex_id(9), 3, now);
+
+        let quiet = seeders_page(&connection, now, 0, 10, false).unwrap();
+        assert_eq!(quiet.total, 3);
+        assert_eq!(quiet.rows[0].pubkey, hex_id(1), "the one holding most goes first");
+        assert_eq!(quiet.rows[0].live, 1);
+        assert_eq!(quiet.rows[0].announced, 2);
+        assert!(
+            quiet.rows.iter().any(|row| row.pubkey == hex_id(3)),
+            "a peer holding a file this computer never mirrored is still a seeder"
+        );
+
+        let live = seeders_page(&connection, now, 0, 10, true).unwrap();
+        assert_eq!(live.total, 2, "the peer with no heartbeat is the quiet one");
+        assert!(live.rows.iter().all(|row| row.live > 0));
+
+        let second = seeders_page(&connection, now, 1, 1, true).unwrap();
+        assert_eq!(second.total, 2, "the total does not change with the page");
+        assert_eq!(second.rows.len(), 1);
+        assert_ne!(second.rows[0].pubkey, live.rows[0].pubkey);
+    }
+
+    /// The search box completes artist, album and title from the catalogue this
+    /// computer holds, the most common word first, and from its own library too.
+    #[test]
+    fn the_search_box_completes_what_this_computer_can_see() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE files (file_id TEXT PRIMARY KEY, artist TEXT NOT NULL DEFAULT '',
+                    album TEXT NOT NULL DEFAULT '')",
+            )
+            .unwrap();
+        crate::network::initialise_network_schema(&connection).unwrap();
+        // `announce` files everything under M83, so the artist is the common word.
+        announce(&connection, &hex_id(1), 1, "Midnight City", "Hurry Up");
+        announce(&connection, &hex_id(2), 2, "Reunion", "Hurry Up");
+        announce(&connection, &hex_id(3), 3, "Outro", "Hurry Up");
+        connection
+            .execute(
+                "INSERT INTO files (file_id, artist, album) VALUES ('local','M83','Junk')",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(
+            suggestions(&connection, "m8", SUGGESTION_LIMIT).unwrap(),
+            vec!["M83".to_string()]
+        );
+        assert_eq!(
+            suggestions(&connection, "hurry", SUGGESTION_LIMIT).unwrap(),
+            vec!["Hurry Up".to_string()]
+        );
+        assert!(
+            suggestions(&connection, "junk", SUGGESTION_LIMIT)
+                .unwrap()
+                .contains(&"Junk".to_string()),
+            "this computer's own library is a source too"
+        );
+        assert!(suggestions(&connection, "   ", SUGGESTION_LIMIT)
+            .unwrap()
+            .is_empty(), "an empty box asks nothing");
+        assert!(
+            suggestions(&connection, "%", SUGGESTION_LIMIT)
+                .unwrap()
+                .is_empty(),
+            "a wildcard is a character somebody typed, not a pattern"
+        );
     }
 }

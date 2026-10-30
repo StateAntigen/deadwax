@@ -15,7 +15,7 @@ use napstr_remote_protocol::{
     MAX_POSITION_MS, MAX_TRACKS_BY_ID, PROTOCOL_VERSION,
 };
 use qrcode::{render::svg, QrCode};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::{
     fs,
@@ -49,6 +49,14 @@ pub struct PairedDevice {
     paired_at: String,
     last_seen: String,
     rights: DeviceRights,
+    /// The key this client proved is its own, empty until it has proved one.
+    pubkey: String,
+    /// What this client has put on this computer, counted by its own key. All
+    /// zero for a client that has never proved one — nothing is ever guessed
+    /// from an endpoint id.
+    likes: i64,
+    dislikes: i64,
+    playlists: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2007,11 +2015,26 @@ fn initialise_schema(db_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// How many rows one key owns in one table.
+///
+/// Table and column names are literals at every call site — SQLite cannot bind an
+/// identifier — and a table that is not there yet (an installation that predates
+/// it) answers zero rather than failing the whole list.
+fn rows_for_key(connection: &Connection, table: &str, column: &str, key: &str) -> i64 {
+    connection
+        .query_row(
+            &format!("SELECT COUNT(*) FROM {table} WHERE {column} = ?1"),
+            [key],
+            |row| row.get(0),
+        )
+        .unwrap_or(0)
+}
+
 fn load_devices(db_path: &Path) -> Result<Vec<PairedDevice>, String> {
     let connection = open_connection(db_path)?;
     let mut statement = connection
         .prepare(
-            "SELECT endpoint_id,name,paired_at,last_seen,rights FROM mobile_devices ORDER BY last_seen DESC",
+            "SELECT endpoint_id,name,paired_at,last_seen,rights,pubkey FROM mobile_devices ORDER BY last_seen DESC",
         )
         .map_err(|error| error.to_string())?;
     let devices = statement
@@ -2029,11 +2052,27 @@ fn load_devices(db_path: &Path) -> Result<Vec<PairedDevice>, String> {
                         .unwrap_or(DeviceRights::read_only().bits() as i64)
                         as u32,
                 ),
+                pubkey: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                likes: 0,
+                dislikes: 0,
+                playlists: 0,
             })
         })
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
+    let mut devices = devices;
+    // What each client has stored here, counted by the key it proved. A client
+    // that has never proved one has nothing to count, and is not guessed at from
+    // its endpoint id.
+    for device in devices.iter_mut() {
+        if device.pubkey.is_empty() {
+            continue;
+        }
+        device.likes = rows_for_key(&connection, "device_likes", "pubkey", &device.pubkey);
+        device.dislikes = rows_for_key(&connection, "device_dislikes", "pubkey", &device.pubkey);
+        device.playlists = rows_for_key(&connection, "playlists", "author", &device.pubkey);
+    }
     Ok(devices)
 }
 

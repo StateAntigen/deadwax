@@ -2821,8 +2821,63 @@ impl NetworkService {
         })
     }
 
-    pub async fn resolve_catalogue_user(&self, query: &str) -> Result<Vec<CatalogueUser>, String> {
-        let query = query.trim();
+    /// The names behind a handful of keys, as far as this computer has already
+    /// heard them.
+    ///
+    /// Read from the client's own database of kind-0 metadata, so naming a page of
+    /// seeders costs no network request: a profile is here because it was seen on a
+    /// relay at some point, and a key nobody has published for simply comes back
+    /// without a name. A key is never *renamed* by a guess.
+    pub async fn seeder_names(&self, pubkeys: &[String]) -> HashMap<String, String> {
+        let Some(client) = self.client.read().await.clone() else {
+            return HashMap::new();
+        };
+        let authors = pubkeys
+            .iter()
+            .filter_map(|key| PublicKey::parse(key).ok())
+            .collect::<Vec<_>>();
+        if authors.is_empty() {
+            return HashMap::new();
+        }
+        let Ok(events) = client
+            .database()
+            .query(Filter::new().kind(Kind::Metadata).authors(authors))
+            .await
+        else {
+            return HashMap::new();
+        };
+        let mut names: HashMap<String, (u64, String)> = HashMap::new();
+        for event in events.iter() {
+            if event.kind != Kind::Metadata || event.verify().is_err() {
+                continue;
+            }
+            let Ok(metadata) = Metadata::from_json(&event.content) else {
+                continue;
+            };
+            let Some(name) = metadata.display_name.as_deref().or(metadata.name.as_deref()) else {
+                continue;
+            };
+            let name = safe_trollbox_name(name);
+            if name.is_empty() {
+                continue;
+            }
+            // Newest wins: a person who renamed themselves once should be shown
+            // what they call themselves now.
+            let newer = names
+                .get(&event.pubkey.to_hex())
+                .map(|(at, _)| event.created_at.as_secs() >= *at)
+                .unwrap_or(true);
+            if newer {
+                names.insert(event.pubkey.to_hex(), (event.created_at.as_secs(), name));
+            }
+        }
+        names
+            .into_iter()
+            .map(|(key, (_, name))| (key, name))
+            .collect()
+    }
+
+    pub async fn resolve_catalogue_user(&self, query: &str) -> Result<Vec<CatalogueUser>, String> {        let query = query.trim();
         if query.is_empty() || query.chars().count() > 120 {
             return Ok(Vec::new());
         }

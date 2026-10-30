@@ -2163,6 +2163,74 @@ fn catalogue_status(state: State<'_, AppState>) -> Result<catalogue::NetworkStat
     catalogue::network_stats(&connection, Utc::now().timestamp())
 }
 
+/// What the search box offers while a word is being typed. Answers from the
+/// mirrored catalogue and from this computer's own library in one call, because
+/// a person typing "pix" does not care which of the two knows the word.
+#[tauri::command]
+fn search_suggestions(prefix: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let connection = open_db(&state)?;
+    catalogue::suggestions(&connection, &prefix, catalogue::SUGGESTION_LIMIT)
+}
+
+/// One row of the seeder list, with whatever name this computer has heard for the
+/// key. `npub` and `name` are empty when nothing is known, which is a key rather
+/// than an error.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SeederRow {
+    pubkey: String,
+    npub: String,
+    name: String,
+    announced: u64,
+    live: u64,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SeederPage {
+    rows: Vec<SeederRow>,
+    total: u64,
+}
+
+/// A page of the peers that announce or hold files, most live files first.
+#[tauri::command]
+async fn catalogue_seeders(
+    offset: i64,
+    limit: i64,
+    hide_quiet: bool,
+    state: State<'_, AppState>,
+) -> Result<SeederPage, String> {
+    // The connection is not held across the await below: rusqlite's rows are not
+    // Send, and the names come from the network side.
+    let page = {
+        let connection = open_db(&state)?;
+        catalogue::seeders_page(&connection, Utc::now().timestamp(), offset, limit, hide_quiet)?
+    };
+    let keys = page.rows.iter().map(|row| row.pubkey.clone()).collect::<Vec<_>>();
+    let names = state.network.seeder_names(&keys).await;
+    let rows = page
+        .rows
+        .into_iter()
+        .map(|row| SeederRow {
+            npub: {
+                use nostr_sdk::ToBech32;
+                nostr_sdk::PublicKey::parse(&row.pubkey)
+                    .ok()
+                    .and_then(|key| key.to_bech32().ok())
+                    .unwrap_or_default()
+            },
+            name: names.get(&row.pubkey).cloned().unwrap_or_default(),
+            pubkey: row.pubkey,
+            announced: row.announced,
+            live: row.live,
+        })
+        .collect();
+    Ok(SeederPage {
+        rows,
+        total: page.total,
+    })
+}
+
 fn playable_audio_path(connection: &Connection, file_id: &str) -> Result<PathBuf, String> {
     let blocked: bool = connection
         .query_row(
@@ -2873,6 +2941,19 @@ fn cover_missing(
     state.covers.missing_albums(limit)
 }
 
+/// Every album this computer knows anything about: what it holds, what it
+/// looked up, and whose claim each picture came from. Paged, because the list is
+/// the size of the library rather than of a panel.
+#[tauri::command]
+fn cover_inventory(
+    sort: String,
+    offset: i64,
+    limit: i64,
+    state: State<'_, AppState>,
+) -> Result<crate::cover::CoverInventory, String> {
+    crate::cover::cover_inventory(&open_db(&state)?, &sort, offset, limit)
+}
+
 /// Albums the results pane is showing, reported as it draws them.
 ///
 /// This is how "albums seen in search results" reaches the cover worker: the
@@ -3194,6 +3275,8 @@ pub fn run() {
             get_transfers,
             open_napstr_folder,
             catalogue_status,
+            search_suggestions,
+            catalogue_seeders,
             open_release_url,
             open_napstrfy_website,
             player::play_audio,
@@ -3229,6 +3312,7 @@ pub fn run() {
             clear_art_cache,
             cover_lookup_log,
             cover_missing,
+            cover_inventory,
             report_cover,
             set_downloads_paused,
             clear_all_transfers,
