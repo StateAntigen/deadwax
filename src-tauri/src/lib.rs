@@ -2121,7 +2121,7 @@ fn open_with_system(path: &Path, description: &str) -> Result<(), String> {
 }
 
 fn is_trusted_release_url(url: &str) -> bool {
-    let Some(tag) = url.strip_prefix("https://github.com/lnbits/napstr/releases/tag/") else {
+    let Some(tag) = url.strip_prefix("https://github.com/StateAntigen/deadwax/releases/tag/") else {
         return false;
     };
     !tag.is_empty()
@@ -3240,16 +3240,21 @@ mod tests {
     #[test]
     fn release_links_are_limited_to_this_repository() {
         assert!(is_trusted_release_url(
-            "https://github.com/lnbits/napstr/releases/tag/v0.2.3"
+            "https://github.com/StateAntigen/deadwax/releases/tag/v0.2.3"
         ));
         assert!(is_trusted_release_url(
-            "https://github.com/lnbits/napstr/releases/tag/v0.3.0-beta.1"
+            "https://github.com/StateAntigen/deadwax/releases/tag/v0.3.0-beta.1"
         ));
         assert!(!is_trusted_release_url(
             "https://github.com/another/repository/releases/tag/v0.2.3"
         ));
         assert!(!is_trusted_release_url(
-            "https://github.com/lnbits/napstr/releases/tag/v0.2.3?redirect=bad"
+            "https://github.com/StateAntigen/deadwax/releases/tag/v0.2.3?redirect=bad"
+        ));
+        // The upstream repository is not ours to link to any more: an old
+        // cached answer must not send anyone to somebody else's download page.
+        assert!(!is_trusted_release_url(
+            "https://github.com/lnbits/napstr/releases/tag/v0.2.3"
         ));
     }
 

@@ -69,7 +69,7 @@ use tokio::sync::Notify;
 pub(crate) const USER_AGENT: &str = concat!(
     "Napstr/",
     env!("CARGO_PKG_VERSION"),
-    " ( https://github.com/lnbits/napstr )"
+    " ( https://github.com/StateAntigen/deadwax )"
 );
 /// One MusicBrainz request per album, paced. The Cover Art Archive is a
 /// separate host, but the request before its own is always the MusicBrainz one,

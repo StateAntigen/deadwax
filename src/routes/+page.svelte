@@ -1248,7 +1248,7 @@
   }
 
   function validNapstrReleaseUrl(value: unknown): value is string {
-    return typeof value === 'string' && /^https:\/\/github\.com\/lnbits\/napstr\/releases\/tag\/[0-9A-Za-z._+-]{1,100}$/.test(value);
+    return typeof value === 'string' && /^https:\/\/github\.com\/StateAntigen\/deadwax\/releases\/tag\/[0-9A-Za-z._+-]{1,100}$/.test(value);
   }
 
   async function checkForNewRelease() {
@@ -1260,7 +1260,7 @@
       cachedRelease = cached?.release ?? null;
     } catch { /* ignore invalid old cache data */ }
     try {
-      const response = await fetch('https://api.github.com/repos/lnbits/napstr/releases/latest', {
+      const response = await fetch('https://api.github.com/repos/StateAntigen/deadwax/releases/latest', {
         headers: { Accept: 'application/vnd.github+json' }
       });
       if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
