@@ -100,11 +100,11 @@ test('a backup writes this client’s marks, and a restore reads them back', asy
   const [written] = await callsTo(page, 'export_client_data');
   expect(written.args.endpointId).toBe(device().endpointId);
   expect(written.args.path).toBe('/tmp/ada-backup.json');
-  await expect(page.locator('.client-note')).toContainText('Saved 2 likes and 1 dislikes');
+  await expect(page.locator('.client-note')).toContainText('Saved 2 likes, 1 dislikes and 1 playlists');
 
   await page.locator('.device-transfer').getByRole('button', { name: 'Restore…' }).click();
   await expect.poll(async () => (await callsTo(page, 'import_client_data')).length).toBe(1);
   const [read] = await callsTo(page, 'import_client_data');
   expect(read.args.path).toBe('/tmp/ada-backup.json');
-  await expect(page.locator('.client-note')).toContainText('Restored 2 likes and 1 dislikes');
+  await expect(page.locator('.client-note')).toContainText('Restored 2 likes, 1 dislikes and 1 playlists');
 });

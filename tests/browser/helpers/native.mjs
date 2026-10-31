@@ -191,6 +191,20 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           // nothing seeded, the person cancelled and nothing is written.
           case 'plugin:dialog|save': return window.savePath ?? null;
           case 'plugin:dialog|open': return window.openPath ?? null;
+          // Both cover questions, answered with "nothing": a spec that wants
+          // art overrides them. They are two commands now because the drawing
+          // one is answered from disk and the lookups are a second, slow step.
+          case 'cover_art':
+          case 'cover_lookup': return [];
+          // What a row prints beside a playlist: a kind `0` name when this
+          // computer knows one, and the bech32 key when it does not. A spec seeds
+          // `window.pubkeyNames` to name somebody.
+          case 'pubkey_labels':
+            return args.pubkeys.map((pubkey) => ({
+              pubkey,
+              npub: `npub1${pubkey.slice(0, 20)}`,
+              name: (window.pubkeyNames ?? {})[pubkey] ?? ''
+            }));
           // One client's own marks, as Backup writes them and Restore reads them.
           // The counts are what the note under the buttons repeats back, so they
           // are deliberately not equal to each other.
@@ -203,7 +217,8 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
               pubkey: 'd'.repeat(64),
               exportedAt: '2026-10-30T10:00:00Z',
               likes: ['1'.repeat(64), '2'.repeat(64)],
-              dislikes: ['3'.repeat(64)]
+              dislikes: ['3'.repeat(64)],
+              playlists: [{ playlistId: '11111111-1111-1111-1111-111111111111', title: 'Night drive', tracks: [] }]
             };
           case 'get_snapshot':
           case 'save_settings': return { native: true, indexedBytes: track.size, files: [track], audiobooks: [], transfers, settings: { napstrFolder: '/music', nostrRelays: '', displayName: 'Original user', profileAbout: 'Original profile', profilePicture: '' } };

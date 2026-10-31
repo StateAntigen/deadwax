@@ -2428,18 +2428,77 @@ async fn network_search_audiobooks(
     state.network.search_audiobooks(&query).await
 }
 
+/// A person, as a list of rows needs to name them.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PubkeyLabel {
+    pubkey: String,
+    /// The bech32 form, which is the one a person can read and share.
+    npub: String,
+    /// Their kind `0` name, empty when they have never published one.
+    name: String,
+}
+
+/// Names and `npub`s for the people a list of rows mentions.
+///
+/// The window used to print a truncated hex key wherever a name was missing,
+/// which is not something anybody can read or look up. A kind `0` name is read
+/// from what this computer already holds - no relay is asked - and a person with
+/// none is named by their `npub`, which is at least their real identifier.
+#[tauri::command]
+async fn pubkey_labels(
+    pubkeys: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<PubkeyLabel>, String> {
+    use nostr_sdk::ToBech32;
+    let wanted = pubkeys
+        .into_iter()
+        .filter(|key| !key.trim().is_empty())
+        .collect::<Vec<_>>();
+    let names = state.network.seeder_names(&wanted).await;
+    Ok(wanted
+        .into_iter()
+        .map(|pubkey| PubkeyLabel {
+            npub: nostr_sdk::PublicKey::parse(&pubkey)
+                .ok()
+                .and_then(|key| key.to_bech32().ok())
+                .unwrap_or_default(),
+            name: names.get(&pubkey).cloned().unwrap_or_default(),
+            pubkey,
+        })
+        .collect())
+}
+
 /// Covers to draw for `keys`: a published `30427` where somebody made one, the art
 /// this computer resolved for itself otherwise, and — where it has one — the copy
 /// of that picture already on this disk.
+///
+/// Answered from this disk alone: see `NetworkService::drawn_covers` for why the
+/// path a window draws through must never wait on a relay.
 #[tauri::command]
 async fn cover_art(
     keys: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<cover_publish::DrawnCover>, String> {
-    let covers = state.network.best_known_covers(keys).await?;
+    let covers = state.network.drawn_covers(keys).await?;
     // The local copy is added here rather than in the network layer: what a claim
     // asserts and what is on this machine are different facts, and the cache is
     // this app's, not the network's.
+    Ok(state.covers.with_local_pictures(covers))
+}
+
+/// Ask the relays about albums the window could not draw from this disk.
+///
+/// A second question rather than the first one made slow: the window draws every
+/// album it already knows and calls this only for the ones that came back with
+/// nothing, so a page of results is never held up by the albums that have to be
+/// looked up.
+#[tauri::command]
+async fn cover_lookup(
+    keys: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<cover_publish::DrawnCover>, String> {
+    let covers = state.network.best_known_covers(keys).await?;
     Ok(state.covers.with_local_pictures(covers))
 }
 
@@ -3344,6 +3403,8 @@ pub fn run() {
             network_search,
             network_search_audiobooks,
             cover_art,
+            cover_lookup,
+            pubkey_labels,
             network_browse,
             network_browse_user,
             resolve_catalogue_user,

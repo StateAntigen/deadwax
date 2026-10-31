@@ -77,6 +77,13 @@ pub struct ClientBackup {
     exported_at: String,
     likes: Vec<String>,
     dislikes: Vec<String>,
+    /// The playlists this client wrote here, members and all.
+    ///
+    /// Defaulted rather than required: a backup taken before playlists travelled
+    /// has no `playlists` key at all, and restoring one has to keep working -
+    /// losing a file somebody made is not an acceptable way to add a field.
+    #[serde(default)]
+    playlists: Vec<napstr_remote_protocol::RemotePlaylist>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -408,6 +415,7 @@ impl MobileService {
             version: CLIENT_BACKUP_VERSION,
             endpoint_id: endpoint_id.to_string(),
             name,
+            playlists: client_playlists(&self.db_path, &pubkey)?,
             pubkey,
             exported_at: Utc::now().to_rfc3339(),
             likes,
@@ -452,6 +460,20 @@ impl MobileService {
         }
         crate::device_account::set_likes(&self.db_path, &backup.pubkey, &backup.likes)?;
         crate::device_account::set_dislikes(&self.db_path, &backup.pubkey, &backup.dislikes)?;
+        // Playlists last, and one at a time: each `save` is its own transaction,
+        // so a file that cannot be written costs that playlist rather than the
+        // lists that already went back.
+        if !backup.playlists.is_empty() {
+            let connection = open_connection(&self.db_path)?;
+            for playlist in &backup.playlists {
+                // The coordinate has to be the backup's own client, whatever the
+                // file says: a backup is this client's marks, not a way to write
+                // somebody else's playlist into this computer.
+                let mut restored = playlist.clone();
+                restored.author = backup.pubkey.clone();
+                crate::playlist::save(&connection, &restored)?;
+            }
+        }
         Ok(backup)
     }
 
@@ -2126,6 +2148,45 @@ fn rows_for_key(connection: &Connection, table: &str, column: &str, key: &str) -
             |row| row.get(0),
         )
         .unwrap_or(0)
+}
+
+/// The playlists one client wrote on this computer, members and all.
+///
+/// The author column is the key a phone proves, so this is the same rule the
+/// device list counts by. Rows whose author is empty are drafts nobody owns, and
+/// they are not this client's to carry away.
+fn client_playlists(
+    db_path: &Path,
+    pubkey: &str,
+) -> Result<Vec<napstr_remote_protocol::RemotePlaylist>, String> {
+    if pubkey.is_empty() {
+        return Ok(Vec::new());
+    }
+    let connection = open_connection(db_path)?;
+    let (summaries, _) = crate::playlist::list_owned_by(
+        &connection,
+        Some(pubkey),
+        0,
+        crate::playlist::PLAYLIST_LIST_LIMIT,
+    )?;
+    let mut playlists = Vec::new();
+    for summary in summaries {
+        if summary.author != pubkey {
+            continue;
+        }
+        // One page is the whole playlist: the format refuses more than
+        // `PLAYLIST_MEMBER_LIMIT` members, so a partial list cannot exist.
+        if let Some(playlist) = crate::playlist::page(
+            &connection,
+            pubkey,
+            &summary.playlist_id,
+            0,
+            crate::playlist::PLAYLIST_MEMBER_LIMIT,
+        )? {
+            playlists.push(playlist);
+        }
+    }
+    Ok(playlists)
 }
 
 fn load_devices(db_path: &Path) -> Result<Vec<PairedDevice>, String> {

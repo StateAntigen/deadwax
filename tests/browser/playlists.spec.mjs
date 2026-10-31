@@ -150,7 +150,7 @@ test('a public playlist somebody else published is listed read-only, and saving 
   await openEditor(page, rowEl);
   await expect(page.getByLabel('Title', { exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
-  await expect(page.locator('.playlist-member [title="Move down"]')).toBeDisabled();
+  await expect(page.locator('.playlist-member .playlist-grip')).toBeDisabled();
   // The only write on offer is the one that keeps a copy.
   await page.getByRole('button', { name: 'Save a copy' }).click();
 
@@ -319,8 +319,11 @@ test('the order on screen is the order that is saved', async ({ page }) => {
   await expect(page.locator('.playlist-member')).toHaveCount(2);
   await expect(page.locator('.playlist-member').first()).toContainText('Enter Sandman');
 
-  await page.locator('.playlist-member').first().locator('[title="Move down"]').click();
-  await expect(page.locator('.playlist-member').first()).toContainText('Rooster');
+  // Dragged, not stepped: the grip is what starts a move, and dropping a row on
+  // another puts it in that row's place.
+  const rows = page.locator('.playlist-member');
+  await rows.first().dragTo(rows.nth(1));
+  await expect(rows.first()).toContainText('Rooster');
   await save(page);
 
   const [saved] = await calls(page, 'save_playlist');

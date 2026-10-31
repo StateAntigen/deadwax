@@ -64,8 +64,94 @@ test('a picture this computer holds is drawn from the disk, not asked of the pub
   expect(drawn.length).toBeGreaterThan(0);
 });
 
-test('a copy that cannot be read falls back to the address the claim named', async ({ page }) => {
-  await openArtwork(page, { localFails: true });
+/**
+ * The window draws what it holds, and only asks a relay about what it does not.
+ *
+ * The two questions are separate commands now. `cover_art` is answered from this
+ * disk and is never allowed to wait for a relay; `cover_lookup` is the slow one
+ * and is only asked about the albums that came back with nothing. Before the
+ * split, one page of results cost an 8 s claim query plus up to 6 s of
+ * availability whenever a screen had been left alone for more than five seconds,
+ * so art this computer had held all along appeared fourteen seconds late.
+ */
+function spyOnCoverCommands(page, answer) {
+  return page.addInitScript((answered) => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    window.coverQuestions = [];
+    window.__TAURI_INTERNALS__.invoke = async (cmd, args = {}) => {
+      if (cmd === 'cover_art' || cmd === 'cover_lookup') {
+        window.coverQuestions.push({ cmd, keys: args.keys });
+        if (cmd === 'cover_art' && answered) {
+          return args.keys.map((key) => ({
+            key,
+            art: 'https://coverartarchive.org/release/aaaaaaaa/1-1200.jpg',
+            thumb: 'https://coverartarchive.org/release/aaaaaaaa/1-250.jpg',
+            localArt: '/tmp/napstr-art/full.jpg',
+            localThumb: '/tmp/napstr-art/thumb.jpg',
+            mbid: '',
+            year: '',
+            genre: '',
+            collection: '',
+            source: 'musicbrainz',
+            coverFileId: '',
+            mime: 'image/jpeg',
+            author: '',
+            eventId: '',
+            createdAt: 0,
+            seeder: false
+          }));
+        }
+      }
+      return invoke(cmd, args);
+    };
+  }, answer);
+}
+
+test('art that is on this disk never waits for a relay question', async ({ page }) => {
+  await mockNative(page);
+  await page.route('**/fixture.wav', (route) => route.fulfill({ contentType: 'audio/wav', body: '' }));
+  await page.route('http://asset.localhost/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: PIXEL })
+  );
+  await spyOnCoverCommands(page, true);
+  await page.goto('http://127.0.0.1:15173');
+  await page.locator('button.view-toggle', { hasText: '▦' }).click();
+  await expect(page.locator('.result-grid .cover-art img').first()).toHaveAttribute(
+    'src',
+    /^http:\/\/asset\.localhost\//
+  );
+
+  const questions = await page.evaluate(() => window.coverQuestions);
+  expect(questions.some((question) => question.cmd === 'cover_art')).toBe(true);
+  // The whole point: nothing the disk could answer was sent to a relay.
+  expect(questions.filter((question) => question.cmd === 'cover_lookup')).toEqual([]);
+});
+
+test('an album this disk knows nothing about is looked up without holding the page', async ({ page }) => {
+  await mockNative(page);
+  await page.route('**/fixture.wav', (route) => route.fulfill({ contentType: 'audio/wav', body: '' }));
+  await page.route('http://asset.localhost/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: PIXEL })
+  );
+  await spyOnCoverCommands(page, false);
+  await page.goto('http://127.0.0.1:15173');
+  await page.locator('button.view-toggle', { hasText: '▦' }).click();
+  // The list drew its rows first; the album it could not answer for is the one
+  // that gets the second, slow question.
+  await expect(page.locator('.result-grid .result-card').first()).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => window.coverQuestions.filter((q) => q.cmd === 'cover_lookup').length))
+    .toBeGreaterThan(0);
+  const asked = await page.evaluate(() =>
+    window.coverQuestions.filter((q) => q.cmd === 'cover_lookup').flatMap((q) => q.keys)
+  );
+  // Asked once per album, and the mock answers nothing at all, so the tile keeps
+  // its note rather than drawing a picture nobody has.
+  expect(new Set(asked).size).toBe(asked.length);
+  await expect(page.locator('.result-grid .cover-art.empty').first()).toBeVisible();
+});
+
+test('a copy that cannot be read falls back to the address the claim named', async ({ page }) => {  await openArtwork(page, { localFails: true });
   const tile = page.locator('.result-grid .cover-art img').first();
   // Evicted, or the directory emptied under a running window. The publisher's
   // address is the fallback, so the tile is not simply left blank.

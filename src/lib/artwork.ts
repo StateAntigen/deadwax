@@ -186,7 +186,12 @@ async function flush() {
   flushHandle = null;
   const batch = [...pending.keys()];
   const { covers, unanswered } = await resolveCovers(batch);
-  for (const key of batch) {
+  // Everything this computer could answer is drawn now; the tiles that have
+  // nothing yet keep their note and are asked about again below, so a page of
+  // results is never held back by the few albums that need a relay.
+  const drawing = batch.filter((key) => covers.has(key) || unanswered.has(key));
+  const waiting = batch.filter((key) => !covers.has(key) && !unanswered.has(key));
+  for (const key of drawing) {
     const waiters = pending.get(key) ?? [];
     pending.delete(key);
     const cover = covers.get(key) ?? null;
@@ -195,19 +200,47 @@ async function flush() {
     if (!unanswered.has(key)) sessionCovers.set(key, cover);
     for (const resolve of waiters) resolve(cover);
   }
+  if (waiting.length) {
+    // Taken out of `pending` before the slow question starts, or a second batch
+    // landing meanwhile would ask about the same albums again - and a relay
+    // question is the one thing here worth not repeating.
+    const held = waiting.map((key) => [key, pending.get(key) ?? []] as [string, Waiter[]]);
+    for (const [key] of held) pending.delete(key);
+    void lookUp(held);
+  }
   // Keys requested while this batch was in flight wait for the next one.
   if (pending.size) flushHandle = window.setTimeout(flush, BATCH_DELAY_MS);
 }
 
+/**
+ * Ask the relays about the albums this disk could not answer for.
+ *
+ * Its own step, so the answer arrives without anybody waiting for it: a claim
+ * that has never been fetched costs up to eight seconds at a relay, and by then
+ * the window has already drawn every album it knew about.
+ */
+async function lookUp(held: [string, Waiter[]][]) {
+  const { covers, unanswered } = await resolveCovers(
+    held.map(([key]) => key),
+    'cover_lookup'
+  );
+  for (const [key, waiters] of held) {
+    const cover = covers.get(key) ?? null;
+    if (!unanswered.has(key)) sessionCovers.set(key, cover);
+    for (const resolve of waiters) resolve(cover);
+  }
+}
+
 async function resolveCovers(
-  keys: string[]
+  keys: string[],
+  command: 'cover_art' | 'cover_lookup' = 'cover_art'
 ): Promise<{ covers: Map<string, AlbumCover>; unanswered: Set<string> }> {
   const covers = new Map<string, AlbumCover>();
   const unanswered = new Set<string>();
   for (let index = 0; index < keys.length; index += INVOKE_KEY_LIMIT) {
     const slice = keys.slice(index, index + INVOKE_KEY_LIMIT);
     try {
-      const found = await invoke<AlbumCover[]>('cover_art', { keys: slice });
+      const found = await invoke<AlbumCover[]>(command, { keys: slice });
       for (const cover of found) {
         // A copy on this computer is as drawable as an address is: what matters
         // is that there is something to put on the screen.

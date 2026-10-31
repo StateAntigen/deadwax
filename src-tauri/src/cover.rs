@@ -1567,6 +1567,48 @@ pub(crate) fn resolved_covers(
     Ok(covers)
 }
 
+/// The pictures a window can draw for `keys`, from this computer's own tables.
+///
+/// A claim where somebody made one, and this computer's own resolution where
+/// nobody did, filtered by the hosts this computer will take art from. It asks
+/// nothing and it waits for nothing: the question behind a page of results is
+/// "is there something to put on the screen", and the answer to it is already
+/// written down for every album anybody has looked at before. Whether a claim is
+/// still fresh, and whether a directory of pictures is still current, belongs to
+/// the scanner - which is why this reads tables rather than asking the relays.
+pub(crate) fn drawable_covers(
+    connection: &Connection,
+    keys: &[String],
+) -> Result<Vec<AlbumCover>, String> {
+    let hosts = allowed_art_hosts(connection);
+    let usable = |cover: &AlbumCover| {
+        [&cover.art, &cover.thumb]
+            .into_iter()
+            .all(|url| url.is_empty() || art_host_allowed(&hosts, url))
+    };
+    let mut covers = load_cover_claims(connection, keys)?
+        .into_iter()
+        .filter(usable)
+        .collect::<Vec<_>>();
+    let claimed = covers
+        .iter()
+        .map(|cover| cover.key.clone())
+        .collect::<HashSet<_>>();
+    let missing = keys
+        .iter()
+        .filter(|key| !claimed.contains(*key))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        covers.extend(
+            resolved_covers(connection, &missing)?
+                .into_iter()
+                .filter(usable),
+        );
+    }
+    Ok(covers)
+}
+
 /// One album this computer has an address for and no picture of.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ArtToFetch {
@@ -2077,6 +2119,50 @@ mod tests {
         .unwrap();
         assert!(albums_without_pictures(&connection, 10).unwrap().is_empty());
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// The question a page of results asks has to be answerable off the disk.
+    ///
+    /// A claim that has aged out of the freshness window is still the best
+    /// picture this computer has of that album, and the window used to go to the
+    /// relays before it would draw one - an 8 s claim query, plus up to 6 s
+    /// refreshing the availability snapshot whose own cache lives five seconds,
+    /// which is why art this machine held all along appeared fourteen seconds
+    /// late and instantly when a screen was revisited quickly.
+    #[test]
+    fn a_stale_claim_is_still_drawn_and_costs_nothing_to_ask_for() {
+        let connection = cover_database();
+        let keys = Keys::generate();
+        let album = "pelican|city of echoes";
+        store_cover_events(
+            &connection,
+            &[(album.to_string(), signed_event(&keys, album, cover_content()))],
+        )
+        .unwrap();
+        mark_cover_keys_checked(
+            &connection,
+            &[album.to_string()],
+            &HashSet::from([album.to_string()]),
+        )
+        .unwrap();
+        connection
+            .execute(
+                "UPDATE album_cover_queries SET checked_at='2000-01-01T00:00:00Z'",
+                [],
+            )
+            .unwrap();
+
+        // The scanner would ask again...
+        assert_eq!(
+            stale_cover_keys(&connection, &[album.to_string()]).unwrap(),
+            vec![album.to_string()],
+            "an ancient look is stale, which is the scanner's business"
+        );
+        // ...and the renderer draws anyway, without asking anybody.
+        let drawn = drawable_covers(&connection, &[album.to_string()]).unwrap();
+        assert_eq!(drawn.len(), 1);
+        assert_eq!(drawn[0].key, album);
+        assert!(drawn[0].art.contains("mzstatic"), "the claim's own address");
     }
 
     fn signed_event(keys: &Keys, key: &str, content: serde_json::Value) -> Event {

@@ -3849,6 +3849,39 @@ impl NetworkService {
         Ok(covers)
     }
 
+    /// What a window should draw for these albums, answered from this disk.
+    ///
+    /// Drawing asks a narrower question than [`NetworkService::best_known_covers`]
+    /// - "is there a picture for this album" - and on a used installation the
+    /// answer is on this disk for nearly every album: 320 of 342 on the machine
+    /// this was measured on. It still cost up to fourteen seconds to find out,
+    /// because the path went to the relays first: an 8 s claim query for keys
+    /// whose claim had aged, then up to 6 s refreshing the availability snapshot
+    /// whose own cache lives five seconds - which is why the same tiles drew
+    /// instantly when a screen was revisited quickly and late when it was not.
+    ///
+    /// So this never touches the network. A claim that has gone stale is still a
+    /// claim, and the background work that refreshes claims and fetches pictures
+    /// is what makes it fresh; nothing a person is waiting to look at is behind
+    /// a relay round trip. The window asks [`NetworkService::best_known_covers`]
+    /// itself, afterwards, for the albums that came back with nothing.
+    pub async fn drawn_covers(&self, keys: Vec<String>) -> Result<Vec<AlbumCover>, String> {
+        let requested = cover::normalised_request(&keys, COVER_KEY_LIMIT);
+        if requested.is_empty() {
+            return Ok(Vec::new());
+        }
+        let covers = {
+            let connection = super::open_connection(&self.db_path)?;
+            cover::drawable_covers(&connection, &requested)?
+        };
+        // Which claim's author actually seeds the album is a heartbeat answer
+        // that decorates a badge. Whatever the last search fetched is used if it
+        // is still here, and a look that has not happened yet costs nothing.
+        let availability = self.availability_cache.read().await.clone();
+        let connection = super::open_connection(&self.db_path)?;
+        apply_cover_seeders(&connection, covers, availability.as_deref())
+    }
+
     pub async fn request_download(
         &self,
         file_id: String,

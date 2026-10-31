@@ -838,14 +838,22 @@
     return Number(match[1]) * scale;
   }
 
-  function orderedResults(source: Result[]) {
-    const direction = resultSortAsc ? 1 : -1;
+  /**
+   * The rows in the chosen order.
+   *
+   * The key and the direction are arguments rather than state read here, because
+   * a helper that reads the component's own state is invisible to the change
+   * tracking that redraws the list: the header's arrows moved, the order did
+   * not. Naming them in the derivation is what makes a click reach the rows.
+   */
+  function orderedResults(source: Result[], sort: ResultSort, ascending: boolean) {
+    const direction = ascending ? 1 : -1;
     const value = (result: Result) => {
-      if (resultSort === 'size') return sizeInBytes(result.size);
-      if (resultSort === 'sources') return result.sources;
-      if (resultSort === 'artist') return (result.artist ?? '').toLowerCase();
-      if (resultSort === 'album') return (result.album ?? '').toLowerCase();
-      if (resultSort === 'format') return result.format.toLowerCase();
+      if (sort === 'size') return sizeInBytes(result.size);
+      if (sort === 'sources') return result.sources;
+      if (sort === 'artist') return (result.artist ?? '').toLowerCase();
+      if (sort === 'album') return (result.album ?? '').toLowerCase();
+      if (sort === 'format') return result.format.toLowerCase();
       return result.name.toLowerCase();
     };
     return [...source].sort((left, right) => {
@@ -859,8 +867,9 @@
   // What the template reads. Each derivation names the state it comes from, so
   // each one re-runs when that state changes.
   $: shownResults = results.filter(passesAdvancedFilters);
-  $: resultPageTotal = resultPageCount(orderedResults(shownResults));
-  $: resultPageItems = paginatedResults(orderedResults(shownResults), resultPage);
+  $: ordered = orderedResults(shownResults, resultSort, resultSortAsc);
+  $: resultPageTotal = resultPageCount(ordered);
+  $: resultPageItems = paginatedResults(ordered, resultPage);
   $: resultPageRange = resultPageItems.map((item) => item.fileId);
   // The rows on screen are what get asked about, once each: a discussion read is
   // a question to the relays, and a page of them is the size of the question.
@@ -916,6 +925,37 @@
   function selectSharedRow(file: NativeFile) {
     selectedShared = { ...file };
     selectTagFile(file);
+  }
+
+  /**
+   * What this computer can say about a local file, for the metadata preview.
+   *
+   * Nothing here is editable: the block exists to show the shape of the editor
+   * that is not built yet, so every field is a disabled box holding the file's
+   * own answer. The numbers come from the index, which is why a file this
+   * computer has never read a bitrate for says so rather than guessing.
+   */
+  function sharedMetaFields(file: NativeFile | null): { label: string; value: string }[] {
+    const shown = (value: string) => value?.trim() || '—';
+    if (!file) {
+      return [
+        { label: $t("Title"), value: '—' },
+        { label: $t("Artist"), value: '—' },
+        { label: $t("Album"), value: '—' }
+      ];
+    }
+    return [
+      { label: $t("Title"), value: shown(file.title) },
+      { label: $t("Artist"), value: shown(file.artist) },
+      { label: $t("Album"), value: shown(file.album) },
+      { label: $t("Format"), value: shown(file.format) },
+      { label: $t("Bitrate"), value: file.bitrateKbps ? `${file.bitrateKbps} kbps` : '—' },
+      { label: $t("Size"), value: readableSize(file.size) },
+      { label: $t("File name"), value: shown(file.filename) },
+      { label: $t("Folder"), value: folderName(file.folder) },
+      { label: $t("Tags"), value: shown(file.tags) },
+      { label: $t("MIME type"), value: shown(file.mime) }
+    ];
   }
 
   async function saveTags() {
@@ -2047,6 +2087,46 @@
   $: playlistDraftIsMine = !playlistDraft || playlistIsMine(playlistDraft.author);
   $: playlistTiers = buildPlaylistTiers(playlists, playlistAuthor, playlistRelays);
 
+  /** What each pair of keys is called: kind `0` name, or `npub` when they have none. */
+  type PubkeyLabel = { pubkey: string; npub: string; name: string };
+  let playlistOwners = new Map<string, string>();
+
+  /**
+   * How to name the person a row belongs to.
+   *
+   * A playlist carries the name its author chose for it, and that is what a row
+   * shows. Where there is none - and for the people "From everyone else" lists -
+   * the owner used to be printed as a truncated hex key, which nobody can read
+   * or look up. Their kind `0` name is used when this computer has seen one -
+   * read from what it already holds, never fetched for the purpose - and their
+   * `npub` otherwise, which is their real identifier in the form people use.
+   */
+  function playlistOwner(row: { author: string; displayName?: string }) {
+    if (!row.author) return '';
+    return row.displayName?.trim() || playlistOwners.get(row.author) || row.author;
+  }
+
+  /**
+   * Fill in the names for a set of rows before they are drawn.
+   *
+   * Awaited rather than drawn first and corrected later: a list that printed hex
+   * for a moment and then swapped to a name would be a worse answer than one that
+   * arrived a millisecond later, and the answer is this computer's own database.
+   */
+  async function learnPlaylistOwners(rows: PlaylistSummary[]) {
+    const authors = [...new Set(rows.map((row) => row.author).filter(Boolean))];
+    const known = [...new Set([...authors, playlistAuthor].filter(Boolean))];
+    if (!known.length) return;
+    try {
+      const labels = await invoke<PubkeyLabel[]>('pubkey_labels', { pubkeys: known });
+      playlistOwners = new Map(
+        labels.map((label) => [label.pubkey, label.name?.trim() || label.npub || label.pubkey])
+      );
+    } catch {
+      // A name is decoration: a list that cannot be named is still a list.
+    }
+  }
+
   /**
    * Which refresh the page is waiting for.
    *
@@ -2077,6 +2157,8 @@
       }
       const rows = await invoke<PlaylistSummary[]>('playlists');
       const relays = await invoke<PlaylistSummary[] | null>('playlist_reconciliation');
+      // Names before rows: the list is drawn once, already saying who owns what.
+      await learnPlaylistOwners([...rows, ...(relays ?? [])]);
       if (attempt !== playlistRefresh) return;
       playlists = rows;
       playlistRelays = relays;
@@ -2317,6 +2399,51 @@
 
   function removePlaylistMember(index: number) {
     playlistMembers = playlistMembers.filter((_, position) => position !== index);
+  }
+
+  /**
+   * Which member is being dragged, and where it would land.
+   *
+   * The order of a playlist is the point of a playlist, and two arrow buttons
+   * moved a track one place at a time. A drag says where it goes in one gesture;
+   * the grip is the only thing that starts one, so a row can still be clicked to
+   * open it.
+   */
+  let playlistDragIndex = -1;
+  let playlistDropIndex = -1;
+
+  function beginPlaylistDrag(index: number, event: DragEvent) {
+    if (!playlistDraftIsMine) return;
+    playlistDragIndex = index;
+    playlistDropIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      // Firefox will not start a drag without data; the payload is never read.
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  function overPlaylistMember(index: number, event: DragEvent) {
+    if (playlistDragIndex < 0) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    playlistDropIndex = index;
+  }
+
+  function dropPlaylistMember(index: number) {
+    if (playlistDragIndex >= 0 && playlistDragIndex !== index) {
+      const moved = [...playlistMembers];
+      const [member] = moved.splice(playlistDragIndex, 1);
+      moved.splice(index, 0, member);
+      playlistMembers = moved;
+    }
+    playlistDragIndex = -1;
+    playlistDropIndex = -1;
+  }
+
+  function endPlaylistDrag() {
+    playlistDragIndex = -1;
+    playlistDropIndex = -1;
   }
 
   function movePlaylistMember(index: number, delta: number) {
@@ -2663,14 +2790,15 @@
       });
       if (!chosen) return;
       mobileLoading = true;
-      const written = await invoke<{ likes: string[]; dislikes: string[] }>('export_client_data', {
+      const written = await invoke<{ likes: string[]; dislikes: string[]; playlists: unknown[] }>('export_client_data', {
         endpointId: device.endpointId,
         path: chosen
       });
-      clientNote = $t("Saved {p0} likes and {p1} dislikes for {p2}.", {
+      clientNote = $t("Saved {p0} likes, {p1} dislikes and {p2} playlists for {p3}.", {
         p0: written.likes.length,
         p1: written.dislikes.length,
-        p2: device.name
+        p2: written.playlists.length,
+        p3: device.name
       });
       await refreshMobileStatus();
     } catch (error) {
@@ -2694,14 +2822,15 @@
       });
       if (!chosen || Array.isArray(chosen)) return;
       mobileLoading = true;
-      const restored = await invoke<{ likes: string[]; dislikes: string[] }>('import_client_data', {
+      const restored = await invoke<{ likes: string[]; dislikes: string[]; playlists: unknown[] }>('import_client_data', {
         endpointId: device.endpointId,
         path: chosen
       });
-      clientNote = $t("Restored {p0} likes and {p1} dislikes for {p2}.", {
+      clientNote = $t("Restored {p0} likes, {p1} dislikes and {p2} playlists for {p3}.", {
         p0: restored.likes.length,
         p1: restored.dislikes.length,
-        p2: device.name
+        p2: restored.playlists.length,
+        p3: device.name
       });
       await refreshMobileStatus();
     } catch (error) {
@@ -4122,7 +4251,7 @@
                       onclick={(event) => selectResultRange(item, event)}
                       onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event); } }}
                       ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}>
-                      <td>{#if isLocalFile(item.fileId)}<span class="host-mark" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</td>
+                      <td>{#if isLocalFile(item.fileId)}<span class="host-mark" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{:else}<span class="host-mark absent" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</td>
                       <td>{item.artist || '—'}</td><td>{item.album || '—'}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td>
                     </tr>
                   {/each}
@@ -4222,7 +4351,7 @@
         </div>
       {:else if activeView === 'Downloads'}
         <section class="full-panel downloads-view">
-          <div class="panel-title"><span></span><b>{$t("Download Manager")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Transfer Manager")}</b><span></span></div>
           <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Ⅱ Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Deadwax folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
           <div class="download-queue">
             {#each audiobookDownloads as book}
@@ -4237,7 +4366,7 @@
           </div>
         </section>
       {:else if activeView === 'Shared'}
-        <section class="full-panel">
+        <section class="full-panel shared-view">
           <div class="panel-title"><span></span><b>{$t("My Shared Files")}</b><span></span></div>
           <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
           <div class="folder-path"><b>{$t("Deadwax folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
@@ -4260,7 +4389,9 @@
           </div>
           {#if !folderAudiobook && libraryFolderView.toLowerCase().includes('audiobook') && audiobookChapters.length >= 1}<div class="audiobook-folder-banner"><span class="audiobook-glyph">▥</span><div><b>{$t("Possible audiobook detected")}</b><small>{$t("Review the natural chapter order before making the collection public.")}</small></div><button class="classic-button primary" onclick={openAudiobookEditor}>{$t("Group as audiobook…")}</button></div>{/if}
           {#if folderAudiobook}<div class="audiobook-folder-banner"><span class="audiobook-glyph">▥</span><div><b>{folderAudiobook?.title}</b><small>{folderAudiobook?.author || $t("Unknown author")} · {folderAudiobook?.chapters.length} {$t("ordered chapters · published as one audiobook")}</small></div><button class="classic-button primary" onclick={() => playAudiobook(folderAudiobook!)}>{$t("▶ Play book")}</button></div>{/if}
-          <table class="file-table shared-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Size")}</th><th>{$t("Catalogue")}</th><th>{$t("Active peers")}</th></tr></thead><tbody>{#each sharedRows as file}<tr class:selected={selectedShared?.fileId === file.fileId} onclick={() => selectSharedRow(file)} ondblclick={() => playAudio(file.fileId, file.name, playerMode, 'shared')}><td>{file.name}</td><td>{folderName(file.folder)}</td><td>{file.readableSize}</td><td><span class:amber={!networkConnected} class="led"></span>{networkConnected ? $t("Published") : $t("Indexed")}</td><td>{file.peers}</td></tr>{/each}</tbody></table>
+          <div class="shared-scroll">
+            <table class="file-table shared-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Size")}</th><th>{$t("Catalogue")}</th><th>{$t("Active peers")}</th></tr></thead><tbody>{#each sharedRows as file}<tr class:selected={selectedShared?.fileId === file.fileId} onclick={() => selectSharedRow(file)} ondblclick={() => playAudio(file.fileId, file.name, playerMode, 'shared')}><td>{file.name}</td><td>{folderName(file.folder)}</td><td>{file.readableSize}</td><td><span class:amber={!networkConnected} class="led"></span>{networkConnected ? $t("Published") : $t("Indexed")}</td><td>{file.peers}</td></tr>{/each}</tbody></table>
+          </div>
           {#if sharedVisible.length > LOCAL_PAGE_SIZE}<div class="results-pager"><button disabled={sharedLibraryPage === 0} onclick={() => changeSharedLibraryPage(sharedLibraryPage - 1)}>{$t("◀ Previous")}</button><span>{$t("Showing {range} of {count} loaded", { range: localPageRange(sharedLibraryPage, sharedVisible.length), count: sharedVisible.length })} · {$t("Page {page} of {pages}", { page: sharedLibraryPage + 1, pages: sharedPageCount })}</span><button disabled={sharedLibraryPage + 1 >= sharedPageCount} onclick={() => changeSharedLibraryPage(sharedLibraryPage + 1)}>{$t("Next ▶")}</button></div>{/if}
           <div class="panel-title"><span></span><b>{$t("Track Tags")}</b><span></span></div>
           <div class="tag-editor">
@@ -4268,6 +4399,18 @@
             <input bind:value={tagDraft} disabled={!selectedTagFile || tagSaving} maxlength="256" placeholder={$t("punk, live, audiobook")} onkeydown={(event) => { if (event.key === 'Enter') saveTags(); }} />
             <button class="classic-button primary" onclick={saveTags} disabled={!selectedTagFile || tagSaving}>{tagSaving ? $t("Saving…") : $t("Save tags")}</button>
             <small>{$t("Comma-separated · published with your signed catalogue")}</small>
+          </div>
+          <!-- The tag editor above is the only editing that exists yet. This block
+               is the shape a full metadata editor will take, drawn from the file
+               itself and deliberately inert: the fields are disabled so nobody
+               types into something that writes nothing. -->
+          <div class="shared-meta" aria-label={$t("File metadata")}>
+            <div class="shared-meta-head"><b>{$t("File metadata")}</b><small>{$t("Editing these fields is not built yet.")}</small></div>
+            <div class="shared-meta-fields">
+              {#each sharedMetaFields(selectedTagFile) as field}
+                <label><span>{field.label}</span><input value={field.value} readonly disabled tabindex="-1" /></label>
+              {/each}
+            </div>
           </div>
           <p class="privacy-note wide"><span>♜</span> {$t("Only validated MP3, FLAC, WAV, Ogg Vorbis, and Opus audio is indexed recursively. Put book folders or complete one-file books inside Audiobooks for automatic grouping. Existing contents are never replaced. Folder names remain local and embedded cover artwork is allowed.")}</p>
         </section>
@@ -4335,7 +4478,30 @@
               <div class="playlist-members">
                 <div class="playlist-members-head"><b>{$t("Tracks")}</b><span>{playlistMembers.length}</span></div>
                 {#each playlistMembers as member, index (member.fileId)}
-                  <div class="playlist-member">
+                  <div
+                    class="playlist-member"
+                    class:dragging={playlistDragIndex === index}
+                    class:drop-target={playlistDragIndex >= 0 && playlistDropIndex === index && playlistDragIndex !== index}
+                    role="listitem"
+                    draggable={playlistDraftIsMine}
+                    ondragstart={(event) => beginPlaylistDrag(index, event)}
+                    ondragover={(event) => overPlaylistMember(index, event)}
+                    ondrop={() => dropPlaylistMember(index)}
+                    ondragend={endPlaylistDrag}
+                  >
+                    <button
+                      type="button"
+                      class="playlist-grip"
+                      disabled={!playlistDraftIsMine}
+                      title={$t("Drag to reorder")}
+                      aria-label={$t("Reorder {p0}", { p0: member.title || member.fileId.slice(0, 12) })}
+                      onkeydown={(event) => {
+                        if (event.key === 'ArrowUp') { event.preventDefault(); movePlaylistMember(index, -1); }
+                        if (event.key === 'ArrowDown') { event.preventDefault(); movePlaylistMember(index, 1); }
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01" /></svg>
+                    </button>
                     <span class="playlist-member-position">{index + 1}</span>
                     <div class="playlist-member-copy">
                       <b>{member.title || member.fileId.slice(0, 12)}</b>
@@ -4349,9 +4515,9 @@
                         <i class="playlist-badge" class:amber={!localFileIds.has(member.fileId) && playlistAvailability.get(member.fileId) === 0}>{memberAvailability(member.fileId, playlistAvailability, localFileIds)}</i>
                       {/if}
                     </span>
-                    <button class="classic-button" title={$t("Move up")} disabled={!playlistDraftIsMine || index === 0} onclick={() => movePlaylistMember(index, -1)}>↑</button>
-                    <button class="classic-button" title={$t("Move down")} disabled={!playlistDraftIsMine || index === playlistMembers.length - 1} onclick={() => movePlaylistMember(index, 1)}>↓</button>
-                    <button class="classic-button" title={$t("Remove")} disabled={!playlistDraftIsMine} onclick={() => removePlaylistMember(index)}>×</button>
+                    <button class="playlist-row-action playlist-member-remove" title={$t("Remove")} aria-label={$t("Remove {p0}", { p0: member.title || member.fileId.slice(0, 12) })} disabled={!playlistDraftIsMine} onclick={() => removePlaylistMember(index)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 7.2h14.4" /><path d="M9.6 7.2V5.4a1.2 1.2 0 0 1 1.2-1.2h2.4a1.2 1.2 0 0 1 1.2 1.2v1.8" /><path d="M6.6 7.2l.9 11.4a1.4 1.4 0 0 0 1.4 1.3h5.8a1.4 1.4 0 0 0 1.4-1.3l.9-11.4" /><path d="M10.2 11v5.4M13.8 11v5.4" /></svg>
+                    </button>
                   </div>
                 {/each}
                 {#if playlistMembers.length === 0}
@@ -4385,7 +4551,10 @@
                 <button class="classic-button primary" disabled={playlistSaving || !playlistDraft.title.trim()} onclick={() => void savePlaylist()}>{playlistSaving ? $t("Saving…") : playlistDraftIsMine ? $t("Save") : $t("Save a copy")}</button>
                 {#if playlistDraftIsMine}
                   <button class="classic-button" title={$t("Publish")} disabled={playlistSaving || !playlistDraft.title.trim()} onclick={() => void publishPlaylist()}>{$t("Publish")}</button>
-                  <button class="classic-button" title={$t("Delete")} disabled={playlistSaving} onclick={() => void deletePlaylist(playlistDraft)}>× {$t("Delete")}</button>
+                  <button class="classic-button playlist-delete" title={$t("Delete")} disabled={playlistSaving} onclick={() => void deletePlaylist(playlistDraft)}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 7.2h14.4" /><path d="M9.6 7.2V5.4a1.2 1.2 0 0 1 1.2-1.2h2.4a1.2 1.2 0 0 1 1.2 1.2v1.8" /><path d="M6.6 7.2l.9 11.4a1.4 1.4 0 0 0 1.4 1.3h5.8a1.4 1.4 0 0 0 1.4-1.3l.9-11.4" /><path d="M10.2 11v5.4M13.8 11v5.4" /></svg>
+                    {$t("Delete")}
+                  </button>
                 {/if}
                 {#if playlistNotice}<span class="playlist-notice">{$t(playlistNotice)}</span>{/if}
                 {#if playlistError}<span class="playlist-error">{$t(playlistError)}</span>{/if}
@@ -4409,7 +4578,7 @@
                           {#if playlistArtOf(row)}<CoverArt artist={playlistArtOf(row)!.artist} album={playlistArtOf(row)!.album} preferThumb size="medium" revision={coverRevision} />{:else}<span class="cover-art medium empty" aria-hidden="true">♪</span>{/if}
                           <span class="result-overlay">
                             <b title={row.title}>{row.title}</b>
-                            <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                            <small>{row.trackCount} {$t("Tracks")} · {playlistOwner(row)}</small>
                           </span>
                         </span>
                       </button>
@@ -4425,7 +4594,7 @@
                       <div class="playlist-row" class:selected={selectedPlaylistKey === playlistKey(row)}>
                         <button class="playlist-open" title={$t("Show this playlist")} onclick={() => void openPlaylist(row)}>
                           <b>{row.title}</b>
-                          <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                          <small>{row.trackCount} {$t("Tracks")} · {playlistOwner(row)}</small>
                         </button>
                         <span class="playlist-badges">
                           {#if row.state === 'relays'}
@@ -4454,7 +4623,7 @@
                       <div class="playlist-row" class:selected={selectedPlaylistKey === playlistKey(row)}>
                         <button class="playlist-open" title={$t("Show this playlist")} onclick={() => void openPlaylist(row)}>
                           <b>{row.title}</b>
-                          <small>{row.trackCount} {$t("Tracks")} · {row.displayName || shortKey(row.author)}</small>
+                          <small>{row.trackCount} {$t("Tracks")} · {playlistOwner(row)}</small>
                         </button>
                         <span class="playlist-badges"><i class="playlist-badge">{$t("Read-only")}</i></span>
                         <span></span>
@@ -4477,7 +4646,7 @@
                     <span class="detail-hero-scrim" aria-hidden="true"></span>
                     <span class="detail-hero-text">
                       <b title={playlistDraft.title}>{playlistDraft.title || $t("Untitled playlist")}</b>
-                      <small>{playlistDraftIsMine ? $t("Yours") : playlistDraft.displayName || shortKey(playlistDraft.author)}</small>
+                      <small>{playlistDraftIsMine ? $t("Yours") : playlistOwner(playlistDraft)}</small>
                       <span class="detail-hero-meta">{$t("{p0} tracks", { p0: playlistMembers.length })}</span>
                     </span>
                   </div>
@@ -4656,7 +4825,7 @@
                     <div class="device-transfer">
                       <button class="classic-button" title={$t("Save this client’s likes and dislikes to a file")} disabled={mobileLoading} onclick={() => void backupClientData(device)}>{$t("Backup…")}</button>
                       <button class="classic-button" title={$t("Put likes and dislikes back from a file")} disabled={mobileLoading} onclick={() => void restoreClientData(device)}>{$t("Restore…")}</button>
-                      <small>{$t("A backup holds the marks this client made here, and nothing that lets it connect.")}</small>
+                      <small>{$t("A backup holds the marks and playlists this client made here, and nothing that lets it connect.")}</small>
                     </div>
                     <div class="device-rights" role="group" aria-label={$t("What {p0} may do", { p0: device.name })}>
                       {#each deviceRightChoices() as choice}
