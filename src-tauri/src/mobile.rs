@@ -3119,6 +3119,102 @@ mod tests {
         ));
     }
 
+    /// A backup carries the playlists this client wrote, not only its marks.
+    ///
+    /// Somebody backed a phone up, restored it, and found everything but the
+    /// playlists: they were not in the file. A playlist is filed under the key
+    /// the client proves, which is the same key the device list counts by, so it
+    /// belongs to exactly one client and travels with it - members, order and
+    /// all, because the order is the playlist.
+    #[test]
+    fn a_backup_carries_the_playlists_that_client_wrote() {
+        let directory =
+            std::env::temp_dir().join(format!("napstr-mobile-backup-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let db_path = directory.join("napstr.sqlite3");
+        crate::initialise_database(&db_path, &directory).unwrap();
+        let phone = "ab".repeat(32);
+        let connection = open_connection(&db_path).unwrap();
+        let playlist = |id: &str, title: &str, author: &str, file_ids: [&str; 2]| {
+            napstr_remote_protocol::RemotePlaylist {
+                playlist_id: id.to_string(),
+                title: title.to_string(),
+                author: author.to_string(),
+                display_name: String::new(),
+                artist: String::new(),
+                mbid: String::new(),
+                image: String::new(),
+                tags: String::new(),
+                private: false,
+                published: false,
+                updated_at: 0,
+                tracks: file_ids
+                    .iter()
+                    .enumerate()
+                    .map(
+                        |(index, file_id)| napstr_remote_protocol::RemotePlaylistTrack {
+                            position: index as u32 + 1,
+                            file_id: file_id.to_string(),
+                            title: String::new(),
+                            artist: String::new(),
+                            album: String::new(),
+                        },
+                    )
+                    .collect(),
+                total: 2,
+            }
+        };
+        crate::playlist::save(
+            &connection,
+            &playlist(
+                "11111111-1111-1111-1111-111111111111",
+                "Night drive",
+                &phone,
+                ["11".repeat(32).as_str(), "22".repeat(32).as_str()],
+            ),
+        )
+        .unwrap();
+        // A draft nobody owns is not this client's to carry away, and another
+        // client's playlist is not either.
+        crate::playlist::save(
+            &connection,
+            &playlist(
+                "22222222-2222-2222-2222-222222222222",
+                "Nobody's",
+                "",
+                ["33".repeat(32).as_str(), "44".repeat(32).as_str()],
+            ),
+        )
+        .unwrap();
+        crate::playlist::save(
+            &connection,
+            &playlist(
+                "33333333-3333-3333-3333-333333333333",
+                "Somebody else's",
+                &"cd".repeat(32),
+                ["55".repeat(32).as_str(), "66".repeat(32).as_str()],
+            ),
+        )
+        .unwrap();
+        drop(connection);
+
+        let carried = client_playlists(&db_path, &phone).unwrap();
+        assert_eq!(carried.len(), 1);
+        assert_eq!(carried[0].title, "Night drive");
+        assert_eq!(
+            carried[0]
+                .tracks
+                .iter()
+                .map(|track| track.file_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["11".repeat(32), "22".repeat(32)],
+            "members come back in the order the playlist means"
+        );
+        // A client that has proved no key has nothing to carry.
+        assert!(client_playlists(&db_path, "").unwrap().is_empty());
+        fs::remove_dir_all(&directory).unwrap();
+    }
+
     #[test]
     fn music_library_excludes_local_audiobook_chapters() {
         let directory =
