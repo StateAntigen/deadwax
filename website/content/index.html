@@ -1,57 +1,194 @@
-<h1>Deadwax - own your music again</h1>
-            <div class="intro-row">
-              <p>
-                The worlds greatest peer to peer music sharing app is back!<br />
-                Nostr for discovery &amp; Tor for private downloads with no IP leaking.<br />
-                Available for Windows, Linux, and macOS.
-              </p>
-              <a class="retro-download" href="download.html">
-                <span class="grid-icon" aria-hidden="true">▦</span>
-                <b>DOWNLOAD<br />DEADWAX</b>
-              </a>
-            </div>
-            <img
-              class="homepage-thumb"
-              src="assets/thumb.png"
-              alt="Deadwax desktop app playing and sharing music"
-              width="400"
-              height="222"
-            />
-
-            <section id="about">
-              <h2>Guess Who’s Back!</h2>
-              <p>
-                Deadwax is bringing music sharing back with modern privacy.
-                Searchable catalogues are published through <a href="nostr.html">Nostr</a> while audio transfers
-                travel through authenticated, temporary <a href="tor.html">Tor onion services</a>. There is no central
-                Deadwax tracker and no central file store. Read about the
-                <a href="#how-it-works">Deadwax privacy model</a>.
-              </p>
-            </section>
-
-            <section id="how-it-works">
-              <h2>How Deadwax Works</h2>
-              <div class="feature-row">
-                <div class="mini-mark" aria-hidden="true">
-                  <img src="assets/deadwax-logo.png" alt="" />
-                </div>
-                <p>
-                  Users share music from a folder, and their catalog is published over Nostr.
-                  Deadwax negotiates download requests through private Nostr DMs, while Tor
-                  handles the downloads, keeping users’ IP addresses private.
+<section class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">DEADWAX DOT RIP</p>
+                <h1>Own your music again.</h1>
+                <p class="hero-lead">
+                  A peer-to-peer music library for people who still think a file you hold beats
+                  a stream you rent. Find what other people are sharing, take it straight from
+                  them, and check every byte as it lands.
                 </p>
+                <div class="hero-actions">
+                  <a class="button button-primary" href="download.html">Download Deadwax</a>
+                  <a class="button button-ghost" href="#how-it-works">See how it works</a>
+                </div>
+                <p class="hero-meta">Windows · Linux · macOS. Free software, no account, nobody in the middle.</p>
+              </div>
+              <div class="hero-visual">
+                <figure class="shot">
+                  <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span class="label">DEADWAX</span></div>
+                  <img
+                    src="assets/shot-library.svg"
+                    alt="The Deadwax library, with a search field, shared tracks and live transfers"
+                    width="1600"
+                    height="1000"
+                  />
+                </figure>
               </div>
             </section>
 
-            <section>
-              <h2>Recent News</h2>
-              <article>
-                <h3>Deadwax desktop is here!</h3>
-                <p>
-                  Deadwax includes the classic interface, live Nostr catalogue search,
-                  encrypted NIP-17 negotiation, fastest-responsive temporary onion transfers,
-                  automatic seeder failover, and complete-file SHA-256 verification.
-                  <a href="download.html">Choose your version and download it now.</a>
+            <div class="ticker" aria-hidden="true">
+              <div class="ticker-track">
+                <div class="ticker-group">
+                  <span>No central server</span><span>No accounts</span><span>No trackers</span>
+                  <span>Direct from people</span><span>Every file verified</span><span>Your address stays yours</span>
+                </div>
+                <div class="ticker-group">
+                  <span>No central server</span><span>No accounts</span><span>No trackers</span>
+                  <span>Direct from people</span><span>Every file verified</span><span>Your address stays yours</span>
+                </div>
+              </div>
+            </div>
+
+            <section id="about" class="section">
+              <div class="section-head">
+                <p class="kicker"><span class="kicker-num" dir="ltr">01</span>The pitch</p>
+                <h2>Not a streaming service. A record shop that never closes.</h2>
+                <p class="section-lead">
+                  Deadwax keeps what worked about the old file-sharing scene and drops what got
+                  people burned: a real catalogue you can search, transfers between two people
+                  instead of a company, and nothing in the middle that can log you, throttle you
+                  or sell you.
                 </p>
-              </article>
+              </div>
+              <ul class="card-grid">
+                <li class="card">
+                  <p class="card-kicker">Discovery</p>
+                  <h3>Search what people are sharing right now</h3>
+                  <p>
+                    Results come from the machines of the people online, not from a catalogue
+                    somebody else curates. No label decides what you are allowed to hear.
+                  </p>
+                </li>
+                <li class="card">
+                  <p class="card-kicker">Transfers</p>
+                  <h3>Straight from the source</h3>
+                  <p>
+                    Files come from the person who has them. If one seeder drops out, Deadwax
+                    moves to the next one without you babysitting the queue.
+                  </p>
+                </li>
+                <li class="card">
+                  <p class="card-kicker">Privacy</p>
+                  <h3>Your address never leaves the room</h3>
+                  <p>
+                    Every transfer runs through the Tor network, so the other side sees a circuit
+                    rather than your connection. Nothing is logged by us, because there is no us.
+                  </p>
+                </li>
+                <li class="card">
+                  <p class="card-kicker">Integrity</p>
+                  <h3>Checked before it plays</h3>
+                  <p>
+                    Every track carries its own fingerprint. If a single byte arrives wrong, the
+                    download is thrown away instead of quietly joining your library.
+                  </p>
+                </li>
+                <li class="card">
+                  <p class="card-kicker">Custody</p>
+                  <h3>A library that is actually yours</h3>
+                  <p>
+                    Your collection is a folder on your own disk. Move it, back it up, copy it,
+                    delete it. Nothing is uploaded anywhere you cannot see.
+                  </p>
+                </li>
+                <li class="card">
+                  <p class="card-kicker">Companion</p>
+                  <h3>Take the shelves with you</h3>
+                  <p>
+                    Pair a phone or another computer to browse and play your library while you are
+                    out. <a href="mobile.html">Meet the companion</a>.
+                  </p>
+                </li>
+              </ul>
+            </section>
+
+            <section id="how-it-works" class="section">
+              <div class="section-head">
+                <p class="kicker"><span class="kicker-num" dir="ltr">02</span>How it works</p>
+                <h2>Three moves, no setup rituals.</h2>
+                <p class="section-lead">
+                  You point Deadwax at a folder. It handles the rest, including the parts that
+                  used to need a degree in cryptography.
+                </p>
+              </div>
+              <ol class="steps">
+                <li class="step">
+                  <h3>Find</h3>
+                  <p>Search a live catalogue and see who is seeding each result at this moment.</p>
+                </li>
+                <li class="step">
+                  <h3>Ask</h3>
+                  <p>Deadwax messages the seeder privately and returns with a handoff good for one download.</p>
+                </li>
+                <li class="step">
+                  <h3>Verify</h3>
+                  <p>The file arrives, its fingerprint is checked, and only then does it join your library.</p>
+                </li>
+              </ol>
+              <div class="hood">
+                <p>
+                  <strong>Under the hood</strong> — discovery speaks Nostr, transfers ride Tor,
+                  and a slow relay never costs you the file. You never have to touch any of it.
+                </p>
+                <div class="hood-links">
+                  <a class="hood-link" href="nostr.html">Nostr and discovery</a>
+                  <a class="hood-link" href="tor.html">Tor and privacy</a>
+                </div>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="section-head">
+                <p class="kicker"><span class="kicker-num" dir="ltr">03</span>Look inside</p>
+                <h2>Quiet software for loud music.</h2>
+                <p class="section-lead">
+                  A library that reads like a record shelf, a queue you can actually see, and no
+                  promotional tiles shoved between the songs.
+                </p>
+              </div>
+              <div class="gallery">
+                <figure class="shot">
+                  <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                  <img src="assets/shot-1.svg" alt="Deadwax playing a track, with artwork and a waveform" width="1200" height="800" />
+                </figure>
+                <figure class="shot">
+                  <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                  <img src="assets/shot-2.svg" alt="The Deadwax transfer list while files arrive" width="1200" height="800" />
+                </figure>
+                <figure class="shot">
+                  <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                  <img src="assets/shot-3.svg" alt="Searching the shared catalogue in Deadwax" width="1200" height="800" />
+                </figure>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="promo">
+                <!-- Film slot. When the capture is ready, replace the poster below with
+                     <video class="promo-video" controls preload="metadata" poster="assets/promo-poster.png">
+                       <source src="assets/deadwax-promo.mp4" type="video/mp4">
+                     </video>
+                     and delete the .promo-play overlay. Keep it 16:9 and under 6 MB. -->
+                <div class="promo-shot">
+                  <img src="assets/promo-poster.svg" alt="Deadwax film title card" width="1280" height="720" />
+                  <div class="promo-play" aria-hidden="true"><span>▶</span></div>
+                </div>
+                <div>
+                  <p class="kicker">Film</p>
+                  <h2>Sixty seconds of proof.</h2>
+                  <p>Search, request and own a record, start to finish, without a manual.</p>
+                  <p class="promo-note">Sixteen by nine, no audio narration needed.</p>
+                  <a class="button button-ghost" href="download.html">Get the app</a>
+                </div>
+              </div>
+            </section>
+
+            <section class="manifesto">
+              <blockquote>Owning something means you are free to share and pass it on.</blockquote>
+              <p>
+                Deadwax is free software under the MIT licence, built in the open by people who
+                remember what the internet felt like before every song came with a subscription
+                and a camera in the room.
+              </p>
+              <a class="button button-primary" href="download.html">Download Deadwax</a>
             </section>

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1319"/>
+      <stop offset="1" stop-color="#070b0f"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#1b2732"/>
+      <stop offset="1" stop-color="#0a1015"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+
+  <!-- window chrome -->
+  <rect width="1600" height="72" fill="#0f1720"/>
+  <circle cx="36" cy="36" r="8" fill="#2b3944"/><circle cx="62" cy="36" r="8" fill="#2b3944"/><circle cx="88" cy="36" r="8" fill="#2b3944"/>
+  <rect x="130" y="20" width="420" height="32" rx="8" fill="#16202a"/>
+  <rect x="560" y="20" width="120" height="32" rx="8" fill="#16202a"/>
+  <rect x="1200" y="20" width="270" height="34" rx="6" fill="none" stroke="#43e5a0" stroke-opacity=".45"/>
+  <text x="1335" y="43" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="15" letter-spacing="2" fill="#8af7c7">PLACEHOLDER 1600&#215;1000</text>
+
+  <!-- sidebar -->
+  <rect x="0" y="72" width="230" height="928" fill="#0a1016"/>
+  <rect x="24" y="112" width="180" height="30" rx="7" fill="#1b2732"/>
+  <rect x="24" y="112" width="4" height="30" fill="#43e5a0"/>
+  <rect x="24" y="176" width="118" height="14" rx="4" fill="#24313d"/>
+  <rect x="24" y="216" width="146" height="14" rx="4" fill="#24313d"/>
+  <rect x="24" y="256" width="94" height="14" rx="4" fill="#24313d"/>
+  <rect x="24" y="296" width="132" height="14" rx="4" fill="#24313d"/>
+  <rect x="24" y="336" width="106" height="14" rx="4" fill="#24313d"/>
+  <rect x="24" y="900" width="182" height="14" rx="4" fill="#1d2833"/>
+
+  <!-- column headers -->
+  <rect x="270" y="112" width="230" height="16" rx="4" fill="#202c37"/>
+  <rect x="760" y="112" width="90" height="16" rx="4" fill="#1a252f"/>
+  <rect x="880" y="112" width="70" height="16" rx="4" fill="#1a252f"/>
+  <rect x="980" y="112" width="80" height="16" rx="4" fill="#1a252f"/>
+
+  <!-- track rows -->
+  <g>
+    <rect x="270" y="156" width="820" height="86" rx="10" fill="#111a22"/>
+    <rect x="270" y="156" width="4" height="86" fill="#43e5a0"/>
+    <rect x="290" y="172" width="54" height="54" rx="6" fill="url(#disc)"/>
+    <circle cx="317" cy="199" r="12" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+    <rect x="362" y="180" width="330" height="18" rx="4" fill="#33424f"/>
+    <rect x="362" y="208" width="200" height="12" rx="4" fill="#1f2a35"/>
+    <rect x="760" y="184" width="56" height="12" rx="4" fill="#26333e"/>
+    <rect x="880" y="184" width="44" height="12" rx="4" fill="#26333e"/>
+    <rect x="980" y="184" width="60" height="12" rx="4" fill="#26333e"/>
+  </g>
+  <g>
+    <rect x="270" y="256" width="820" height="86" rx="10" fill="#0d151c"/>
+    <rect x="290" y="272" width="54" height="54" rx="6" fill="url(#disc)"/>
+    <circle cx="317" cy="299" r="12" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+    <rect x="362" y="280" width="270" height="18" rx="4" fill="#2b3945"/>
+    <rect x="362" y="308" width="160" height="12" rx="4" fill="#1c2630"/>
+    <rect x="760" y="284" width="56" height="12" rx="4" fill="#212c36"/>
+    <rect x="880" y="284" width="44" height="12" rx="4" fill="#212c36"/>
+    <rect x="980" y="284" width="60" height="12" rx="4" fill="#212c36"/>
+  </g>
+  <g>
+    <rect x="270" y="356" width="820" height="86" rx="10" fill="#0d151c"/>
+    <rect x="290" y="372" width="54" height="54" rx="6" fill="url(#disc)"/>
+    <circle cx="317" cy="399" r="12" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+    <rect x="362" y="380" width="300" height="18" rx="4" fill="#2b3945"/>
+    <rect x="362" y="408" width="180" height="12" rx="4" fill="#1c2630"/>
+    <rect x="760" y="384" width="56" height="12" rx="4" fill="#212c36"/>
+    <rect x="880" y="384" width="44" height="12" rx="4" fill="#212c36"/>
+    <rect x="980" y="384" width="60" height="12" rx="4" fill="#212c36"/>
+  </g>
+  <g>
+    <rect x="270" y="456" width="820" height="86" rx="10" fill="#0d151c"/>
+    <rect x="290" y="472" width="54" height="54" rx="6" fill="url(#disc)"/>
+    <circle cx="317" cy="499" r="12" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+    <rect x="362" y="480" width="240" height="18" rx="4" fill="#2b3945"/>
+    <rect x="362" y="508" width="140" height="12" rx="4" fill="#1c2630"/>
+    <rect x="760" y="484" width="56" height="12" rx="4" fill="#212c36"/>
+    <rect x="880" y="484" width="44" height="12" rx="4" fill="#212c36"/>
+    <rect x="980" y="484" width="60" height="12" rx="4" fill="#212c36"/>
+  </g>
+  <g opacity=".55">
+    <rect x="270" y="556" width="820" height="86" rx="10" fill="#0c131a"/>
+    <rect x="290" y="572" width="54" height="54" rx="6" fill="#0f1720"/>
+    <rect x="362" y="580" width="290" height="18" rx="4" fill="#24313d"/>
+    <rect x="362" y="608" width="170" height="12" rx="4" fill="#1a242e"/>
+  </g>
+
+  <!-- selected track panel -->
+  <rect x="1130" y="156" width="430" height="486" rx="16" fill="#0f1720" stroke="#1d2a34"/>
+  <rect x="1158" y="184" width="374" height="184" rx="10" fill="url(#disc)"/>
+  <circle cx="1345" cy="276" r="60" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+  <rect x="1158" y="392" width="250" height="20" rx="4" fill="#33424f"/>
+  <rect x="1158" y="424" width="170" height="14" rx="4" fill="#1f2a35"/>
+  <g fill="#1e2a35">
+    <rect x="1158" y="468" width="374" height="6" rx="3"/>
+  </g>
+  <rect x="1158" y="468" width="228" height="6" rx="3" fill="#43e5a0"/>
+  <g>
+    <circle cx="1186" cy="512" r="12" fill="#1b2732"/>
+    <circle cx="1240" cy="512" r="20" fill="#43e5a0"/>
+    <circle cx="1300" cy="512" r="12" fill="#1b2732"/>
+    <circle cx="1354" cy="512" r="12" fill="#1b2732"/>
+  </g>
+  <rect x="1158" y="556" width="374" height="60" rx="10" fill="#0b1219"/>
+  <rect x="1178" y="576" width="180" height="12" rx="4" fill="#24313d"/>
+  <rect x="1178" y="596" width="120" height="8" rx="4" fill="#1a242e"/>
+
+  <!-- transfer strip -->
+  <rect x="230" y="880" width="1370" height="120" fill="#0b1219"/>
+  <rect x="262" y="912" width="34" height="34" rx="6" fill="#16202a"/>
+  <rect x="316" y="916" width="300" height="14" rx="4" fill="#2b3945"/>
+  <rect x="316" y="940" width="560" height="8" rx="4" fill="#1a242e"/>
+  <rect x="316" y="940" width="360" height="8" rx="4" fill="#43e5a0"/>
+  <rect x="940" y="936" width="90" height="14" rx="4" fill="#1f2a35"/>
+  <rect x="1060" y="936" width="70" height="14" rx="4" fill="#1f2a35"/>
+  <rect x="1330" y="924" width="220" height="38" rx="8" fill="none" stroke="#2b3944"/>
+</svg>

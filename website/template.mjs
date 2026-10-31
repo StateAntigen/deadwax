@@ -1,9 +1,9 @@
 export const pages = {
-  index: { title: 'Home', description: 'Public music discovery over Nostr and private audio transfers over Tor.' },
+  index: { title: 'Home', description: 'Own your music again. Share, find and keep music directly with other people — private transfers, verified files, no accounts.' },
   download: { title: 'Download', description: 'Download Deadwax for Windows, Linux, and macOS.' },
   mobile: { title: 'Mobile', description: 'Listen to your Deadwax library on another computer or phone.' },
-  nostr: { title: 'Nostr', description: 'How Deadwax uses Nostr for public discovery and encrypted download requests.' },
-  tor: { title: 'Tor', description: 'How Deadwax uses Tor for private, verified audio transfers.' }
+  nostr: { title: 'Discovery', description: 'How Deadwax finds shared music without a central server.' },
+  tor: { title: 'Privacy', description: 'How Deadwax keeps every transfer between people private.' }
 };
 
 export const siteOrigin = 'https://deadwax.rip';
@@ -24,12 +24,16 @@ export function template({ slug, language, languages, direction, content, t, cat
   // new ones are drawn; only the words around them changed.
   const socialImage = `${siteOrigin}/assets/${slug === 'mobile' ? 'companion' : 'desktop'}-share.png`;
   const nav = Object.entries(pages).map(([name, page]) => `<a href="${name}.html"${slug === name ? ' class="active" aria-current="page"' : ''}>${t(page.title)}</a>`).join('');
+  const languageLinks = languages.map(({ code, name }) =>
+    `<a href="${base}${code === 'en' ? '' : code + '/'}${slug}.html" lang="${code}" dir="${directionForLanguage(code)}"${code === language ? ' aria-current="page"' : ''}>${escapeHtml(name)}</a>`).join('\n            ');
   return `<!doctype html>
 <html lang="${language}" dir="${direction}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="${t(pages[slug].description)}">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#05070a">
   <meta name="github-repository" content="StateAntigen/deadwax">
   <link rel="canonical" href="${canonical}">
   ${languages.map(({ code }) => `<link rel="alternate" hreflang="${code}" href="${pageUrl(slug, code)}">`).join('\n  ')}
@@ -60,27 +64,50 @@ export function template({ slug, language, languages, direction, content, t, cat
   <script type="module" src="${base}site.js"></script>
 </head>
 <body data-page="${slug}" data-release-product="${slug === 'mobile' ? 'companion' : 'desktop'}">
-  <div class="site-shell">
-    <header class="masthead">
-      <a class="brand" href="index.html" aria-label="${t('Deadwax home')}"><img src="${base}assets/deadwax-logo.png" alt="Deadwax"></a>
-      <blockquote>${t('Owning something means you are free to share and pass it on.')}</blockquote>
-    </header>
-    <div class="page-grid">
-      <aside class="sidebar">
-        <nav aria-label="${t('Main navigation')}">${nav}</nav>
+  <a class="skip-link" href="#main">${t('Skip to content')}</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html" aria-label="${t('Deadwax home')}">
+        <img class="brand-mark" src="${base}assets/favicon.png" alt="" width="30" height="30">
+        <span class="brand-word">deadwax</span>
+      </a>
+      <nav class="site-nav" aria-label="${t('Main navigation')}">${nav}</nav>
+      <div class="header-tools">
         <p class="language-suggestion" data-language-suggestion hidden>${t('Language')}: <a data-suggested-language></a></p>
         <details class="language-links">
-          <summary>${t('Language')}</summary>
-          ${languages.map(({ code, name }) => `<a href="${base}${code === 'en' ? '' : code + '/'}${slug}.html" lang="${code}" dir="${directionForLanguage(code)}"${code === language ? ' aria-current="page"' : ''}>${escapeHtml(name)}</a>`).join('\n          ')}
+          <summary aria-label="${t('Language')}"><span aria-hidden="true">◍</span><span class="lang-label">${t('Language')}</span></summary>
+          <div class="language-menu">
+            ${languageLinks}
+          </div>
         </details>
-        <div class="sidebar-meta"><span>${t('Community Build')}</span><span>${t('Privacy First')}</span></div>
-      </aside>
-      <main class="content-panel${slug === 'download' || slug === 'mobile' ? ' download-panel' : ''}">
-        <section class="content-body">${content}</section>
-        <footer><nav aria-label="${t('Footer navigation')}">${nav}</nav><em><a href="https://github.com/StateAntigen/deadwax/blob/main/LICENSE">${t('Deadwax is FLOSS — MIT License')}</a></em></footer>
-      </main>
+        <a class="button button-primary button-compact" href="download.html">${t('Download')}</a>
+      </div>
     </div>
-  </div>
+  </header>
+  <main id="main" class="page-main">
+    <div class="content-body">${content}</div>
+  </main>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="brand-word">deadwax</span>
+        <p class="footer-quote">${t('Owning something means you are free to share and pass it on.')}</p>
+      </div>
+      <nav class="footer-nav" aria-label="${t('Footer navigation')}">${nav}</nav>
+      <div class="footer-links">
+        <a href="https://github.com/StateAntigen/deadwax">${t('Source code')}</a>
+        <a href="https://github.com/StateAntigen/deadwax/blob/main/LICENSE">${t('MIT License')}</a>
+        <a href="https://github.com/StateAntigen/deadwax/releases">${t('Releases')}</a>
+        <a href="nostr.html">${t('Nostr')}</a>
+        <a href="tor.html">${t('Tor')}</a>
+      </div>
+    </div>
+    <div class="footer-baseline">
+      <span class="mono">DEADWAX.RIP</span>
+      <span>${t('No tracker. No account. No master.')}</span>
+      <span class="footer-badges"><span>${t('Community Build')}</span><span>${t('Privacy First')}</span></span>
+    </div>
+  </footer>
 </body>
 </html>`;
 }

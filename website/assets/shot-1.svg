@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <radialGradient id="disc" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#1b2732"/>
+      <stop offset="1" stop-color="#0a1015"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="#0a1016"/>
+  <rect width="1200" height="52" fill="#0f1720"/>
+  <circle cx="26" cy="26" r="6" fill="#2b3944"/><circle cx="46" cy="26" r="6" fill="#2b3944"/><circle cx="66" cy="26" r="6" fill="#2b3944"/>
+  <text x="1176" y="31" text-anchor="end" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" letter-spacing="2" fill="#3d4b57">PLACEHOLDER</text>
+
+  <rect x="60" y="110" width="360" height="360" rx="14" fill="url(#disc)"/>
+  <circle cx="240" cy="290" r="112" fill="#0b1117" stroke="#2f3f4a" stroke-width="2"/>
+  <circle cx="240" cy="290" r="14" fill="#43e5a0" fill-opacity=".55"/>
+
+  <rect x="470" y="128" width="420" height="28" rx="6" fill="#33424f"/>
+  <rect x="470" y="176" width="260" height="18" rx="6" fill="#1f2a35"/>
+  <rect x="470" y="212" width="150" height="14" rx="6" fill="#1a242e"/>
+
+  <g fill="#1f2a35">
+    <rect x="470" y="300" width="6" height="60" rx="3"/><rect x="486" y="288" width="6" height="84" rx="3"/>
+    <rect x="502" y="304" width="6" height="52" rx="3"/><rect x="518" y="278" width="6" height="104" rx="3"/>
+    <rect x="534" y="296" width="6" height="68" rx="3"/><rect x="550" y="270" width="6" height="120" rx="3"/>
+    <rect x="566" y="292" width="6" height="76" rx="3"/><rect x="582" y="284" width="6" height="92" rx="3"/>
+    <rect x="598" y="302" width="6" height="56" rx="3"/><rect x="614" y="276" width="6" height="108" rx="3"/>
+    <rect x="630" y="298" width="6" height="64" rx="3"/><rect x="646" y="286" width="6" height="88" rx="3"/>
+    <rect x="662" y="306" width="6" height="48" rx="3"/><rect x="678" y="280" width="6" height="100" rx="3"/>
+    <rect x="694" y="300" width="6" height="60" rx="3"/><rect x="710" y="290" width="6" height="80" rx="3"/>
+    <rect x="726" y="308" width="6" height="44" rx="3"/><rect x="742" y="282" width="6" height="96" rx="3"/>
+    <rect x="758" y="298" width="6" height="64" rx="3"/><rect x="774" y="288" width="6" height="84" rx="3"/>
+    <rect x="790" y="304" width="6" height="52" rx="3"/><rect x="806" y="274" width="6" height="112" rx="3"/>
+    <rect x="822" y="296" width="6" height="68" rx="3"/><rect x="838" y="286" width="6" height="88" rx="3"/>
+    <rect x="854" y="302" width="6" height="56" rx="3"/><rect x="870" y="278" width="6" height="104" rx="3"/>
+    <rect x="886" y="300" width="6" height="60" rx="3"/><rect x="902" y="292" width="6" height="76" rx="3"/>
+  </g>
+  <g fill="#43e5a0" fill-opacity=".7">
+    <rect x="518" y="278" width="6" height="40" rx="3"/><rect x="550" y="270" width="6" height="46" rx="3"/>
+    <rect x="614" y="276" width="6" height="42" rx="3"/><rect x="678" y="280" width="6" height="38" rx="3"/>
+    <rect x="742" y="282" width="6" height="36" rx="3"/><rect x="806" y="274" width="6" height="44" rx="3"/>
+    <rect x="870" y="278" width="6" height="40" rx="3"/>
+  </g>
+
+  <rect x="470" y="410" width="560" height="6" rx="3" fill="#1a242e"/>
+  <rect x="470" y="410" width="286" height="6" rx="3" fill="#43e5a0"/>
+
+  <g>
+    <circle cx="500" cy="470" r="18" fill="#1b2732"/>
+    <circle cx="570" cy="470" r="26" fill="#43e5a0"/>
+    <circle cx="650" cy="470" r="18" fill="#1b2732"/>
+    <circle cx="720" cy="470" r="18" fill="#1b2732"/>
+    <rect x="1000" y="458" width="60" height="24" rx="6" fill="#16202a"/>
+  </g>
+
+  <rect x="60" y="600" width="1080" height="150" rx="14" fill="#0d151c"/>
+  <rect x="92" y="636" width="220" height="16" rx="4" fill="#2b3945"/>
+  <rect x="92" y="668" width="140" height="12" rx="4" fill="#1c2630"/>
+  <rect x="700" y="636" width="120" height="14" rx="4" fill="#1f2a35"/>
+  <rect x="700" y="668" width="90" height="14" rx="4" fill="#1f2a35"/>
+  <rect x="900" y="630" width="210" height="40" rx="8" fill="none" stroke="#2b3944"/>
+</svg>

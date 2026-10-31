@@ -5,7 +5,7 @@ import { languages, direction, translate } from '../shared/i18n/core.js';
 import { pages, template, escapeHtml, pageUrl, siteOrigin } from './template.mjs';
 
 export const websiteRoot = fileURLToPath(new URL('.', import.meta.url));
-const untranslated = /^(Deadwax|DEADWAX|Nostr|Tor|Iroh|Windows|Linux|macOS|Android|iOS|Apple Silicon|Intel|SHA-256|NIP-\d+|https?:.*|NAPSTR_TOR_PATH|tor|\d.*)$/;
+const untranslated = /^(Deadwax|DEADWAX|DEADWAX DOT RIP|DEADWAX COMPANION|Nostr|Tor|Iroh|Windows|Linux|macOS|Android|iOS|Apple Silicon|Intel|SHA-256|NIP-\d+|https?:.*|NAPSTR_TOR_PATH|tor|\d.*)$/;
 export function isCopy(value) { return /[A-Za-z]/.test(value) && !untranslated.test(value); }
 
 export function renderContent(source, t, language) {

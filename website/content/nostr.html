@@ -1,4 +1,15 @@
-<h1>How Deadwax Uses Nostr</h1>
+<header class="page-head">
+              <p class="kicker">Under the hood</p>
+              <h1>How Deadwax finds music</h1>
+              <p class="section-lead">
+                Nostr is the public index: signed lists of what people are willing to share. The
+                audio never goes near it. None of this is required reading, but the plumbing is
+                here if you want to check it.
+              </p>
+            </header>
+
+            <div class="article">
+
             <p class="protocol-lead">
               Nostr is Deadwax’s public discovery layer and encrypted negotiation channel.
               Audio bytes are never uploaded to Nostr relays.
@@ -32,6 +43,8 @@
                   <tr><td>10050</td><td>NIP-17 inbox relay list</td><td>Public</td></tr>
                   <tr><td>30421</td><td>Signed track catalogue record</td><td>Public</td></tr>
                   <tr><td>30422</td><td>Expiring batches of file IDs currently being seeded</td><td>Public</td></tr>
+                  <tr><td>30425</td><td>Signed playlist of track file IDs</td><td>Public</td></tr>
+                  <tr><td>30427</td><td>Album cover claim keyed by artist and album</td><td>Public</td></tr>
                   <tr><td>NIP-17</td><td>Download request, refusal, onion address and capability</td><td>Encrypted gift wrap</td></tr>
                   <tr><td>1984</td><td>NIP-56 catalogue reports</td><td>Public and signed</td></tr>
                 </tbody>
@@ -67,3 +80,5 @@
                 Deadwax stores its dedicated Nostr key in the operating-system keyring.
               </p>
             </section>
+
+            </div>
