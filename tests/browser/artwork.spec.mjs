@@ -247,7 +247,7 @@ test('Deadwax artwork recovers from a transient host failure while the screen st
   await serveHeldArtwork(page);
   await page.goto('http://127.0.0.1:15174');
   await page.clock.runFor(500);
-  await expect(page.locator('.track-row .artwork img')).toHaveClass('fallback');
+  await expect(page.locator('.track-row .artwork .fallback-note')).toBeVisible();
   expect(await askCount(page)).toBe(1);
   // A request that failed is not an answer, so the tile asks again on its own
   // bounded retry rather than accepting that the album has no cover.
@@ -270,6 +270,6 @@ test('Deadwax artwork gives up after three tries, so a dead host is not polled f
     await page.clock.runFor(61_000);
     await page.clock.runFor(500);
   }
-  await expect(page.locator('.track-row .artwork img')).toHaveClass('fallback');
+  await expect(page.locator('.track-row .artwork .fallback-note')).toBeVisible();
   expect(await askCount(page)).toBe(3);
 });

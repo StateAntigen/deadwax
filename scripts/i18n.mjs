@@ -13,8 +13,10 @@ const dynamicKeys = [
   'Technology', 'History', 'Business', 'Science', 'Arts', 'Sports', 'Education', 'Music',
   'Play all', 'Play random', 'Repeat track', 'Play once',
   // The covers list names a row's state from a function, so the words are not
-  // literal arguments to `$t` and have to be declared here.
-  'Held here', 'Lookup failed', 'Nobody has one', 'Found, not fetched', 'Not looked up yet'
+  // literal arguments to `$t` and have to be declared here. Its column headings
+  // are the same case: they live in an array that the header is drawn from.
+  'Held here', 'Lookup failed', 'Nobody has one', 'Found, not fetched', 'Not looked up yet',
+  'Album', 'Artist', 'Picture', 'Signed by', 'Last try'
 ];
 
 export async function requiredMessages() {

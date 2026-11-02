@@ -1659,21 +1659,30 @@
    * The album list.
    *
    * The tab used to be four panels that each answered a different half-question,
-   * which is why it read as disjointed. It is one list now, sorted five ways, with
-   * the pass's own log underneath it: every album this computer knows about, what
-   * it holds, and who signed the picture it uses.
+   * which is why it read as disjointed. It is one list now, with the pass's own
+   * log underneath it: every album this computer knows about, what it holds, and
+   * who signed the picture it uses.
    */
   type CoverRow = { key: string; artist: string; album: string; held: boolean; thumb: boolean; outcome: string; signedBy: string; reason: string };
   type CoverInventory = { rows: CoverRow[]; total: number };
   const COVER_PAGE_SIZE = 20;
-  const coverSorts = [
-    { id: 'missing' as const, label: 'Missing art' },
-    { id: 'held' as const, label: 'Art held here' },
-    { id: 'claimed' as const, label: 'Signed by somebody' },
-    { id: 'failed' as const, label: 'Lookups that failed' },
-    { id: 'album' as const, label: 'A–Z' },
+  /**
+   * The columns, in the order they are drawn.
+   *
+   * These were five buttons that replaced the list under you. A column is the
+   * same five questions asked the way a list answers them: click to sort by it,
+   * click again to turn it round. `id` is what the host orders by, `label` what
+   * the header says.
+   */
+  const coverColumns = [
+    { id: 'album' as const, label: 'Album' },
+    { id: 'artist' as const, label: 'Artist' },
+    { id: 'picture' as const, label: 'Picture' },
+    { id: 'signed' as const, label: 'Signed by' },
+    { id: 'reason' as const, label: 'Last try' },
   ];
-  let coverSort: (typeof coverSorts)[number]['id'] = 'missing';
+  let coverSort: (typeof coverColumns)[number]['id'] = 'album';
+  let coverSortAsc = true;
   let coverPageIndex = 0;
   let coverInventory: CoverInventory = { rows: [], total: 0 };
 
@@ -1686,9 +1695,14 @@
     return 'Not looked up yet';
   }
 
-  function setCoverSort(sort: (typeof coverSorts)[number]['id']) {
-    if (coverSort === sort) return;
-    coverSort = sort;
+  function sortCoversBy(column: (typeof coverColumns)[number]['id']) {
+    if (coverSort === column) coverSortAsc = !coverSortAsc;
+    else {
+      coverSort = column;
+      // Text reads A-Z first; a state column reads "the ones that are missing"
+      // first, which is the reason anybody opens this list.
+      coverSortAsc = true;
+    }
     coverPageIndex = 0;
     void refreshCoverInventory();
   }
@@ -1704,6 +1718,7 @@
     try {
       coverInventory = await invoke<CoverInventory>('cover_inventory', {
         sort: coverSort,
+        descending: !coverSortAsc,
         offset: coverPageIndex * COVER_PAGE_SIZE,
         limit: COVER_PAGE_SIZE,
       });
@@ -4690,10 +4705,7 @@
             one at a time, because six panels stacked with a paragraph under each
             is a wall rather than a page.
           -->
-          <div
-            class="cover-summary"
-            title={'Albums the worker is dealing with, pictures this computer holds for your phones and what they take on disk, albums whose pictures it has not fetched yet, and albums of your own music with no cover claim. Everything long-winded about this tab is in a tooltip on the thing it is about.'}
-          >
+          <div class="cover-summary">
             <span>{#if coverStatus?.running}<b>{(coverStatus?.remaining ?? 0).toLocaleString()}</b>{' of '}{(coverStatus?.pending ?? 0).toLocaleString()}{' this pass'}{:else}<b>{(coverStatus?.pending ?? 0).toLocaleString()}</b>{' in the last pass'}{/if}</span>
             <span><b>{(coverStatus?.artCached ?? 0).toLocaleString()}</b>{' '}{(coverStatus?.artCached ?? 0) === 1 ? 'picture' : 'pictures'}</span>
             <span>{readableBytes(coverStatus?.artBytes ?? 0)}</span>
@@ -4701,12 +4713,6 @@
             <span><b>{coverMissing.length.toLocaleString()}</b>{' '}{coverMissing.length === 1 ? 'album' : 'albums'}{' without a claim'}</span>
             {#if coverStatus?.current}<span class="cover-summary-current" title={$t("Working on")}>{coverStatus.current}</span>{/if}
             <button class="cover-summary-refresh" onclick={() => void refreshCovers()} disabled={coverLoading} title={$t("Refresh")}>{coverLoading ? '…' : '⟳'}</button>
-          </div>
-
-          <div class="cover-subtabs" role="group" aria-label={$t("Sort the album list")}>
-            {#each coverSorts as option}
-              <button class="cover-subtab" class:active={coverSort === option.id} aria-pressed={coverSort === option.id} onclick={() => setCoverSort(option.id)}>{$t(option.label)}</button>
-            {/each}
           </div>
 
           <div class="cover-panel-body">
@@ -4717,14 +4723,19 @@
             {#if coverInventory.rows.length > 0}
               <div class="table-wrap">
                 <table class="file-table cover-table">
-                  <thead><tr><th>{$t("Album")}</th><th>{$t("Picture")}</th><th>{$t("Signed by")}</th><th>{$t("Last try")}</th></tr></thead>
+                  <thead><tr>
+                    {#each coverColumns as column}
+                      <th aria-sort={coverSort === column.id ? (coverSortAsc ? 'ascending' : 'descending') : 'none'}><button type="button" class="sort-head" onclick={() => sortCoversBy(column.id)}>{$t(column.label)}{coverSort === column.id ? (coverSortAsc ? ' ▲' : ' ▼') : ''}</button></th>
+                    {/each}
+                  </tr></thead>
                   <tbody>
                   {#each coverInventory.rows as row (row.key)}
                     <tr>
-                      <td><b>{row.album || row.key}</b><small>{row.artist}</small></td>
+                      <td title={row.album || row.key}>{row.album || row.key}</td>
+                      <td title={row.artist}>{row.artist || '—'}</td>
                       <td><i class="playlist-badge" class:amber={!row.held && Boolean(row.reason)}>{$t(coverRowState(row))}</i></td>
                       <td>{#if row.signedBy}<code title={row.signedBy}>{shortKey(row.signedBy)}</code>{:else}<span class="cover-dash">—</span>{/if}</td>
-                      <td><small title={row.reason}>{row.reason || '—'}</small></td>
+                      <td title={row.reason}>{row.reason || '—'}</td>
                     </tr>
                   {/each}
                 </tbody>

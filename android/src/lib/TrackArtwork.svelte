@@ -81,5 +81,5 @@
        the cover is read off them: a picture from another origin taints the canvas
        unless it was fetched as a CORS request. The app serves its own pictures and
        sends the header that allows one, so this costs a fetch and nothing else. -->
-  {#if image && !failed}<img src={image} alt="" crossorigin="anonymous" onerror={imageFailed} onload={(event) => rememberCoverColours(track.fileId, event.currentTarget as HTMLImageElement)} />{:else}<img class="fallback" src="/deadwax-logo-small.png" alt="" />{/if}
+  {#if image && !failed}<img src={image} alt="" crossorigin="anonymous" onerror={imageFailed} onload={(event) => rememberCoverColours(track.fileId, event.currentTarget as HTMLImageElement)} />{:else}<span class="fallback-note" aria-hidden="true">♪</span>{/if}
 </div>

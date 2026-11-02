@@ -15,8 +15,8 @@ export const credentialNames = [
   'APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_SPECIFIC_PASSWORD'
 ];
 const products = {
-  napstr: { directory: root, name: 'Deadwax', client: 'desktop', binary: 'napstr', identifier: 'social.deadwax.desktop' },
-  napstrfy: { directory: join(root, 'android'), name: 'Deadwax', client: 'companion', binary: 'napstrfy', identifier: 'net.deadwax.app' }
+  napstr: { directory: root, name: 'Deadwax', client: 'desktop', binary: 'deadwax', identifier: 'social.deadwax.desktop' },
+  napstrfy: { directory: join(root, 'android'), name: 'Deadwax Companion', client: 'companion', binary: 'deadwax-companion', identifier: 'net.deadwax.app' }
 };
 const profile = 'napstr-notarization';
 const machMagic = new Set(['feedface', 'cefaedfe', 'feedfacf', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca']);
@@ -495,9 +495,9 @@ export async function main(args = process.argv.slice(2)) {
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.test(version)) throw new Error('Invalid application version');
   product.bundleVersion = version.split('-')[0];
   const outputDir = join(targetDir, 'macos-release', options.signed ? 'signed' : 'unsigned');
-  // Both Tauri products now call themselves Deadwax, so the file name - and
-  // therefore the release asset - has to say which client it belongs to.
-  const output = join(outputDir, `${product.name}${product.client === 'companion' ? '-Companion' : ''}_${version}_${expectedArch}.dmg`);
+  // Both clients ship from their own product name now, and the release asset has
+  // to say which one it belongs to whatever those names are.
+  const output = join(outputDir, `${product.client === 'companion' ? 'Deadwax-Companion' : product.name}_${version}_${expectedArch}.dmg`);
   await session.begin();
   const interrupt = () => { runner.interrupted = true; runner.stopChild(); };
   process.on('SIGINT', interrupt);

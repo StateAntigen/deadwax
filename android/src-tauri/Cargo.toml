@@ -11,7 +11,7 @@ name = "nostrfy_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "nostrfy"
+name = "deadwax-companion"
 path = "src/main.rs"
 
 [build-dependencies]

@@ -7597,7 +7597,7 @@
     onclickcapture={swallowLikedSwipeClick}
   >
     {#if !loading && !searchingNetwork && tracks.length === 0}
-      <div class="empty-library"><img src="/deadwax-logo-small.png" alt="" /><h2>{emptyTitle}</h2><p>{emptyHint}</p></div>
+      <div class="empty-library"><h2>{emptyTitle}</h2><p>{emptyHint}</p></div>
     {/if}
     {#each tracks as track (track.fileId)}
       {@render trackRow(track)}
@@ -8065,7 +8065,7 @@
           </section>
         {:else}
           <section class="library-heading">
-            <div><p>{$t("YOUR DEADWAX")}</p><h1>{$t("Audiobooks")}</h1></div>
+            <div><h1>{$t("Audiobooks")}</h1></div>
             <span>{audiobookTotal} {audiobookTotal === 1 ? 'book' : 'books'}</span>
           </section>
           <section class="audiobook-list" aria-busy={audiobookLoading}>
@@ -8367,7 +8367,7 @@
         {:else}
           <section class="playlist-view" aria-busy={playlistsLoading}>
             <header class="library-heading">
-              <div><p>{$t("YOUR DEADWAX")}</p><h1>{$t("Playlists")}</h1></div>
+              <div><h1>{$t("Playlists")}</h1></div>
               <button class="playlist-new" onclick={() => void newPlaylist()} aria-label={$t("New playlist")}>+</button>
             </header>
 
@@ -9221,7 +9221,7 @@
 {/if}
 
 {#if showReport}
-  <div class="report-view" role="dialog" aria-modal="true" aria-label={$t("Report a cover")}>
+  <div class="report-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Report a cover")}>
     <button class="actions-scrim" onclick={() => (showReport = false)} aria-label={$t("Close the report")}></button>
     <div class="actions-panel report-panel">
       <div class="report-head">
@@ -9251,7 +9251,7 @@
 {/if}
 
 {#if showSourceOptions && !showActions}
-  <div class="actions-view" role="dialog" aria-modal="true" aria-label={$t("Where to play")}>
+  <div class="actions-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Where to play")}>
     <button class="actions-scrim" onclick={() => (showSourceOptions = false)} aria-label={$t("Close the source picker")}></button>
     <div class="actions-panel">
       <div class="actions-head">
@@ -9332,7 +9332,7 @@
 {/if}
 
 {#if showPlaylistDelete && playlistDraft}
-  <div class="actions-view" role="dialog" aria-modal="true" aria-label={$t("Delete this playlist?")}>
+  <div class="actions-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Delete this playlist?")}>
     <button class="actions-scrim" onclick={() => (showPlaylistDelete = false)} aria-label={$t("Cancel")}></button>
     <div class="actions-panel">
       <div class="actions-head">
@@ -9355,7 +9355,7 @@
 {/if}
 
 {#if showPlaylistSort}
-  <div class="actions-view" role="dialog" aria-modal="true" aria-label={$t("Sort")}>
+  <div class="actions-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Sort")}>
     <button class="actions-scrim" onclick={() => (showPlaylistSort = false)} aria-label={$t("Close the sort options")}></button>
     <div class="actions-panel">
       <div class="actions-head">
@@ -9371,7 +9371,7 @@
 {/if}
 
 {#if pickerTrack}
-  <div class="actions-view" role="dialog" aria-modal="true" aria-label={$t("Add to playlist")}>
+  <div class="actions-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Add to playlist")}>
     <button class="actions-scrim" onclick={closePlaylistPicker} aria-label={$t("Close the playlist picker")}></button>
     <div class="actions-panel">
       <div class="actions-head">
@@ -9493,7 +9493,7 @@
 {/if}
 
 {#if showActions && menuTrack}
-  <div class="actions-view" role="dialog" aria-modal="true" aria-label={$t("Track options")}>
+  <div class="actions-view" class:desktop={desktopShell} role="dialog" aria-modal="true" aria-label={$t("Track options")}>
     <button class="actions-scrim" onclick={closeActions} aria-label={$t("Close the track options")}></button>
     <div class="actions-panel">
       <div class="actions-head">

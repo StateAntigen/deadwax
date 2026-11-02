@@ -3026,11 +3026,12 @@ fn cover_missing(
 #[tauri::command]
 fn cover_inventory(
     sort: String,
+    descending: bool,
     offset: i64,
     limit: i64,
     state: State<'_, AppState>,
 ) -> Result<crate::cover::CoverInventory, String> {
-    crate::cover::cover_inventory(&open_db(&state)?, &sort, offset, limit)
+    crate::cover::cover_inventory(&open_db(&state)?, &sort, descending, offset, limit)
 }
 
 /// Albums the results pane is showing, reported as it draws them.

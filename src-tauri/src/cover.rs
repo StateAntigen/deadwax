@@ -1330,22 +1330,37 @@ pub(crate) struct CoverInventory {
 pub(crate) fn cover_inventory(
     connection: &Connection,
     sort: &str,
+    descending: bool,
     offset: i64,
     limit: i64,
 ) -> Result<CoverInventory, String> {
-    let order = match sort {
-        "missing" => "held ASC, key",
-        "failed" => "reason <> '' DESC, key",
-        "claimed" => "signed_by <> '' DESC, key",
-        "held" => "held DESC, key",
-        _ => "key",
+    // One expression per column a person can click, so the list is a list rather
+    // than five saved questions: "missing art" and "art held here" are the two
+    // directions of the Picture column, "signed by somebody" is the Signed by
+    // column, "lookups that failed" is the Last try column, and A-Z is Album.
+    let column = match sort {
+        "artist" => "artist COLLATE NOCASE",
+        "picture" => "CASE WHEN held THEN 1 ELSE 0 END",
+        "signed" => "CASE WHEN signed_by <> '' THEN 1 ELSE 0 END",
+        "reason" => "CASE WHEN reason <> '' THEN 1 ELSE 0 END",
+        _ => "album COLLATE NOCASE",
     };
+    let direction = if descending { "DESC" } else { "ASC" };
+    // `key` breaks every tie, so a page never repeats or skips a row while the
+    // column it is ordered by holds the same value either side of a boundary.
+    let order = format!("{column} {direction}, key ASC");
     let rows_sql = format!(
         "WITH keys AS (
            SELECT cover_key FROM album_art_lookups
            UNION SELECT cover_key FROM album_covers WHERE deleted = 0
          ), rows AS (
            SELECT k.cover_key AS key,
+                  CASE WHEN instr(k.cover_key, '|') > 0
+                       THEN substr(k.cover_key, 1, instr(k.cover_key, '|') - 1)
+                       ELSE k.cover_key END AS artist,
+                  CASE WHEN instr(k.cover_key, '|') > 0
+                       THEN substr(k.cover_key, instr(k.cover_key, '|') + 1)
+                       ELSE '' END AS album,
                   EXISTS(SELECT 1 FROM art_cache c WHERE c.cover_key = k.cover_key) AS held,
                   EXISTS(SELECT 1 FROM art_cache c WHERE c.cover_key = k.cover_key AND c.rendition = 'thumb') AS thumb,
                   COALESCE((SELECT outcome FROM album_art_lookups l WHERE l.cover_key = k.cover_key), '') AS outcome,
@@ -1357,7 +1372,7 @@ pub(crate) fn cover_inventory(
                              ORDER BY g.id DESC LIMIT 1), '') AS reason
              FROM keys k
          )
-         SELECT key, held, thumb, outcome, signed_by, reason FROM rows ORDER BY {order} LIMIT ?1 OFFSET ?2"
+         SELECT key, artist, album, held, thumb, outcome, signed_by, reason FROM rows ORDER BY {order} LIMIT ?1 OFFSET ?2"
     );
     let total: i64 = connection
         .query_row(
@@ -1366,7 +1381,7 @@ pub(crate) fn cover_inventory(
                UNION SELECT cover_key FROM album_covers WHERE deleted = 0
              ) SELECT COUNT(*) FROM keys",
             [],
-            |row| row.get(0),
+            |row| row.get::<_, i64>(0),
         )
         .map_err(|error| error.to_string())?;
     let mut statement = connection
@@ -1374,20 +1389,15 @@ pub(crate) fn cover_inventory(
         .map_err(|error| error.to_string())?;
     let rows = statement
         .query_map(params![limit.max(1), offset.max(0)], |row| {
-            let key: String = row.get(0)?;
-            let (artist, album) = key
-                .split_once('|')
-                .map(|(artist, album)| (artist.to_string(), album.to_string()))
-                .unwrap_or_else(|| (key.clone(), String::new()));
             Ok(CoverRow {
-                key,
-                artist,
-                album,
-                held: row.get::<_, i64>(1)? != 0,
-                thumb: row.get::<_, i64>(2)? != 0,
-                outcome: row.get(3)?,
-                signed_by: row.get(4)?,
-                reason: row.get(5)?,
+                key: row.get(0)?,
+                artist: row.get(1)?,
+                album: row.get(2)?,
+                held: row.get::<_, i64>(3)? != 0,
+                thumb: row.get::<_, i64>(4)? != 0,
+                outcome: row.get(5)?,
+                signed_by: row.get(6)?,
+                reason: row.get(7)?,
             })
         })
         .map_err(|error| error.to_string())?
@@ -2163,6 +2173,72 @@ mod tests {
         assert_eq!(drawn.len(), 1);
         assert_eq!(drawn[0].key, album);
         assert!(drawn[0].art.contains("mzstatic"), "the claim's own address");
+    }
+
+    /// The list is ordered by the column somebody clicked, both ways round.
+    ///
+    /// The five buttons this replaced were five fixed questions; the columns ask
+    /// the same five of the same rows, so the sorting has to agree with what a
+    /// header claims. Album and Artist are different orders on purpose here,
+    /// because sorting by `key` would have passed a test that sorted by artist
+    /// when it said album.
+    #[test]
+    fn the_album_list_is_ordered_by_the_column_that_was_clicked() {
+        let connection = cover_database();
+        let keys = Keys::generate();
+        for (key, art) in [
+            ("zebra|first album", "https://example.com/z.jpg"),
+            ("ant|last album", "https://example.com/a.jpg"),
+            ("moth|middle album", "https://example.com/m.jpg"),
+        ] {
+            store_cover_events(
+                &connection,
+                &[(
+                    key.to_string(),
+                    signed_event(
+                        &keys,
+                        key,
+                        serde_json::json!({
+                            "protocol": "napstr/1",
+                            "art": art,
+                            "mbid": "f4a7b0d2-0000-0000-0000-000000000000",
+                            "year": "2007",
+                            "genre": "Rock",
+                            "collection": "A record",
+                        }),
+                    ),
+                )],
+            )
+            .unwrap();
+        }
+        let albums = |sort: &str, descending: bool| {
+            cover_inventory(&connection, sort, descending, 0, 20)
+                .unwrap()
+                .rows
+                .into_iter()
+                .map(|row| row.album)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            albums("album", false),
+            vec!["first album", "last album", "middle album"]
+        );
+        assert_eq!(
+            albums("album", true),
+            vec!["middle album", "last album", "first album"]
+        );
+        assert_eq!(
+            albums("artist", false),
+            vec!["last album", "middle album", "first album"],
+            "ant, moth, zebra - and the album names are in a different order, so \
+             this cannot pass by sorting the key"
+        );
+        // The key is split into its two halves for the row, rather than left for
+        // the window to parse.
+        let first = cover_inventory(&connection, "artist", false, 0, 1).unwrap();
+        assert_eq!(first.rows[0].artist, "ant");
+        assert_eq!(first.rows[0].album, "last album");
     }
 
     fn signed_event(keys: &Keys, key: &str, content: serde_json::Value) -> Event {

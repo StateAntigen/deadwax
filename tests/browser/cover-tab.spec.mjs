@@ -241,6 +241,8 @@ const busy = {
 
 test('the Covers tab is a summary line and one list, sorted five ways', async ({ page }) => {
   await openCovers(page, busy);
+  const calls = (page_, cmd) =>
+    page_.evaluate((name) => window.calls.filter((call) => call.cmd === name).map((call) => call.args), cmd);
   // The numbers somebody actually came for are together, in one line, and each
   // one says what it counts: a pass position, the pictures held and what they
   // take, the albums still to fetch, and the albums of this computer's own music
@@ -252,19 +254,41 @@ test('the Covers tab is a summary line and one list, sorted five ways', async ({
   await expect(summary).toContainText('96 albums to fetch');
   await expect(summary).toContainText('4 albums without a claim');
 
-  // Every album this computer knows about is one paged list, and the five sorts
-  // are the questions a person actually has of it.
+  // Every album this computer knows about is one paged list, and its columns are
+  // the questions a person actually has of it: sorting by a column replaces the
+  // five buttons that used to replace the list under them.
   await expect(page.locator('.cover-table tbody tr')).toHaveCount(2);
   await expect(page.locator('.cover-table')).toContainText('Machine Head');
   await expect(page.locator('.cover-table')).toContainText('Held here');
   await expect(page.locator('.cover-table')).toContainText('Lookup failed');
-  await expect(page.locator('.cover-subtab')).toHaveText([
-    'Missing art',
-    'Art held here',
-    'Signed by somebody',
-    'Lookups that failed',
-    'A–Z',
+  await expect(page.locator('.cover-table thead th')).toHaveText([
+    'Album ▲',
+    'Artist',
+    'Picture',
+    'Signed by',
+    'Last try',
   ]);
+  await expect(page.locator('.cover-subtab')).toHaveCount(0);
+  // One line a row: five cells, and the artist has a column of its own rather
+  // than a second line under the album.
+  const firstRow = page.locator('.cover-table tbody tr').first();
+  await expect(firstRow.locator('td')).toHaveCount(5);
+  await expect(firstRow.locator('td').nth(1)).toHaveText('Deep Purple');
+
+  // Sorting is the column's own job, and it asks the host rather than reordering
+  // the twenty rows it happens to be holding.
+  await page.locator('.cover-table thead th', { hasText: 'Picture' }).locator('button').click();
+  await expect
+    .poll(async () => (await calls(page, 'cover_inventory')).at(-1)?.sort)
+    .toBe('picture');
+  await expect
+    .poll(async () => (await calls(page, 'cover_inventory')).at(-1)?.descending)
+    .toBe(false);
+  await page.locator('.cover-table thead th', { hasText: 'Picture' }).locator('button').click();
+  await expect
+    .poll(async () => (await calls(page, 'cover_inventory')).at(-1)?.descending)
+    .toBe(true);
+
   // The pass's own log is underneath it, always, rather than behind a tab.
   await expect(page.locator('.cover-log-list')).toBeVisible();
   // Nothing in the tab is a paragraph any more: every explanation is a title on

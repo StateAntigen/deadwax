@@ -192,3 +192,25 @@ test('a cover with no colour in it leaves the app’s own colour in place', asyn
   expect(await sheetAccent(page)).toBe('');
   expect(await barFill(page)).toBe(await paintOf(page, 'rgba(122, 222, 206, .2)'));
 });
+
+test('a track with no picture draws a note rather than the app’s logo', async ({ page }) => {
+  // No cover is served at all, so every tile is the placeholder.
+  await mockNative(page, { platform: 'android' });
+  await page.route('**/fixture.wav', serveAudio);
+  await page.goto('http://127.0.0.1:15174');
+
+  const tile = page.locator('.track-list .artwork').first();
+  await expect(tile).toBeVisible();
+  // The mark is the app's, not the music's: repeated down a list of albums it read
+  // as a list of logos, which is why the placeholder is a note.
+  await expect(tile.locator('.fallback-note')).toHaveText('♪');
+  await expect(tile.locator('img')).toHaveCount(0);
+  // A note, not a missing image: it is drawn, and it fills the tile.
+  const size = await tile.evaluate((node) => {
+    const note = node.querySelector('.fallback-note');
+    const box = node.getBoundingClientRect();
+    const noteBox = note?.getBoundingClientRect();
+    return { tile: Math.round(box.width), note: Math.round(noteBox?.width ?? 0) };
+  });
+  expect(size.note, 'the placeholder is the whole tile').toBe(size.tile);
+});

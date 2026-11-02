@@ -1640,3 +1640,11 @@ input:focus, select:focus, textarea:focus {
 .playlist-delete { display: inline-flex; align-items: center; gap: 6px; }
 .playlist-delete svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .playlist-delete:hover:not(:disabled) { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
+/* The album list is a list: one line a row, one column a question. */
+.cover-table td, .cover-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cover-table th:nth-child(1), .cover-table td:nth-child(1) { width: 30%; }
+.cover-table th:nth-child(2), .cover-table td:nth-child(2) { width: 22%; }
+.cover-table th:nth-child(3), .cover-table td:nth-child(3) { width: 16%; }
+.cover-table th:nth-child(4), .cover-table td:nth-child(4) { width: 14%; }
+.cover-table td:nth-child(5) { color: var(--dim); }
+.cover-table .playlist-badge { white-space: nowrap; }

@@ -28,6 +28,17 @@ async function openPlaylist(page) {
   await page.getByRole('button', { name: 'Open the playlist' }).click();
 }
 
+/** The track menu, which is a bottom sheet on a phone and a column in a window. */
+async function openTrackMenu(page) {
+  await page.locator('.track-row .track-more').first().click();
+}
+
+/** Its discussion, reached from the same menu. */
+async function openDiscussion(page) {
+  await openTrackMenu(page);
+  await page.getByRole('button', { name: 'Track discussion', exact: true }).click();
+}
+
 /**
  * The bottom of the phone screen: the player bar and the nav. Neither has an
  * edge of its own any more - the bar is a card, and the nav's colour fades in -
@@ -107,7 +118,11 @@ const slack = 20;
 
 for (const [name, open, selector] of [
   ['the album preview', openAlbumView, '.album-view'],
-  ['the playlist', openPlaylist, '.queue-view']
+  ['the playlist', openPlaylist, '.queue-view'],
+  // A bottom sheet on a phone, and the same mistake on a window: the scrim used
+  // to run under the sidebar and the player, so a menu covered the whole screen.
+  ['the track menu', openTrackMenu, '.actions-view'],
+  ['the track discussion', openDiscussion, '.discussion-view']
 ]) {
   test(`Deadwax desktop holds ${name} between the sidebar and the player`, async ({ page }) => {
     await page.setViewportSize({ width: 1180, height: 810 });

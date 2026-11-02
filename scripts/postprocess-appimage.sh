@@ -30,8 +30,8 @@ trap 'rm -rf -- "$work_dir"' EXIT
 )
 
 app_dir="$work_dir/squashfs-root"
-if [[ ! -x "$app_dir/usr/bin/napstr" ]]; then
-  echo "The AppImage does not contain usr/bin/napstr" >&2
+if [[ ! -x "$app_dir/usr/bin/deadwax" ]]; then
+  echo "The AppImage does not contain usr/bin/deadwax" >&2
   exit 1
 fi
 
