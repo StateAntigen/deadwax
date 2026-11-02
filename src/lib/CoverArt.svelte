@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { artUrl, coverFor, drawsFromDisk, type AlbumCover } from '$lib/artwork';
+  import { artUrl, coverFor, drawsFromDisk, imageUrl, type AlbumCover } from '$lib/artwork';
 
   /**
    * One album's artwork, resolved by the host.
@@ -19,8 +19,8 @@
   export let revision = 0;
 
   let cover: AlbumCover | null = null;
-  let failed = false;
-  /** The copy on this computer could not be read, so the address is drawn. */
+  let src = '';
+  /** The publisher's address, drawn only after a held copy would not decode. */
   let bypassLocal = false;
   let generation = 0;
 
@@ -28,16 +28,21 @@
   $: {
     const current = ++generation;
     cover = null;
-    failed = false;
+    src = '';
     bypassLocal = false;
     // Reading `identity` here is what subscribes this block to it.
     if (identity) {
-      void coverFor(artist, album).then((found) => {
-        if (current === generation) cover = found;
+      void coverFor(artist, album).then(async (found) => {
+        if (current !== generation) return;
+        cover = found;
+        // The picture itself is read once and kept as a blob, so a tile that is
+        // drawn again - after a view switch, or an idle spell long enough for the
+        // browser to forget the image - does not re-open the file on disk.
+        const url = await imageUrl(found, preferThumb);
+        if (current === generation) src = url;
       });
     }
   }
-  $: url = failed ? '' : artUrl(cover, preferThumb, !bypassLocal);
 
   /**
    * A picture held on this computer can be evicted while a page is open, and the
@@ -45,8 +50,12 @@
    * the first fallback, a blank tile with a note is the last.
    */
   function onImageFailed() {
-    if (!bypassLocal && drawsFromDisk(cover, preferThumb)) bypassLocal = true;
-    else failed = true;
+    if (cover && !bypassLocal && drawsFromDisk(cover, preferThumb)) {
+      bypassLocal = true;
+      src = artUrl(cover, preferThumb, false);
+      return;
+    }
+    src = '';
   }
   // Art somebody signed and published reads differently from art only this
   // computer resolved, and the tooltip is the cheapest honest way to say so.
@@ -55,10 +64,10 @@
     : 'Art resolved on this computer; not published';
 </script>
 
-{#if url}
+{#if src}
   <span class="cover-art {size}" title={origin}>
     <img
-      src={url}
+      src={src}
       alt=""
       loading="lazy"
       decoding="async"

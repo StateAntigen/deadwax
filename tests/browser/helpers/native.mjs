@@ -281,6 +281,15 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
               reason: ''
             };
           }
+          // What this computer is ignoring, and the one action that page offers.
+          case 'blocked_content': return window.blockedContent ?? { pubkeys: [], covers: [], files: [] };
+          case 'unblock': {
+            const list = window.blockedContent ?? { pubkeys: [], covers: [], files: [] };
+            const bucket = args?.kind === 'user' ? 'pubkeys' : args?.kind === 'cover' ? 'covers' : 'files';
+            list[bucket] = (list[bucket] ?? []).filter((entry) => entry.key !== args?.key);
+            window.blockedContent = list;
+            return null;
+          }
           case 'start_network':
           case 'network_status': return { connected: true, pubkey: 'c'.repeat(64), npub: 'npub1test', relayCount: 1, torRunning: true, torStarting: false, torProgress: 100, torError: '', error: '' };
           case 'network_browse': return { results: [track], cursor: null, totalAvailable: 1 };

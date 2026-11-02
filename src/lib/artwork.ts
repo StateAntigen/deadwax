@@ -115,6 +115,50 @@ export function artUrl(
   return preferThumb ? cover.thumb || cover.art : cover.art || cover.thumb;
 }
 
+/**
+ * A URL a tile can draw without opening a file again.
+ *
+ * The bytes are cached on this computer, but *opening* a cached file is not free:
+ * measured on a real installation, one artwork file cost ~30 ms at thumbnail size
+ * and ~350 ms at full size - the filesystem filter driver scans every open - so a
+ * page of forty tiles meant seconds of re-opening the same pictures every time the
+ * grid was shown again, once Chromium's own image cache had dropped them after a
+ * few idle minutes. Reading each file **once** into a blob URL keeps the picture in
+ * this document for as long as the window is open, and a view switch then costs
+ * nothing at all.
+ */
+const sessionImages = new Map<string, Promise<string>>();
+
+export function imageUrl(cover: AlbumCover | null, preferThumb: boolean, allowLocal = true): Promise<string> {
+  if (!cover) return Promise.resolve('');
+  const local = (preferThumb ? cover.localThumb : cover.localArt) || '';
+  const remote = preferThumb ? cover.thumb || cover.art : cover.art || cover.thumb;
+  if (!allowLocal || !local) return Promise.resolve(remote);
+  const known = sessionImages.get(local);
+  if (known) return known;
+  const pending = (async () => {
+    try {
+      const response = await fetch(convertFileSrc(local));
+      if (!response.ok) return remote;
+      return URL.createObjectURL(await response.blob());
+    } catch {
+      // Offline, evicted, or a scheme this webview will not fetch: the
+      // publisher's address is the fallback, exactly as it was before.
+      return remote;
+    }
+  })();
+  sessionImages.set(local, pending);
+  return pending;
+}
+
+/** Forget every picture read into a blob. */
+export function clearCoverImages() {
+  for (const pending of sessionImages.values()) {
+    void pending.then((url) => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); }).catch(() => {});
+  }
+  sessionImages.clear();
+}
+
 /** What a window reports to the backend as the results pane draws a page. */
 export type CoverAlbum = { artist: string; album: string };
 
@@ -266,6 +310,7 @@ async function resolveCovers(
  */
 export function clearCoverCache() {
   sessionCovers.clear();
+  clearCoverImages();
   if (flushHandle !== null) {
     window.clearTimeout(flushHandle);
     flushHandle = null;

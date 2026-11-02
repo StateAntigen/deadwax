@@ -340,10 +340,8 @@ code, .number, .num { font-family: var(--mono); font-variant-numeric: tabular-nu
   background: var(--hover);
   border-color: var(--line);
 }
-.window-controls button:active, .dock-title button:active, .classic-button:active, .tool-button:active {
+.window-controls button:active, .dock-title button:active, .tool-button:active {
   border-color: var(--line-strong);
-  padding-top: 1px;
-  padding-left: 1px;
 }
 
 .led {
@@ -507,11 +505,17 @@ input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; border: 0; bo
   padding: 5px 10px;
   align-items: center;
   gap: 8px;
-  color: var(--dim);
+  color: var(--text);
   background: transparent;
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  /* The caption on a card is that card's header, so it wears the same face and the
+     same hairline as every other header instead of Georgia in capitals: that serif
+     was the last piece of the Win98 skin the re-theme never replaced. */
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid var(--line);
 }
 .section-caption > span {
   min-width: 0;
@@ -519,7 +523,7 @@ input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; border: 0; bo
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.section-caption small { color: var(--dim); letter-spacing: 0; text-transform: none; }
+.section-caption small { color: var(--dim); font-family: inherit; letter-spacing: 0; text-transform: none; font-weight: 500; }
 .results-caption-tools { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 /* ------------------------------------------------------------------- forms */
@@ -547,14 +551,26 @@ fieldset {
 fieldset legend { color: var(--dim); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; padding: 0 6px; }
 label { color: var(--muted); }
 .classic-button {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 12px;
   color: var(--text);
   background: var(--panel-raised);
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: none;
-  min-height: 27px;
+  /* The base rule is from the Win98 skin: an 82px minimum width, a two-pixel
+     bevel, a one-pixel black shadow and a press that moved the label. Only the
+     colours were re-themed, which is why a row of buttons under a page header
+     still looked like it belonged to another build. */
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-.classic-button:hover:not(:disabled) { border-color: var(--line-strong); background: var(--track); }
+.classic-button:hover:not(:disabled) { border-color: var(--line-strong); background: var(--hover); }
+.classic-button:active:not(:disabled) { background: var(--track); }
+.classic-button:focus-visible { outline: 0; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
 .classic-button:disabled { color: var(--dim); opacity: 0.6; }
 .classic-button.primary {
   color: var(--accent);
@@ -562,6 +578,44 @@ label { color: var(--muted); }
   border-color: var(--accent-line);
 }
 .classic-button.primary:hover:not(:disabled) { background: var(--accent-fill); border-color: var(--accent-line); }
+
+/* A button that lives on a card header: the refresh on the covers summary is the
+   shape, and everything else on a caption's line matches it. */
+.caption-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+.caption-button:hover:not(:disabled) { color: var(--text); background: var(--hover); border-color: var(--line-strong); }
+.caption-button:disabled { opacity: 0.5; }
+.caption-button.primary { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.caption-button.primary:hover:not(:disabled) { background: var(--accent-fill); }
+
+/* The list/thumbnail switch is the same small control, not an 18px Win98 square
+   with a sunken border. */
+.view-toggle {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: none;
+  font-size: 12px;
+  line-height: 1;
+}
+.view-toggle:hover { color: var(--text); background: var(--hover); border-color: var(--line-strong); }
+.cover-summary-refresh { height: 22px; min-width: 24px; padding: 0 9px; border-radius: 7px; }
 .advanced-toggle { color: var(--dim); background: transparent; border: 0; }
 .advanced-toggle:hover { color: var(--text); }
 
@@ -1663,10 +1717,17 @@ input:focus, select:focus, textarea:focus {
   flex-direction: column;
   gap: 12px;
 }
-/* A card may not force the page wider than the window; how tall it is stays the
-   card's own business, because a page like the trollbox is one control that is
-   meant to take all the room the cards above it left. */
-.full-panel > * { min-width: 0; }
+/* A card is its own height and sits at the page's own edge. Without the flex basis
+   a column that overflows squashes whichever child will give - on Settings that
+   was the page title, which collapsed to two pixels of padding - and a card that
+   insets itself with a margin leaves one page with a different right margin than
+   the next. The few controls that are meant to take the rest of the room say so
+   right below. */
+.full-panel > * { flex: 0 0 auto; min-width: 0; margin: 0; }
+.trollbox-view > .trollbox-log,
+.playlist-view > .playlist-split,
+.downloads-view > .download-queue,
+.shared-view > .shared-scroll { flex: 1 1 auto; }
 
 /* A page title is bright and bold, on the background rather than in a box. */
 .panel-title {
@@ -1722,6 +1783,21 @@ input:focus, select:focus, textarea:focus {
    panel, sits two pixels and four lines above the rest. It is the same page, so
    it is the same offset. */
 .workspace > .panel-title { margin: 4px 0 0 2px; }
+
+/* Two cards side by side need an edge between them: the split was a grid with no
+   gap, so the results card and the file details card touched. */
+.split-content { gap: 12px; }
+
+/* Settings was a centred 820px column inside a full-width page, so its title sat at
+   the far left and its fields in the middle. One left edge for the page, and the
+   fields are what gets narrowed. */
+.settings-view > * { max-width: none; margin-inline: 0; }
+.settings-view fieldset { max-width: none; }
+.settings-view input:not([type="checkbox"]),
+.settings-view select,
+.settings-view textarea { max-width: 520px; }
+/* A label that wraps a textarea is a column, not a centred caption. */
+.settings-hosts { align-items: flex-start; text-align: start; }
 
 /* -------------------------------------------------------------- the album list */
 /* A row is the way into an album, so it says so: the pointer, and a row that
@@ -1784,3 +1860,57 @@ input:focus, select:focus, textarea:focus {
   .album-dialog-body { grid-template-columns: minmax(0, 1fr); }
   .album-facts { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 }
+
+/* --------------------------------------------------------------- the results */
+/* An album heading inside the results list, when Group Albums is on: quieter than
+   the rows under it, and it carries the one action the grouping exists for. */
+.result-group-head td {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--panel-raised);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.result-group-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-group-head small { color: var(--muted); }
+.result-group-head span { margin-inline-start: auto; color: var(--dim); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+
+/* --------------------------------------------------------------- the blocked */
+.blocked-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+.blocked-tools > span { flex: 1 1 auto; }
+.blocked-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.blocked-list { display: flex; flex-direction: column; }
+.blocked-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.blocked-row:last-child { border-bottom: 0; }
+.blocked-row b { color: var(--text); font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blocked-row code { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blocked-row small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.blocked-row .classic-button { min-height: 24px; padding: 0 10px; font-size: 11px; }
+.blocked-settings { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* The album-art hosts fieldset was the one settings block whose label and box were
+   centred; every other switch in the card is left-aligned. */
+.cover-settings .settings-hosts { align-items: flex-start; text-align: start; }
+.cover-settings .settings-hosts textarea { max-width: 520px; }

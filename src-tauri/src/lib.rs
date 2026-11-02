@@ -211,10 +211,18 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
            created_at TEXT NOT NULL
          );
          CREATE TABLE IF NOT EXISTS blocked_files (
-           file_id TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL
+           file_id TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL,
+           label TEXT NOT NULL DEFAULT ''
          );
          CREATE TABLE IF NOT EXISTS blocked_pubkeys (
-           pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL
+           pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL,
+           label TEXT NOT NULL DEFAULT ''
+         );
+         -- An album whose picture you would rather not see. Claims for it are
+         -- dropped before they are ranked, so no view of it can draw one.
+         CREATE TABLE IF NOT EXISTS blocked_covers (
+           cover_key TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL,
+           label TEXT NOT NULL DEFAULT ''
          );
          CREATE TABLE IF NOT EXISTS local_audiobooks (
            folder TEXT PRIMARY KEY,
@@ -251,6 +259,12 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         ("duration_ms", "INTEGER NOT NULL DEFAULT 0"),
     ] {
         ensure_column(&connection, "files", column, declaration)?;
+    }
+    // A blocked thing is listed by name, and the name is only known at the moment
+    // it is blocked: the blocked file's catalogue rows are deleted as part of the
+    // block, so nothing is left to look it up from later.
+    for table in ["blocked_files", "blocked_pubkeys"] {
+        ensure_column(&connection, table, "label", "TEXT NOT NULL DEFAULT ''")?;
     }
     connection
         .execute_batch(
@@ -2658,8 +2672,120 @@ async fn import_client_data(
     state.mobile.import_client(&endpoint_id, std::path::Path::new(&path))
 }
 
+/// Something this computer has been told to ignore, as the Blocked Content page
+/// lists it. `key` is the file hash, the publisher's key or the album's cover key;
+/// `label` is whatever the window knew it by when it was blocked.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BlockedEntry {
+    key: String,
+    label: String,
+    reason: String,
+    created_at: String,
+}
+
+/// Everything this computer is ignoring, in the three kinds that can be blocked.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BlockedContent {
+    pubkeys: Vec<BlockedEntry>,
+    covers: Vec<BlockedEntry>,
+    files: Vec<BlockedEntry>,
+}
+
+fn blocked_entries(
+    connection: &rusqlite::Connection,
+    table: &str,
+    key_column: &str,
+) -> Result<Vec<BlockedEntry>, String> {
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT {key_column}, label, reason, created_at FROM {table} ORDER BY created_at DESC"
+        ))
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok(BlockedEntry {
+                key: row.get(0)?,
+                label: row.get(1)?,
+                reason: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    Ok(rows)
+}
+
+/// Everything this computer is ignoring, newest first in each kind.
 #[tauri::command]
-async fn block_file(file_id: String, state: State<'_, AppState>) -> Result<(), String> {
+fn blocked_content(state: State<'_, AppState>) -> Result<BlockedContent, String> {
+    let connection = open_db(&state)?;
+    Ok(BlockedContent {
+        pubkeys: blocked_entries(&connection, "blocked_pubkeys", "pubkey")?,
+        covers: blocked_entries(&connection, "blocked_covers", "cover_key")?,
+        files: blocked_entries(&connection, "blocked_files", "file_id")?,
+    })
+}
+
+/// Stop ignoring something.
+///
+/// Lifting a block is the whole of the operation: the catalogue this computer had
+/// already dropped is not restored from here, because the mirror refills itself on
+/// its own next pass (the block also forgot how recently it had asked, so the files
+/// and the author's announcements are asked for again straight away).
+#[tauri::command]
+fn unblock(kind: String, key: String, state: State<'_, AppState>) -> Result<(), String> {
+    let table = match kind.as_str() {
+        "user" => "blocked_pubkeys",
+        "cover" => "blocked_covers",
+        "file" => "blocked_files",
+        other => return Err(format!("there is no {other} kind of block")),
+    };
+    let column = match kind.as_str() {
+        "user" => "pubkey",
+        "cover" => "cover_key",
+        _ => "file_id",
+    };
+    let connection = open_db(&state)?;
+    connection
+        .execute(
+            &format!("DELETE FROM {table} WHERE {column}=?1"),
+            params![key],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Hide one album's picture without blocking the person who published it.
+#[tauri::command]
+fn block_cover(
+    cover_key: String,
+    label: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let key = cover_key.trim().to_lowercase();
+    if key.is_empty() || key.len() > cover::COVER_KEY_CHARACTER_LIMIT {
+        return Err("that is not an album key".into());
+    }
+    let connection = open_db(&state)?;
+    connection
+        .execute(
+            "INSERT OR REPLACE INTO blocked_covers(cover_key,reason,created_at,label)
+             VALUES(?1,'Blocked by user',?2,?3)",
+            params![key, Utc::now().to_rfc3339(), label],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn block_file(
+    file_id: String,
+    label: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     if hex::decode(&file_id)
         .map(|bytes| bytes.len() == 32)
         .unwrap_or(false)
@@ -2669,8 +2795,8 @@ async fn block_file(file_id: String, state: State<'_, AppState>) -> Result<(), S
     }
     let connection = open_db(&state)?;
     connection.execute(
-        "INSERT OR REPLACE INTO blocked_files(file_id,reason,created_at) VALUES(?1,'Blocked by user',?2)",
-        params![file_id, Utc::now().to_rfc3339()],
+        "INSERT OR REPLACE INTO blocked_files(file_id,reason,created_at,label) VALUES(?1,'Blocked by user',?2,?3)",
+        params![file_id, Utc::now().to_rfc3339(), label.unwrap_or_default()],
     ).map_err(|error| error.to_string())?;
     connection
         .execute("DELETE FROM remote_catalogue WHERE file_id=?1", [&file_id])
@@ -2684,12 +2810,16 @@ async fn block_file(file_id: String, state: State<'_, AppState>) -> Result<(), S
 }
 
 #[tauri::command]
-fn block_user(pubkey: String, state: State<'_, AppState>) -> Result<(), String> {
+fn block_user(
+    pubkey: String,
+    label: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     nostr_sdk::PublicKey::from_hex(&pubkey).map_err(|_| "invalid Nostr public key")?;
     let connection = open_db(&state)?;
     connection.execute(
-        "INSERT OR REPLACE INTO blocked_pubkeys(pubkey,reason,created_at) VALUES(?1,'Blocked by user',?2)",
-        params![pubkey, Utc::now().to_rfc3339()],
+        "INSERT OR REPLACE INTO blocked_pubkeys(pubkey,reason,created_at,label) VALUES(?1,'Blocked by user',?2,?3)",
+        params![pubkey, Utc::now().to_rfc3339(), label.unwrap_or_default()],
     ).map_err(|error| error.to_string())?;
     connection
         .execute(
@@ -3447,6 +3577,9 @@ pub fn run() {
             import_client_data,
             block_file,
             block_user,
+            block_cover,
+            blocked_content,
+            unblock,
             report_catalogue,
             minimise_window,
             toggle_maximise,

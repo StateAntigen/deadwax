@@ -7,7 +7,7 @@ import ts from 'typescript';
 const page = readFileSync(new URL('../src/routes/+page.svelte', import.meta.url), 'utf8')
   .split('<script lang="ts">')[1].split('</script>')[0];
 const ast = ts.createSourceFile('page.ts', page, ts.ScriptTarget.Latest, true);
-const names = new Set(['selectedResults', 'canDownloadResult', 'downloadSelectedResults',
+const names = new Set(['selectedResults', 'canDownloadResult', 'downloadSelectedResults', 'downloadResults',
   'isActiveTransfer', 'isCompleteTransfer', 'isLocalFile', 'mergePendingTransfers',
   'showAvailableDownloadSlots', 'applyTransferUpdate', 'refreshLocalLibrary', 'syncResultLocality',
   'requestNetworkDownload', 'startDownload',

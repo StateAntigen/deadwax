@@ -71,10 +71,12 @@ function calls(page, cmd) {
   return page.evaluate((name) => window.calls.filter((call) => call.cmd === name).map((call) => call.args), cmd);
 }
 
-const refresh = (page) => page.locator('.playlist-view .classic-button[title="Refresh"]').click();
+const refresh = (page) => page.locator('.playlist-browse .section-caption [title="Refresh"]').click();
 const save = (page) => page.getByRole('button', { name: 'Save', exact: true }).click();
 const publish = (page) => page.getByRole('button', { name: 'Publish', exact: true }).click();
-const back = (page) => page.locator('.playlist-title [title="Back to playlists"]').click();
+// The door back is on whichever header is drawn: the list's while browsing, the
+// editor's while editing - an editor with no way out is the bug this guards.
+const back = (page) => page.locator('[title="Back to playlists"]').click();
 
 /**
  * Open a row and then the editor.

@@ -57,11 +57,40 @@ test('a picture this computer holds is drawn from the disk, not asked of the pub
   const drawn = await openArtwork(page);
   const tile = page.locator('.result-grid .cover-art img').first();
   await expect(tile).toBeVisible();
-  await expect(tile).toHaveAttribute('src', /^http:\/\/asset\.localhost\//);
-  await expect(tile).toHaveAttribute('src', /thumb\.jpg/);
-  // And the bytes really came from this computer, which is the whole point: the
-  // address the claim named is not asked for at all while a copy is held.
-  expect(drawn.length).toBeGreaterThan(0);
+  // The file is read **once** and kept as a blob, so a tile drawn again - after a
+  // view switch, or an idle spell that let the browser forget the image - does not
+  // open the file again. What is pinned is that the picture came from the copy on
+  // this computer, not from the address the claim named.
+  await expect(tile).toHaveAttribute('src', /^blob:/);
+  expect(drawn.some((url) => url.includes('thumb.jpg'))).toBe(true);
+  expect(drawn.some((url) => url.includes('coverartarchive'))).toBe(false);
+});
+
+/**
+ * A tile drawn a second time must not open its file again.
+ *
+ * This is the whole point of keeping the picture as a blob: the bytes were always
+ * cached, but every display of the grid re-opened each artwork file, and on a
+ * machine whose filter driver scans every open that cost seconds per page.
+ */
+test('a tile drawn again does not re-open the file it came from', async ({ page }) => {
+  const drawn = await openArtwork(page);
+  await expect(page.locator('.result-grid .cover-art img').first()).toHaveAttribute('src', /^blob:/);
+  const opened = drawn.length;
+  expect(opened).toBeGreaterThan(0);
+  const asks = () => page.evaluate(() => window.calls.filter((call) => call.cmd === 'cover_art').length);
+  const before = await asks();
+
+  // Away from the grid and back, which is when the browser had forgotten the
+  // pictures and every tile read its file again.
+  await page.locator('button.view-toggle', { hasText: '▤' }).click();
+  await expect(page.locator('.search-results-table')).toBeVisible();
+  await page.locator('button.view-toggle', { hasText: '▦' }).click();
+  await expect(page.locator('.result-grid .cover-art img').first()).toHaveAttribute('src', /^blob:/);
+
+  expect(drawn.length).toBe(opened);
+  // And the host was asked about the albums once, not once per view.
+  expect(await asks()).toBe(before);
 });
 
 /**
@@ -116,10 +145,9 @@ test('art that is on this disk never waits for a relay question', async ({ page 
   await spyOnCoverCommands(page, true);
   await page.goto('http://127.0.0.1:15173');
   await page.locator('button.view-toggle', { hasText: '▦' }).click();
-  await expect(page.locator('.result-grid .cover-art img').first()).toHaveAttribute(
-    'src',
-    /^http:\/\/asset\.localhost\//
-  );
+  // Drawn from the copy on this disk: a blob built from the one asset request,
+  // never the publisher's address.
+  await expect(page.locator('.result-grid .cover-art img').first()).toHaveAttribute('src', /^blob:/);
 
   const questions = await page.evaluate(() => window.coverQuestions);
   expect(questions.some((question) => question.cmd === 'cover_art')).toBe(true);

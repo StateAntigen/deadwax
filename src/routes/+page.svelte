@@ -21,7 +21,7 @@
   const CHAT_PAGE_SIZE = 100;
   const VISIBLE_SEEDER_LIMIT = 100;
 
-  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Clients' | 'Covers';
+  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Clients' | 'Covers' | 'Blocked Content';
 
   /** One count with the thing counted beside it, as the host sends it. */
   type CatalogueCount = { label: string; count: number };
@@ -133,7 +133,9 @@
     Settings: 'M12 8.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8zM12 3.6V6M12 18v2.4M3.6 12H6M18 12h2.4M6.1 6.1l1.7 1.7M16.2 16.2l1.7 1.7M17.9 6.1l-1.7 1.7M7.8 16.2l-1.7 1.7',
     Trollbox: 'M4.5 6h15v9.6H9.4L4.5 19V6z',
     Clients: 'M9.2 3h5.6v18H9.2zM12 18.2h.01',
-    Covers: 'M4 4h6.6v6.6H4zM13.4 4H20v6.6h-6.6zM4 13.4h6.6V20H4zM13.4 13.4H20V20h-6.6z'
+    Covers: 'M4 4h6.6v6.6H4zM13.4 4H20v6.6h-6.6zM4 13.4h6.6V20H4zM13.4 13.4H20V20h-6.6z',
+    // Reached from Settings rather than the rail, but every view needs a mark.
+    'Blocked Content': 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM7.2 7.2l9.6 9.6'
   };
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
   const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
@@ -163,6 +165,7 @@
   type MobilePairingOffer = { ticket: string; qrSvg: string; expiresAt: number; endpointId: string };
   type BlockConfirmation =
     | { kind: 'file'; fileId: string; label: string }
+    | { kind: 'files'; tracks: { fileId: string; label: string }[]; label: string | Message }
     | { kind: 'user'; pubkey: string; label: string };
   /** A playlist as the Playlists page lists it: no members, which is what makes
    *  browsing cheap. `author` is half the coordinate, so it travels with every
@@ -811,6 +814,40 @@
    */
   let advancedFormat = 'Any';
   let minimumBitrate = 0;
+  /**
+   * Gather the results into albums.
+   *
+   * A search answers per *file*, so one album arrives as a dozen rows that stop
+   * being neighbours the moment a column is sorted. Grouping collects them - the
+   * order inside an album stays the one that was asked for - and puts the albums
+   * in the order their first track was drawn.
+   */
+  let groupAlbums = false;
+  type AlbumGroup = { key: string; artist: string; album: string; items: Result[] };
+
+  function groupedByAlbum(items: Result[]) {
+    const order: string[] = [];
+    const groups = new Map<string, AlbumGroup>();
+    for (const item of items) {
+      const key = coverKey(item.artist ?? '', item.album ?? '') || `file:${item.fileId}`;
+      let group = groups.get(key);
+      if (!group) {
+        group = { key, artist: (item.artist ?? '').trim(), album: (item.album ?? '').trim(), items: [] };
+        groups.set(key, group);
+        order.push(key);
+      }
+      group.items.push(item);
+    }
+    const heads = new Map<number, AlbumGroup>();
+    const rows: Result[] = [];
+    for (const key of order) {
+      const group = groups.get(key)!;
+      heads.set(rows.length, group);
+      rows.push(...group.items);
+    }
+    return { rows, heads };
+  }
+
   const ADVANCED_FORMATS = ['Any', 'FLAC', 'WAV', 'MP3', 'OPUS', 'M4A'];
 
   function passesAdvancedFilters(result: Result) {
@@ -877,6 +914,11 @@
   $: ordered = orderedResults(shownResults, resultSort, resultSortAsc);
   $: resultPageTotal = resultPageCount(ordered);
   $: resultPageItems = paginatedResults(ordered, resultPage);
+  // Grouping is a view of the page that was asked for, not of the whole answer: a
+  // page is what the pager counts, and an album split over two pages still reads
+  // honestly as two halves.
+  $: albumGrouping = groupAlbums ? groupedByAlbum(resultPageItems) : null;
+  $: resultRows = albumGrouping ? albumGrouping.rows : resultPageItems;
   $: resultPageRange = resultPageItems.map((item) => item.fileId);
   // The rows on screen are what get asked about, once each: a discussion read is
   // a question to the relays, and a page of them is the size of the question.
@@ -1105,7 +1147,10 @@
       if (activeView === 'Downloads' && selectedTagFile) await playAudio(selectedTagFile.fileId, selectedTagFile.filename, playerMode, 'downloads');
       else if (activeView === 'Shared' && selectedShared) await playAudio(selectedShared.fileId, selectedShared.filename, playerMode, 'shared');
       else if (activeView === 'Search' && selected && isLocalFile(selected.fileId)) await playAudio(selected.fileId, selected.name, playerMode, 'search');
-      else activityMessage = msg("Select a local song to play");
+      // Play is the one control that is always on screen, so it always has an
+      // answer: with nothing picked, the whole library is dealt in a random order
+      // and the run starts from its first track.
+      else await playLibraryShuffled();
       return;
     }
     if (playerEnded) {
@@ -1752,6 +1797,27 @@
     coverAlbumError = '';
   }
 
+  /**
+   * Hide one album's picture without blocking the person who published it.
+   *
+   * A cover is the one thing people complain about and the one thing a block on an
+   * author is too blunt for: hiding it drops every claim for that album before
+   * ranking, and it is listed - and reversible - on the Blocked Content page.
+   */
+  async function hideAlbumCover() {
+    if (!coverAlbum) return;
+    const label = [coverAlbum.album, coverAlbum.artist].filter(Boolean).join(' · ');
+    try {
+      await invoke('block_cover', { coverKey: coverAlbum.key, label });
+      activityMessage = msg("Cover hidden for {p0}", { p0: label });
+      clearCoverCache();
+      coverRevision += 1;
+      closeCoverAlbum();
+    } catch (error) {
+      activityMessage = msg("Could not hide the cover: {p0}", { p0: String(error) });
+    }
+  }
+
   /** What the row's picture column says, in the plainest word that is true. */
   function coverRowState(row: CoverRow) {
     if (row.held) return 'Held here';
@@ -1817,6 +1883,53 @@
    *  component state itself is invisible to the template's dependency tracking. */
   function coverOptIn(status: CoverStatus | null) {
     return Boolean(status?.lookupExternal || status?.publishClaims);
+  }
+
+  /** One thing this computer is ignoring, as `blocked_content` lists it. */
+  type BlockedEntry = { key: string; label: string; reason: string; createdAt: string };
+  type BlockedList = { pubkeys: BlockedEntry[]; covers: BlockedEntry[]; files: BlockedEntry[] };
+  let blockedList: BlockedList = { pubkeys: [], covers: [], files: [] };
+  let blockedPending = false;
+  let blockedError: string | Message = '';
+
+  async function refreshBlockedContent() {
+    if (!nativeReady || blockedPending) return;
+    blockedPending = true;
+    blockedError = '';
+    try {
+      blockedList = await invoke<BlockedList>('blocked_content');
+    } catch (error) {
+      blockedError = String(error);
+    } finally {
+      blockedPending = false;
+    }
+  }
+
+  /**
+   * Stop ignoring something.
+   *
+   * The catalogue rows a block removed are not restored from here - the mirror
+   * fills itself in again on its own next pass - so the list says what happened
+   * rather than pretending the file or the publisher is back already.
+   */
+  async function unblock(kind: 'user' | 'cover' | 'file', entry: BlockedEntry) {
+    try {
+      await invoke('unblock', { kind, key: entry.key });
+      activityMessage = msg("Unblocked {p0}", { p0: entry.label || entry.key.slice(0, 12) });
+      await refreshBlockedContent();
+    } catch (error) {
+      activityMessage = msg("Could not unblock: {p0}", { p0: String(error) });
+    }
+  }
+
+  function openBlockedContent() {
+    activeView = 'Blocked Content';
+    void refreshBlockedContent();
+  }
+
+  function blockedWhen(when: string) {
+    const at = Date.parse(when);
+    return Number.isFinite(at) ? new Date(at).toLocaleDateString($locale, { dateStyle: 'medium' }) : '—';
   }
 
   /** The worker changed what art exists, so nothing cached may survive it.
@@ -2990,11 +3103,32 @@
     }
   }
 
-  function selectResultRange(item: Result, event: MouseEvent | KeyboardEvent) {
-    const anchor = results.findIndex((result) => result.fileId === resultSelectionAnchor);
-    const end = results.findIndex((result) => result.fileId === item.fileId);
+  /**
+   * A click on a result row.
+   *
+   * The range is measured in the order the pane *draws* rows in, not the order the
+   * host happened to answer in: the list is sorted and paged before it is shown,
+   * so a shift-click measured against the raw answer left out rows that were
+   * plainly between the two ends on screen. Ctrl (or Cmd) toggles one row and
+   * keeps the rest, and the last row clicked is the anchor either way.
+   */
+  function selectResultRange(item: Result, event: { shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean }, toggle = false) {
+    const end = ordered.findIndex((result) => result.fileId === item.fileId);
+    const anchor = ordered.findIndex((result) => result.fileId === resultSelectionAnchor);
+    if (toggle || ((event.ctrlKey || event.metaKey) && !event.shiftKey)) {
+      const next = new Set(selectedResultIds);
+      if (next.has(item.fileId)) next.delete(item.fileId);
+      else next.add(item.fileId);
+      selectedResultIds = next;
+      resultSelectionAnchor = item.fileId;
+      // Removing the row the details pane was describing moves it to a row that is
+      // still selected, rather than leaving it describing nothing.
+      const focused = next.has(item.fileId) ? item : ordered.find((result) => next.has(result.fileId)) ?? null;
+      selectResult(focused, false, true);
+      return;
+    }
     if (event.shiftKey && anchor >= 0 && end >= 0) {
-      selectedResultIds = new Set(results.slice(Math.min(anchor, end), Math.max(anchor, end) + 1).map((result) => result.fileId));
+      selectedResultIds = new Set(ordered.slice(Math.min(anchor, end), Math.max(anchor, end) + 1).map((result) => result.fileId));
       selectResult(item, false, true);
     } else {
       selectResult(item);
@@ -3025,9 +3159,13 @@
   }
 
   async function downloadSelectedResults() {
+    await downloadResults(selectedResults());
+  }
+
+  /** Queue every track in a list that this computer could fetch, and say how it went. */
+  async function downloadResults(targets: Result[]) {
     if (!nativeReady || downloadingSelection || clearingTransfers) return;
     const generation = downloadGeneration;
-    const targets = selectedResults();
     downloadingSelection = true;
     let requested = 0;
     let skipped = 0;
@@ -3264,12 +3402,22 @@
     }
   }
 
-  function torStatusLabel() {
-    if (torRunning) return 'Tor connected';
-    if (torError) return 'Tor failed';
-    if (torStarting && torProgress > 0) return $t("Tor connecting {p0}%", { p0: torProgress });
-    return nativeReady ? 'Tor connecting' : 'Tor unavailable';
+  function torStatusLabel(running: boolean, error: string, starting: boolean, progress: number, ready: boolean) {
+    if (running) return 'Tor connected';
+    if (error) return 'Tor failed';
+    if (starting && progress > 0) return $t("Tor connecting {p0}%", { p0: progress });
+    return ready ? 'Tor connecting' : 'Tor unavailable';
   }
+
+  /**
+   * The header's Tor words, as a value rather than a call.
+   *
+   * `{$t(torStatusLabel())}` looks live and is not: a template expression is
+   * re-evaluated when the state it *names* changes, and a function's body names
+   * nothing, so the lamp went green while the words beside it still said "Tor
+   * unavailable". Naming the state here is what makes the text follow the lamp.
+   */
+  $: torLabel = torStatusLabel(torRunning, torError, torStarting, torProgress, nativeReady);
 
   async function browseUser(user: CatalogueUser) {
     activeView = 'Search';
@@ -3816,6 +3964,31 @@
     await playAudio(first.fileId, first.filename, 'all', 'shared');
   }
 
+  /**
+   * Play, pressed with nothing loaded: every track this computer holds, shuffled.
+   *
+   * A run rather than an error message. The order is dealt once here instead of
+   * leaning on the shuffle switch, because "shuffle all of it" is what pressing
+   * Play with no track means - the switch is a preference for the *next* run.
+   */
+  async function playLibraryShuffled() {
+    const order = sharedFiles.map((file) => toPlayerTrack(file));
+    if (!order.length) {
+      activityMessage = msg("There is nothing in your Deadwax folder to play yet");
+      return;
+    }
+    activePlayerAudiobook = null;
+    playerOrigin = 'shared';
+    playerQueueRemote = false;
+    if (order.length > 1 && playerMode === 'single') {
+      playerMode = 'all';
+      window.localStorage.setItem('napstr-player-mode', playerMode);
+    }
+    playerQueueOrder = order;
+    playerQueue = shuffledQueue(order, order[0].fileId);
+    await loadPlayerTrack(0);
+  }
+
   async function activateSelected() {
     if (nativeReady && selected?.audiobook?.local) await playSelectedAudio();
     else if (nativeReady && selected && isLocalFile(selected.fileId)) await playSelectedAudio();
@@ -3825,6 +3998,19 @@
   function blockSelectedFile() {
     if (!nativeReady || !selected?.remote) return;
     blockConfirmation = { kind: 'file', fileId: selected.fileId, label: selected.name };
+  }
+
+  /** Everything in a multi-selection that is not already on this computer. */
+  function blockSelectedResults() {
+    if (!nativeReady) return;
+    const tracks = selectedResults()
+      .filter((item) => !item.audiobook && !isLocalFile(item.fileId))
+      .map((item) => ({ fileId: item.fileId, label: item.name }));
+    if (!tracks.length) {
+      activityMessage = msg("Every selected track is already on this computer");
+      return;
+    }
+    blockConfirmation = { kind: 'files', tracks, label: msg("{p0} tracks", { p0: tracks.length }) };
   }
 
   function blockSelectedUser() {
@@ -3839,10 +4025,13 @@
     blockInProgress = true;
     try {
       if (target.kind === 'file') {
-        await invoke('block_file', { fileId: target.fileId });
+        await invoke('block_file', { fileId: target.fileId, label: target.label });
         activityMessage = msg("File hash blocked locally");
+      } else if (target.kind === 'files') {
+        for (const track of target.tracks) await invoke('block_file', { fileId: track.fileId, label: track.label });
+        activityMessage = msg("Blocked {p0} tracks", { p0: target.tracks.length });
       } else {
-        await invoke('block_user', { pubkey: target.pubkey });
+        await invoke('block_user', { pubkey: target.pubkey, label: target.label });
         activityMessage = msg("Nostr publisher blocked locally");
       }
       blockConfirmation = null;
@@ -4245,7 +4434,7 @@
         {/if}
         <button class="ghost connection-box" onclick={connectNetwork} title={torError || networkError || $t("Reconnect Nostr and Tor")}>
           <span class="connection-status"><i class:amber={!networkConnected} class="led"></i><span>{networkConnected ? $t("Nostr connected") : $t("Connect Nostr")}</span></span>
-          <span class="connection-status"><i class:amber={!torRunning} class:error={Boolean(torError)} class="led"></i><span>{$t(torStatusLabel())}</span></span>
+          <span class="connection-status"><i class:amber={!torRunning} class:error={Boolean(torError)} class="led"></i><span>{$t(torLabel)}</span></span>
         </button>
         <button class="ghost user-chip" disabled={!identityNpub} onclick={() => browseUser(ownCatalogueUser())}>{displayName}</button>
         <button class="ghost theme-toggle" onclick={toggleTheme} title={$t("Switch between light and dark")} aria-label={$t("Switch between light and dark")} aria-pressed={theme === 'light'}>
@@ -4291,7 +4480,7 @@
           {/if}
           <button class="advanced-toggle" onclick={() => (advanced = !advanced)}><span>{advanced ? '▼' : '▶'}</span> {advanced ? $t("Hide advanced search options") : $t("Show advanced search options")}</button>
           {#if advanced}
-            <div class="advanced-row"><label>{$t("Minimum seeders:")} <input type="number" bind:value={minimumSources} min="1" /></label><label>{$t("Maximum size:")} <input bind:value={maximumSize} placeholder={$t("e.g. 2 GB")} /></label><label>{$t("File type:")} <select bind:value={advancedFormat} onchange={() => (resultPage = 0)}>{#each ADVANCED_FORMATS as option}<option value={option}>{option}</option>{/each}</select></label><label title={$t("Only known for files this computer has itself")}>{$t("Minimum bitrate (kbps):")} <input type="number" value={minimumBitrate || ''} min="0" step="32" placeholder={$t("any")} oninput={(event) => { minimumBitrate = Number(event.currentTarget.value) || 0; resultPage = 0; }} /></label><label><input type="checkbox" checked disabled /> {$t("Online seeders only")}</label></div>
+            <div class="advanced-row"><label>{$t("Minimum seeders:")} <input type="number" bind:value={minimumSources} min="1" /></label><label>{$t("Maximum size:")} <input bind:value={maximumSize} placeholder={$t("e.g. 2 GB")} /></label><label>{$t("File type:")} <select bind:value={advancedFormat} onchange={() => (resultPage = 0)}>{#each ADVANCED_FORMATS as option}<option value={option}>{option}</option>{/each}</select></label><label title={$t("Only known for files this computer has itself")}>{$t("Minimum bitrate (kbps):")} <input type="number" value={minimumBitrate || ''} min="0" step="32" placeholder={$t("any")} oninput={(event) => { minimumBitrate = Number(event.currentTarget.value) || 0; resultPage = 0; }} /></label><label title={$t("Gathers the tracks of one album under an album heading, with a download for the whole record.")}><input type="checkbox" bind:checked={groupAlbums} /> {$t("Group Albums")}</label><label><input type="checkbox" checked disabled /> {$t("Online seeders only")}</label></div>
           {/if}
         </section>
 
@@ -4346,10 +4535,23 @@
                   <th>{$t("Line speed")}</th>
                 </tr></thead>
                 <tbody>
-                  {#each resultPageItems as item}
+                  {#each resultRows as item, index}
+                    {#if albumGrouping?.heads.has(index)}
+                      {@const group = albumGrouping!.heads.get(index)!}
+                      <!-- One heading per album, with the whole record in one press:
+                           the reason to gather the tracks is to fetch them. -->
+                      <tr class="result-group-head">
+                        <td colspan="7">
+                          <b>{group.album || $t("No album")}</b>
+                          {#if group.artist}<small>{group.artist}</small>{/if}
+                          <span>{$t("{p0} tracks", { p0: group.items.length })} · {readableSize(group.items.reduce((total, row) => total + sizeInBytes(row.size), 0))}</span>
+                          <button type="button" class="caption-button primary" disabled={!nativeReady || !group.items.some(canDownloadResult)} onclick={() => void downloadResults(group.items)}>{$t("⇩ Album")}</button>
+                        </td>
+                      </tr>
+                    {/if}
                     <tr class:selected={selectedResultIds.has(item.fileId)} aria-selected={selectedResultIds.has(item.fileId)} tabindex="0"
                       onclick={(event) => selectResultRange(item, event)}
-                      onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event); } }}
+                      onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event, event.key === ' '); } }}
                       ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}>
                       <td>{#if isLocalFile(item.fileId)}<span class="host-mark" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{:else}<span class="host-mark absent" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</td>
                       <td>{item.artist || '—'}</td><td>{item.album || '—'}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td>
@@ -4367,14 +4569,13 @@
           </section>
 
           <aside class="details-pane">
-            <div class="section-caption"><span>{$t("File details")}</span></div>
             {#if selected}
               {#if selectedResultIds.size > 1}
                 <div class="selected-file">
                   <div class="large-file-icon">♫</div>
-                  <div><strong>{$t("Selected tracks: {p0}", { p0: selectedResultIds.size })}</strong><span>{$t("Click a track, then Shift-click another to select a range.")}</span></div>
+                  <div><strong>{$t("Selected tracks: {p0}", { p0: selectedResultIds.size })}</strong><span>{$t("Click a track, then Shift-click another to select a range. Ctrl-click adds one at a time.")}</span></div>
                 </div>
-                <div class="detail-actions"><button class="classic-button primary" onclick={downloadSelectedResults} disabled={!nativeReady || downloadingSelection || !selectedResults().some(canDownloadResult)} aria-busy={downloadingSelection}>{downloadingSelection ? $t("… Requesting") : $t("⇩ Download All")}</button></div>
+                <div class="detail-actions"><button class="classic-button primary" onclick={downloadSelectedResults} disabled={!nativeReady || downloadingSelection || !selectedResults().some(canDownloadResult)} aria-busy={downloadingSelection}>{downloadingSelection ? $t("… Requesting") : $t("⇩ Download All")}</button><button class="classic-button" onclick={blockSelectedResults} disabled={!nativeReady}>{$t("Block All")}</button></div>
                 <p class="privacy-note"><span>♜</span> {$t("Downloads use Tor. Tracks already on this computer, queued, or without seeders are skipped.")}</p>
               {:else if selected.audiobook}
                 <div class="selected-file audiobook-selected">
@@ -4467,7 +4668,7 @@
         </section>
       {:else if activeView === 'Shared'}
         <section class="full-panel shared-view">
-          <div class="panel-title"><span></span><b>{$t("My Shared Files")}</b><span></span></div>
+          <div class="panel-title"><span></span><b>{$t("Shared Files")}</b><span></span></div>
           <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
           <div class="folder-path"><b>{$t("Deadwax folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
           <div class="library-filter">
@@ -4533,20 +4734,27 @@
         </section>
       {:else if activeView === 'Playlists'}
         <section class="full-panel playlist-view">
+          <!-- The page title is a title, and nothing else. Its two buttons moved
+               onto the list's own header, where they belong to the list, and the
+               title stopped being the one page title whose height depended on
+               what was in it. -->
           <div class="panel-title playlist-title">
             <span></span><b>{playlistDraft ? $t("Playlist") : $t("Playlists")}</b><span></span>
-            <button class="classic-button" title={$t("Refresh")} onclick={() => void refreshPlaylists()}>⟳</button>
-            {#if playlistDraft}
-              <button class="classic-button" title={$t("Back to playlists")} onclick={closePlaylistEditor}>← {$t("Playlists")}</button>
-            {:else}
-              <button class="classic-button primary" title={$t("New playlist")} onclick={() => void newPlaylist()}>+ {$t("New playlist")}</button>
-            {/if}
           </div>
 
           {#if playlistsError}<div class="trollbox-error">{$t(playlistsError)}</div>{/if}
 
           {#if playlistDraft && playlistEditing}
             <div class="playlist-editor">
+              <!-- The way out lives with the thing being edited: while the editor
+                   is open the list is not drawn, so the list's own header cannot
+                   be holding the only door back. -->
+              <div class="section-caption">
+                <span>{playlistDraft.title.trim() || $t("Playlist")}</span>
+                <div class="results-caption-tools">
+                  <button type="button" class="caption-button" title={$t("Back to playlists")} onclick={closePlaylistEditor}>← {$t("Playlists")}</button>
+                </div>
+              </div>
               <div class="playlist-fields">
                 <label>{$t("Title")}
                   <input bind:value={playlistDraft.title} maxlength="256" disabled={!playlistDraftIsMine} />
@@ -4666,6 +4874,12 @@
                 <div class="section-caption">
                   <span>{playlists.length} {$t("Playlists")}</span>
                   <div class="results-caption-tools">
+                    {#if playlistDraft}
+                      <button type="button" class="caption-button" title={$t("Back to playlists")} onclick={closePlaylistEditor}>← {$t("Playlists")}</button>
+                    {:else}
+                      <button type="button" class="caption-button primary" title={$t("New playlist")} onclick={() => void newPlaylist()}>+ {$t("New playlist")}</button>
+                    {/if}
+                    <button type="button" class="caption-button" title={$t("Refresh")} aria-label={$t("Refresh")} onclick={() => void refreshPlaylists()}>⟳</button>
                     <button type="button" class="view-toggle" class:active={playlistView === 'list'} title={$t("Show these as a list")} aria-pressed={playlistView === 'list'} onclick={() => setPlaylistView('list')}>▤</button>
                     <button type="button" class="view-toggle" class:active={playlistView === 'grid'} title={$t("Show these as tiles")} aria-pressed={playlistView === 'grid'} onclick={() => setPlaylistView('grid')}>▦</button>
                   </div>
@@ -5085,6 +5299,65 @@
           <fieldset class="edit-profile"><legend>{$t("Profile")}</legend><label>{$t("Display name")} <input bind:value={displayName} /></label><label>{$t("About")} <input bind:value={profileAbout} /></label><label>{$t("Picture URL")} <input bind:value={profilePicture} placeholder="https://…" /></label><button class="classic-button primary" onclick={persistSettings}>{$t("Save profile")}</button></fieldset>
           <p class="privacy-note wide"><span>i</span> {$t("Your profile and shared catalogue are public on Nostr. Transfer addresses and credentials are never published.")}</p>
         </section>
+      {:else if activeView === 'Blocked Content'}
+        <!--
+          What this computer is ignoring, in the three kinds that can be blocked,
+          each with the one action that matters here: putting it back.
+        -->
+        <section class="full-panel blocked-view">
+          <div class="panel-title"><span></span><b>{$t("Blocked Content")}</b><span></span></div>
+          <div class="blocked-tools">
+            <button class="caption-button" onclick={() => (activeView = 'Settings')}>← {$t("Settings")}</button>
+            <span>{$t("Nothing here is deleted from your own library; it is only hidden from the network views.")}</span>
+            <button class="caption-button" title={$t("Refresh")} aria-label={$t("Refresh")} disabled={blockedPending} onclick={() => void refreshBlockedContent()}>⟳</button>
+          </div>
+          {#if blockedError}<div class="trollbox-error">{$t(blockedError)}</div>{/if}
+
+          <section class="blocked-card">
+            <div class="section-caption"><span>{$t("Publishers")}</span><small>{blockedList.pubkeys.length}</small></div>
+            <div class="blocked-list">
+              {#each blockedList.pubkeys as entry (entry.key)}
+                <div class="blocked-row">
+                  <b title={entry.key}>{entry.label || shortKey(entry.key)}</b>
+                  <code title={entry.key}>{shortKey(entry.key)}</code>
+                  <small>{$t(entry.reason)} · {blockedWhen(entry.createdAt)}</small>
+                  <button class="classic-button" onclick={() => void unblock('user', entry)}>{$t("Unblock")}</button>
+                </div>
+              {/each}
+              {#if blockedList.pubkeys.length === 0}<p class="empty-state compact">{$t("No publisher is blocked.")}</p>{/if}
+            </div>
+          </section>
+
+          <section class="blocked-card">
+            <div class="section-caption"><span>{$t("Album covers")}</span><small>{blockedList.covers.length}</small></div>
+            <div class="blocked-list">
+              {#each blockedList.covers as entry (entry.key)}
+                <div class="blocked-row">
+                  <b title={entry.key}>{entry.label || entry.key}</b>
+                  <code title={entry.key}>{entry.key}</code>
+                  <small>{$t(entry.reason)} · {blockedWhen(entry.createdAt)}</small>
+                  <button class="classic-button" onclick={() => void unblock('cover', entry)}>{$t("Unblock")}</button>
+                </div>
+              {/each}
+              {#if blockedList.covers.length === 0}<p class="empty-state compact">{$t("No album cover is hidden.")}</p>{/if}
+            </div>
+          </section>
+
+          <section class="blocked-card">
+            <div class="section-caption"><span>{$t("Tracks")}</span><small>{blockedList.files.length}</small></div>
+            <div class="blocked-list">
+              {#each blockedList.files as entry (entry.key)}
+                <div class="blocked-row">
+                  <b title={entry.key}>{entry.label || shortKey(entry.key)}</b>
+                  <code title={entry.key}>{entry.key}</code>
+                  <small>{$t(entry.reason)} · {blockedWhen(entry.createdAt)}</small>
+                  <button class="classic-button" onclick={() => void unblock('file', entry)}>{$t("Unblock")}</button>
+                </div>
+              {/each}
+              {#if blockedList.files.length === 0}<p class="empty-state compact">{$t("No track is blocked.")}</p>{/if}
+            </div>
+          </section>
+        </section>
       {:else}
         <section class="full-panel settings-view">
           <div class="panel-title"><span></span><b>{$t("Deadwax Settings")}</b><span></span></div>
@@ -5106,6 +5379,10 @@
               <button class="classic-button" disabled={(coverStatus?.artCached ?? 0) === 0} onclick={() => void clearArtCache()}>{$t('Clear the held pictures')}</button>
             </div>
             <small class="settings-note">{$t("{p0} pictures held, using {p1}.", { p0: (coverStatus?.artCached ?? 0).toLocaleString(), p1: readableBytes(coverStatus?.artBytes ?? 0) })}</small>
+          </fieldset>
+          <fieldset class="blocked-settings"><legend>{$t("Blocked Content")}</legend>
+            <p class="settings-note">{$t("Publishers, tracks and album covers this computer ignores, with a way to put any of them back.")}</p>
+            <button class="classic-button" onclick={openBlockedContent}>{$t("Open Blocked Content")}</button>
           </fieldset>
           <div class="settings-actions"><button class="classic-button primary" onclick={persistSettings}>{$t("OK")}</button><button class="classic-button" onclick={refreshSnapshot}>{$t("Cancel")}</button><button class="classic-button" onclick={persistSettings}>{$t("Apply")}</button></div>
         </section>
@@ -5207,6 +5484,7 @@
               <div class="album-dialog-actions">
                 <button class="classic-button" onclick={() => openCoverReport(coverAlbum!.artist, coverAlbum!.album)}>{$t("Report cover…")}</button>
                 <button class="classic-button" disabled={!coverAlbum.artist || !coverAlbum.album} onclick={() => void openCoverPicker(coverAlbum!.artist, coverAlbum!.album)}>{$t("Fix album art…")}</button>
+                <button class="classic-button" onclick={() => void hideAlbumCover()}>{$t("Hide this cover")}</button>
               </div>
             {/if}
           </div>
@@ -5337,7 +5615,7 @@
     <div class="modal-backdrop" role="presentation" onclick={() => { if (!blockInProgress) blockConfirmation = null; }}>
       <dialog class="dialog confirm-dialog" open aria-label={$t("Confirm block")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape' && !blockInProgress) blockConfirmation = null; }}>
         <header class="titlebar"><div class="title-left"><span class="app-icon">!</span><span>{$t("Confirm block")}</span></div><div class="window-controls"><button disabled={blockInProgress} onclick={() => (blockConfirmation = null)}>×</button></div></header>
-        <div class="dialog-body"><div class="confirm-icon">!</div><div><h3>{$t("Are you sure?")}</h3>{#if blockConfirmation.kind === 'file'}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Every seeder offering these exact file bytes will be hidden.")}</p>{:else}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Their catalogue entries, public chat messages, and download requests will be ignored.")}</p>{/if}</div></div>
+        <div class="dialog-body"><div class="confirm-icon">!</div><div><h3>{$t("Are you sure?")}</h3>{#if blockConfirmation.kind === 'files'}<p>{$t("Block")} <strong>{$t(blockConfirmation.label)}</strong>?</p><p>{$t("Every seeder offering these exact file bytes will be hidden.")}</p>{:else if blockConfirmation.kind === 'file'}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Every seeder offering these exact file bytes will be hidden.")}</p>{:else}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Their catalogue entries, public chat messages, and download requests will be ignored.")}</p>{/if}</div></div>
         <div class="dialog-actions"><button class="classic-button primary" disabled={blockInProgress} onclick={confirmBlock}>{blockInProgress ? $t("Blocking…") : $t("Block")}</button><button class="classic-button" disabled={blockInProgress} onclick={() => (blockConfirmation = null)}>{$t("Cancel")}</button></div>
       </dialog>
     </div>

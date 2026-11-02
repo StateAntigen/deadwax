@@ -2139,6 +2139,17 @@ pub(crate) fn load_cover_claims(
         return Ok(Vec::new());
     }
     let blocked = blocked_pubkeys(connection)?;
+    // An album whose picture was hidden is dropped here, before ranking: hiding a
+    // cover is a decision about the album, so no author's claim for it is offered.
+    let hidden = blocked_covers(connection)?;
+    let keys = keys
+        .iter()
+        .filter(|key| !hidden.contains(*key))
+        .cloned()
+        .collect::<Vec<_>>();
+    if keys.is_empty() {
+        return Ok(Vec::new());
+    }
     let mut statement = connection
         .prepare(&format!(
             "SELECT {} FROM album_covers WHERE cover_key=?1 AND deleted=0",
@@ -2228,6 +2239,18 @@ pub(crate) fn mark_cover_seeder(
 fn blocked_pubkeys(connection: &Connection) -> Result<HashSet<String>, String> {
     let mut statement = connection
         .prepare("SELECT pubkey FROM blocked_pubkeys")
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+    rows.collect::<Result<HashSet<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+/// Album keys whose picture this computer has been told to hide.
+fn blocked_covers(connection: &Connection) -> Result<HashSet<String>, String> {
+    let mut statement = connection
+        .prepare("SELECT cover_key FROM blocked_covers")
         .map_err(|error| error.to_string())?;
     let rows = statement
         .query_map([], |row| row.get::<_, String>(0))
