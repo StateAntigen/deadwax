@@ -1538,7 +1538,7 @@ input:focus, select:focus, textarea:focus {
 .shared-scroll .shared-table { margin: 0; }
 .shared-view .privacy-note.wide { margin: 0 12px 10px; }
 .shared-view .tag-editor { margin: 0 12px; }
-.shared-view .panel-title { margin-top: 4px; }
+.shared-view .panel-title { margin-top: 0; }
 
 /* The metadata preview: the shape of an editor that is not built yet, so its
    boxes are visibly inert rather than looking editable. */
@@ -1648,3 +1648,139 @@ input:focus, select:focus, textarea:focus {
 .cover-table th:nth-child(4), .cover-table td:nth-child(4) { width: 14%; }
 .cover-table td:nth-child(5) { color: var(--dim); }
 .cover-table .playlist-badge { white-space: nowrap; }
+
+/* ------------------------------------------------------------------ the pages */
+/* Every page is the same page: the window's own dark background, a title on it,
+   and its content in cards. The panel used to be one big rounded card with a small
+   dim title in its header, which made the same title sit in a different place on
+   every screen - inside the card here, above the cards there - and put a second
+   surface between the page and the cards on it. */
+.full-panel {
+  background: transparent;
+  border: 0;
+  padding: 4px 2px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* A card may not force the page wider than the window; how tall it is stays the
+   card's own business, because a page like the trollbox is one control that is
+   meant to take all the room the cards above it left. */
+.full-panel > * { min-width: 0; }
+
+/* A page title is bright and bold, on the background rather than in a box. */
+.panel-title {
+  min-height: 0;
+  padding: 2px 4px 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  border: 0;
+}
+.panel-title b, .panel-title strong {
+  color: var(--text);
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: inherit;
+  text-transform: none;
+}
+/* A title inside a page (a section of it, not the page) stays quiet. */
+.panel-title.section-head {
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 6px;
+}
+.panel-title.section-head b { color: var(--dim); font-size: inherit; letter-spacing: inherit; text-transform: inherit; }
+
+/* Content that used to lean on the page's card for its edges. */
+.shared-view .tag-editor,
+.trollbox-view .trollbox-compose {
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.shared-view .tag-editor { margin: 0; }
+.shared-view .shared-scroll { margin: 0; }
+/* The log is the page: it may not be the thing that gives way when the window is
+   short, or a squeezed panel leaves a chat with nothing visible in it. A floor,
+   and a panel that scrolls rather than clipping, is the honest trade. */
+.trollbox-view { overflow: auto; }
+.trollbox-view .trollbox-log { min-height: 120px; }
+.shared-view .privacy-note.wide { margin: 0; }
+.shared-view .shared-meta { margin: 0; }
+.downloads-view .download-queue { margin: 0; }
+.downloads-view .actionbar { padding: 2px 4px; border: 0; }
+.trollbox-view .trollbox-compose { margin: 0; }
+
+/* A page whose title is a sibling of its cards, rather than the first child of a
+   panel, sits two pixels and four lines above the rest. It is the same page, so
+   it is the same offset. */
+.workspace > .panel-title { margin: 4px 0 0 2px; }
+
+/* -------------------------------------------------------------- the album list */
+/* A row is the way into an album, so it says so: the pointer, and a row that
+   lifts under it. Sorted headers keep their own hover, which is why this is on
+   the body rows only. */
+.cover-table tbody tr { cursor: pointer; }
+.cover-table tbody tr:hover td { background: var(--panel-raised); }
+.cover-table tbody tr:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Three switches beside the panel's own heading. `on` is the pressed state, so
+   the row of them reads as three things being asked rather than three buttons. */
+.cover-filters { display: flex; gap: 6px; margin-inline-start: auto; }
+.cover-filters button {
+  height: 24px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.cover-filters button:hover { color: var(--text); border-color: var(--line-strong); }
+.cover-filters button.on { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+
+/* ------------------------------------------------------------------- the album */
+/* One album's window: the picture on the left at the size a picture is worth
+   looking at, and every fact this computer holds about the album on the right. */
+.album-dialog { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 64px); display: flex; flex-direction: column; }
+.album-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+  overflow: auto;
+}
+.album-dialog-art { display: flex; flex-direction: column; gap: 10px; }
+.album-dialog-art .cover-art.large { width: 100%; height: auto; aspect-ratio: 1; border-radius: 12px; }
+.album-dialog-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.album-dialog-actions .classic-button { flex: 1 1 auto; }
+.album-dialog-facts { min-width: 0; }
+.album-dialog-facts h3 { margin: 0 0 10px; color: var(--text); font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
+.album-dialog-facts h3 small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+
+/* A definition list, because every line here is a term and its answer. The
+   labels are the quiet half and the answers are what a person came to read. */
+.album-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; margin: 0; }
+.album-facts dt { color: var(--dim); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 2px; }
+.album-facts dd { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.album-facts dd small { display: block; margin-top: 3px; color: var(--dim); font-size: 11px; }
+.album-folders { display: flex; flex-direction: column; gap: 2px; }
+.album-folders code { color: var(--dim); font-size: 11px; overflow-wrap: anywhere; }
+.album-claims { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.album-claims li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 9px; background: var(--sunken); border: 1px solid var(--line); border-radius: 9px; }
+.album-claims li.in-use { border-color: var(--accent); }
+.album-claims li small { flex: 1 1 100%; color: var(--dim); font-size: 11px; }
+
+@media (max-width: 760px) {
+  .album-dialog-body { grid-template-columns: minmax(0, 1fr); }
+  .album-facts { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+}

@@ -380,7 +380,11 @@ test('Deadwax desktop pins the player as its own column with artwork, likes and 
     expect(art.width).toBeGreaterThan(200);
     expect(art.width).toBeCloseTo(art.height);
     expect(art.x).toBeGreaterThan(player.x);
-    await expect(page.locator('.now-sheet')).toHaveCSS('position', 'static');
+    // Pinned rather than merely placed: the column is a grid item that stops
+    // scrolling with the middle column, so the card cannot leave the screen
+    // however long that column gets.
+    await expect(page.locator('.now-sheet')).toHaveCSS('position', 'sticky');
+    await expect(page.locator('.now-sheet')).toHaveCSS('top', '0px');
     await expect(page.getByRole('button', { name: 'Shuffle on' })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`desktop-player-${width}.png`) });
@@ -392,6 +396,39 @@ test('Deadwax desktop pins the player as its own column with artwork, likes and 
   await expect(page.locator('.now-playing')).toHaveCSS('position', 'fixed');
   await expect(page.locator('audio')).toHaveCount(1);
   expect(await page.evaluate(() => window.calls.filter((call) => call.cmd === 'cache_remote_audio').length)).toBe(1);
+});
+
+/**
+ * A long middle column must not carry the now-playing column off the screen.
+ *
+ * The column is a grid item that spans both rows, so with `position: static` it
+ * was as tall as the grid and scrolled away with it — the one thing a pinned
+ * player may not do. `sticky` keeps it in the grid and out of the scroll.
+ */
+test('the now-playing column stays put while a long middle column scrolls', async ({ page }) => {
+  await mockNative(page, { platform: 'linux' });
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.route('**/fixture.wav', serveAudio);
+  await page.goto('http://127.0.0.1:15174');
+  await page.locator('.track-open').first().click();
+  await expect(page.locator('.now-sheet.pinned')).toBeVisible();
+  // Something taller than the window, which is what a long library is.
+  await page.evaluate(() => {
+    const spacer = document.createElement('div');
+    spacer.style.height = '3000px';
+    document.querySelector('.app-content').append(spacer);
+  });
+  const document_ = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  expect(document_).toBeGreaterThan(1000);
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  // The card is still at the top of the window rather than 1,200px above it.
+  const player = await page.locator('.now-sheet.pinned').boundingBox();
+  const art = await page.locator('.now-sheet-art').boundingBox();
+  expect(player.y).toBeCloseTo(0, 0);
+  expect(art.y).toBeLessThan(800);
+  await expect(page.locator('.now-sheet-art')).toBeInViewport();
+  await expect(page.getByRole('button', { name: /^(Play|Pause)$/ }).first()).toBeInViewport();
 });
 
 test('Deadwax marks a liked album track with the gold rule under its title', async ({ page }) => {

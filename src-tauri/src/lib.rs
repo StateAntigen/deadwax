@@ -2160,7 +2160,10 @@ fn open_napstr_folder(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 fn catalogue_status(state: State<'_, AppState>) -> Result<catalogue::NetworkStats, String> {
     let connection = open_db(&state)?;
-    catalogue::network_stats(&connection, Utc::now().timestamp())
+    // The identity is only needed to tell the claims this computer signed from
+    // everybody else's; a computer with no key yet has signed nothing.
+    let own = network::own_pubkey().unwrap_or_default();
+    catalogue::network_stats(&connection, Utc::now().timestamp(), &own)
 }
 
 /// What the search box offers while a word is being typed. Answers from the
@@ -2183,6 +2186,7 @@ struct SeederRow {
     name: String,
     announced: u64,
     live: u64,
+    indexed: u64,
 }
 
 #[derive(serde::Serialize)]
@@ -2223,6 +2227,7 @@ async fn catalogue_seeders(
             pubkey: row.pubkey,
             announced: row.announced,
             live: row.live,
+            indexed: row.indexed,
         })
         .collect();
     Ok(SeederPage {
@@ -3027,11 +3032,29 @@ fn cover_missing(
 fn cover_inventory(
     sort: String,
     descending: bool,
+    cached: bool,
+    failed: bool,
+    missing: bool,
     offset: i64,
     limit: i64,
     state: State<'_, AppState>,
 ) -> Result<crate::cover::CoverInventory, String> {
-    crate::cover::cover_inventory(&open_db(&state)?, &sort, descending, offset, limit)
+    let filter = crate::cover::InventoryFilter {
+        cached,
+        failed,
+        missing,
+    };
+    crate::cover::cover_inventory(&open_db(&state)?, &sort, descending, filter, offset, limit)
+}
+
+/// Everything this computer knows about one album, for the album's own window:
+/// the claims it holds, and the files here that say they are in it.
+#[tauri::command]
+fn cover_album_detail(
+    key: String,
+    state: State<'_, AppState>,
+) -> Result<crate::cover::AlbumDetail, String> {
+    crate::cover::album_detail(&open_db(&state)?, &key)
 }
 
 /// Albums the results pane is showing, reported as it draws them.
@@ -3393,6 +3416,7 @@ pub fn run() {
             cover_lookup_log,
             cover_missing,
             cover_inventory,
+            cover_album_detail,
             report_cover,
             set_downloads_paused,
             clear_all_transfers,

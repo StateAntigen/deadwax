@@ -7874,14 +7874,17 @@
               <span class="icon-play"></span>
             </button>
           </section>
+          <!-- The two ways of asking the network for something are always here.
+               They used to sit inside the list, so a first run - before the list
+               had arrived - showed a page with no way to ask for one at all. -->
+          <div class="discover-chips">
+            <button class="discover-play" class:active={!discoverShuffling && discoverListMode === 'leastSeeded'} onclick={() => void startDigging()} disabled={!mayDownload}>{$t("Crate Digging")}</button>
+            <button class="discover-play" class:active={discoverShuffling} onclick={() => void startRandom()} disabled={!mayDownload}>{$t("Random")}</button>
+          </div>
           {#if discoverTracks.length > 0}
             <!-- What the network has, above the library it is not. The rows are
                  the same rows: a discover track is a track, and its badge is what
                  says whose computer has it. -->
-            <div class="discover-chips">
-              <button class="discover-play" class:active={!discoverShuffling && discoverListMode === 'leastSeeded'} onclick={() => void startDigging()} disabled={!mayDownload}>{$t("Crate Digging")}</button>
-              <button class="discover-play" class:active={discoverShuffling} onclick={() => void startRandom()} disabled={!mayDownload}>{$t("Random")}</button>
-            </div>
             <section class="track-list" role="list" aria-label={$t("Network Library")} aria-busy={discoverLoading}>
               {#each discoverRows as track (track.fileId)}
                 {@render trackRow(track, openDiscoverRow)}
@@ -7890,6 +7893,8 @@
                 <button class="load-more" onclick={() => void loadDiscover(discoverWanted + DISCOVER_LIST_SIZE)} disabled={discoverLoading}>{discoverLoading ? 'Loading…' : `Load more · ${shownDiscoverRows()} of ${discoverTotal}`}</button>
               {/if}
             </section>
+          {:else if !discoverLoading}
+            <div class="empty-library"><h2>{$t("No tracks yet")}</h2><p>{$t("The network has not offered anything to this client yet.")}</p></div>
           {/if}
         {/if}
   

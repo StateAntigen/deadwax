@@ -979,13 +979,28 @@ pub(crate) struct NetworkStats {
     pub live_peers: u64,
     pub described_live: u64,
     pub held: u64,
+    /// What the live half of the catalogue would take on a disk, in bytes: the
+    /// sum of one size per distinct file, because a file several people announced
+    /// is still one file.
+    pub live_bytes: u64,
+    /// Kind `30427` cover claims this computer has received, and how many of them
+    /// this identity wrote. A claim nobody here has fetched is not a claim yet,
+    /// so these are counts of what is held rather than of what exists.
+    pub cover_claims: u64,
+    pub signed_claims: u64,
+    /// Playlists this computer holds, at any author.
+    pub playlists: u64,
     pub last_write: String,
     pub formats: Vec<LabelledCount>,
     pub artists: Vec<LabelledCount>,
     pub publishers_top: Vec<PublisherStat>,
 }
 
-pub(crate) fn network_stats(connection: &Connection, now: i64) -> Result<NetworkStats, String> {
+pub(crate) fn network_stats(
+    connection: &Connection,
+    now: i64,
+    own_pubkey: &str,
+) -> Result<NetworkStats, String> {
     let (announced, indexed, publishers, live_files, live_peers, described_live, held, last_write) =
         connection
             .query_row(
@@ -1104,6 +1119,38 @@ pub(crate) fn network_stats(connection: &Connection, now: i64) -> Result<Network
         })
         .collect();
 
+    // The rest are separate questions, each tolerant of a table this database
+    // does not have yet: the counters on a status page are not worth refusing to
+    // draw the page over, and an older installation's database is exactly the one
+    // whose owner wants to look at it.
+    let count = |sql: &str, key: &str| -> u64 {
+        connection
+            .query_row(sql, params![key], |row| row.get::<_, i64>(0))
+            .map(|value| value.max(0) as u64)
+            .unwrap_or(0)
+    };
+    let live_bytes = connection
+        .query_row(
+            &format!(
+                "SELECT COALESCE(SUM(size), 0) FROM (
+                   SELECT live.file_id, MAX(c.size) AS size
+                     FROM ({live_files_sql}) live
+                     JOIN remote_catalogue c ON c.file_id = live.file_id
+                    GROUP BY live.file_id
+                 )"
+            ),
+            params![now],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|value| value.max(0) as u64)
+        .unwrap_or(0);
+    let cover_claims = count("SELECT COUNT(*) FROM album_covers WHERE deleted = 0", "");
+    let signed_claims = count(
+        "SELECT COUNT(*) FROM album_covers WHERE deleted = 0 AND source_pubkey = ?1",
+        own_pubkey,
+    );
+    let playlists = count("SELECT COUNT(*) FROM playlists", "");
+
     Ok(NetworkStats {
         announced: announced.max(0) as u64,
         indexed: indexed.max(0) as u64,
@@ -1112,6 +1159,10 @@ pub(crate) fn network_stats(connection: &Connection, now: i64) -> Result<Network
         live_peers: live_peers.max(0) as u64,
         described_live: described_live.max(0) as u64,
         held: held.max(0) as u64,
+        live_bytes,
+        cover_claims,
+        signed_claims,
+        playlists,
         last_write,
         formats,
         artists,
@@ -1185,6 +1236,10 @@ pub(crate) struct SeederEntry {
     pub pubkey: String,
     pub announced: u64,
     pub live: u64,
+    /// How many of those live files this computer can also describe. `live` can
+    /// hold something the mirror has never seen, and a share of the playable
+    /// catalogue cannot be counted out of files that cannot be played from here.
+    pub indexed: u64,
 }
 
 /// A page of seeders, with the size of the whole list so a pager can be honest.
@@ -1219,7 +1274,10 @@ pub(crate) fn seeders_page(
                   counted AS (
                     SELECT p.pubkey AS pubkey,
                            (SELECT COUNT(*) FROM remote_catalogue c WHERE c.source_pubkey = p.pubkey) AS announced,
-                           (SELECT COUNT(*) FROM catalogue_seeder s WHERE s.pubkey = p.pubkey AND s.expires_at > ?1) AS live
+                           (SELECT COUNT(*) FROM catalogue_seeder s WHERE s.pubkey = p.pubkey AND s.expires_at > ?1) AS live,
+                           (SELECT COUNT(DISTINCT s.file_id) FROM catalogue_seeder s
+                              JOIN remote_catalogue c ON c.file_id = s.file_id
+                             WHERE s.pubkey = p.pubkey AND s.expires_at > ?1) AS indexed
                       FROM peers p
                   )";
     let total: i64 = connection
@@ -1231,7 +1289,7 @@ pub(crate) fn seeders_page(
         .map_err(|error| error.to_string())?;
     let mut statement = connection
         .prepare(&format!(
-            "{peers} SELECT pubkey, announced, live FROM counted
+            "{peers} SELECT pubkey, announced, live, indexed FROM counted
               WHERE ?2 = 0 OR live > 0
               ORDER BY live DESC, announced DESC, pubkey LIMIT ?3 OFFSET ?4"
         ))
@@ -1244,6 +1302,7 @@ pub(crate) fn seeders_page(
                     pubkey: row.get(0)?,
                     announced: row.get::<_, i64>(1)?.max(0) as u64,
                     live: row.get::<_, i64>(2)?.max(0) as u64,
+                    indexed: row.get::<_, i64>(3)?.max(0) as u64,
                 })
             },
         )
@@ -1328,7 +1387,7 @@ mod tests {
             .execute("INSERT INTO files (file_id) VALUES (?1)", params![hex_id(1)])
             .unwrap();
 
-        let stats = network_stats(&connection, now).unwrap();
+        let stats = network_stats(&connection, now, "").unwrap();
         assert_eq!(stats.announced, 3);
         assert_eq!(stats.indexed, 3);
         assert_eq!(stats.publishers, 2);
@@ -1362,7 +1421,7 @@ mod tests {
             .execute("DELETE FROM remote_catalogue_fts", [])
             .unwrap();
 
-        let stats = network_stats(&connection, 1_700_000_000).unwrap();
+        let stats = network_stats(&connection, 1_700_000_000, "").unwrap();
         assert_eq!(stats.announced, 1);
         assert_eq!(stats.indexed, 0);
     }

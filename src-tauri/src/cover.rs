@@ -1331,6 +1331,7 @@ pub(crate) fn cover_inventory(
     connection: &Connection,
     sort: &str,
     descending: bool,
+    filter: InventoryFilter,
     offset: i64,
     limit: i64,
 ) -> Result<CoverInventory, String> {
@@ -1349,8 +1350,9 @@ pub(crate) fn cover_inventory(
     // `key` breaks every tie, so a page never repeats or skips a row while the
     // column it is ordered by holds the same value either side of a boundary.
     let order = format!("{column} {direction}, key ASC");
-    let rows_sql = format!(
-        "WITH keys AS (
+    // One declaration of the rows, used for the page and for the count: the two
+    // must agree about the filter, or the pager would offer pages of nothing.
+    let rows_cte = "WITH keys AS (
            SELECT cover_key FROM album_art_lookups
            UNION SELECT cover_key FROM album_covers WHERE deleted = 0
          ), rows AS (
@@ -1371,15 +1373,16 @@ pub(crate) fn cover_inventory(
                              WHERE g.cover_key = k.cover_key
                              ORDER BY g.id DESC LIMIT 1), '') AS reason
              FROM keys k
-         )
-         SELECT key, artist, album, held, thumb, outcome, signed_by, reason FROM rows ORDER BY {order} LIMIT ?1 OFFSET ?2"
+         )";
+    let wanted = filter.sql();
+    let rows_sql = format!(
+        "{rows_cte}
+         SELECT key, artist, album, held, thumb, outcome, signed_by, reason FROM rows
+          WHERE {wanted} ORDER BY {order} LIMIT ?1 OFFSET ?2"
     );
     let total: i64 = connection
         .query_row(
-            "WITH keys AS (
-               SELECT cover_key FROM album_art_lookups
-               UNION SELECT cover_key FROM album_covers WHERE deleted = 0
-             ) SELECT COUNT(*) FROM keys",
+            &format!("{rows_cte} SELECT COUNT(*) FROM rows WHERE {wanted}"),
             [],
             |row| row.get::<_, i64>(0),
         )
@@ -1407,6 +1410,286 @@ pub(crate) fn cover_inventory(
         rows,
         total: total.max(0) as u64,
     })
+}
+
+/// Which kinds of row the album list should show.
+///
+/// Three independent switches rather than three tabs, because they are not
+/// alternatives: an album this computer holds can also have a failed lookup
+/// behind it, and a person looking for what to fetch wants the missing ones
+/// whatever happened last time. All off means everything.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct InventoryFilter {
+    /// Albums whose picture is on this disk.
+    pub cached: bool,
+    /// Albums whose last lookup ended in an error.
+    pub failed: bool,
+    /// Albums this computer holds no picture for.
+    pub missing: bool,
+}
+
+impl InventoryFilter {
+    fn sql(self) -> String {
+        let mut wanted = Vec::new();
+        if self.cached {
+            wanted.push("held = 1");
+        }
+        if self.failed {
+            wanted.push("outcome = 'error'");
+        }
+        if self.missing {
+            wanted.push("held = 0");
+        }
+        if wanted.is_empty() {
+            "1 = 1".to_string()
+        } else {
+            format!("({})", wanted.join(" OR "))
+        }
+    }
+}
+
+/// One claim this computer holds for an album.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AlbumClaim {
+    pub author: String,
+    pub art: String,
+    pub thumb: String,
+    pub mbid: String,
+    pub year: String,
+    pub genre: String,
+    pub collection: String,
+    pub source: String,
+    /// This author seeds a track of the album, which is what lets their claim
+    /// outrank everybody else's.
+    pub seeder: bool,
+    /// The picture on this disk came from this claim.
+    pub in_use: bool,
+    pub created_at: i64,
+}
+
+/// The files on this computer that answer to one album, and the files beside
+/// them that do not.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AlbumFiles {
+    pub count: u64,
+    pub bytes: u64,
+    pub formats: Vec<String>,
+    /// The folders those files sit in, capped, because a compilation can be
+    /// spread over more folders than a dialog can name.
+    pub folders: Vec<String>,
+    /// The track numbers they claim, in order: what nothing here fills is a gap
+    /// anybody can see.
+    pub numbers: Vec<u64>,
+    /// Files in those same folders that name no album at all. This is the answer
+    /// to "do some tracks know the album and others not", and the reason an
+    /// album can look half-catalogued.
+    pub untagged: u64,
+    /// Album names the neighbouring files give instead, most common first.
+    pub others: Vec<String>,
+}
+
+/// Everything this computer knows about one album: the claims it holds, and the
+/// files that say they are in it.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AlbumDetail {
+    pub key: String,
+    pub artist: String,
+    pub album: String,
+    pub claims: Vec<AlbumClaim>,
+    pub files: AlbumFiles,
+    /// A picture for this album is on this disk.
+    pub held: bool,
+    /// `found`, `none` or `error` for the last lookup, empty for "never asked".
+    pub outcome: String,
+    /// Why the last attempt did not work, when one did not.
+    pub reason: String,
+}
+
+/// How many folder names and track numbers a detail dialog will list.
+const ALBUM_DETAIL_LIST_LIMIT: usize = 60;
+
+pub(crate) fn album_detail(connection: &Connection, key: &str) -> Result<AlbumDetail, String> {
+    let trimmed = key.trim();
+    let (artist, album) = match trimmed.split_once(COVER_KEY_SEPARATOR) {
+        Some((artist, album)) => (artist.trim().to_string(), album.trim().to_string()),
+        None => (String::new(), trimmed.to_string()),
+    };
+    // Which picture the cache is holding, and where it was fetched from: that is
+    // what tells the claims below which one of them is the one in use, rather
+    // than guessing from the newest.
+    let cached_source: String = connection
+        .query_row(
+            "SELECT COALESCE(source, '') FROM art_cache WHERE cover_key = ?1 AND rendition = 'full'",
+            params![trimmed],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
+    let mut statement = connection
+        .prepare(
+            "SELECT source_pubkey, art, thumb, mbid, year, genre, collection, source, seeder, created_at
+               FROM album_covers WHERE cover_key = ?1 AND deleted = 0
+              ORDER BY created_at DESC, source_pubkey",
+        )
+        .map_err(|error| error.to_string())?;
+    let claims = statement
+        .query_map(params![trimmed], |row| {
+            let art = row.get::<_, String>(1)?;
+            Ok(AlbumClaim {
+                author: row.get(0)?,
+                in_use: !cached_source.is_empty() && art == cached_source,
+                art,
+                thumb: row.get(2)?,
+                mbid: row.get(3)?,
+                year: row.get(4)?,
+                genre: row.get(5)?,
+                collection: row.get(6)?,
+                source: row.get(7)?,
+                seeder: row.get::<_, i64>(8)? != 0,
+                created_at: row.get(9)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+
+    let (held, outcome, reason): (bool, String, String) = connection
+        .query_row(
+            "SELECT
+               EXISTS(SELECT 1 FROM art_cache WHERE cover_key = ?1),
+               COALESCE((SELECT outcome FROM album_art_lookups WHERE cover_key = ?1), ''),
+               COALESCE((SELECT message FROM cover_lookup_log WHERE cover_key = ?1
+                          ORDER BY id DESC LIMIT 1), '')",
+            params![trimmed],
+            |row| Ok((row.get::<_, i64>(0)? != 0, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|error| error.to_string())?;
+
+    let files = album_files(connection, &artist, &album)?;
+    // A cover key is case-folded, so the halves above are lower case. When the
+    // library holds files that name this album it has the spelling a person uses,
+    // and that is what the window should show.
+    let (shown_artist, shown_album) = connection
+        .query_row(
+            "SELECT artist, album FROM files
+              WHERE lower(trim(artist)) = lower(trim(?1)) AND lower(trim(album)) = lower(trim(?2))
+                AND trim(artist) <> '' AND trim(album) <> ''
+              ORDER BY title, filename LIMIT 1",
+            params![artist, album],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .unwrap_or((artist.clone(), album.clone()));
+
+    Ok(AlbumDetail {
+        key: trimmed.to_string(),
+        artist: shown_artist,
+        album: shown_album,
+        claims,
+        files,
+        held,
+        outcome,
+        reason,
+    })
+}
+
+/// The library's side of one album.
+///
+/// An album only exists in the catalogue as the string each file's tags carry,
+/// so "the album" means "the files that agree on these two strings". The files
+/// sitting in the same folder that do *not* agree are counted too: that is how
+/// one album comes to look half-described, and it is the useful number here.
+fn album_files(connection: &Connection, artist: &str, album: &str) -> Result<AlbumFiles, String> {
+    let mut files = AlbumFiles::default();
+    if album.is_empty() {
+        return Ok(files);
+    }
+    connection
+        .query_row(
+            "SELECT COUNT(*), COALESCE(SUM(size), 0)
+               FROM files WHERE lower(trim(artist)) = lower(trim(?1)) AND lower(trim(album)) = lower(trim(?2))",
+            params![artist, album],
+            |row| {
+                files.count = row.get::<_, i64>(0)?.max(0) as u64;
+                files.bytes = row.get::<_, i64>(1)?.max(0) as u64;
+                Ok(())
+            },
+        )
+        .map_err(|error| error.to_string())?;
+    if files.count == 0 {
+        return Ok(files);
+    }
+    let mut statement = connection
+        .prepare(
+            "SELECT DISTINCT format FROM files
+              WHERE lower(trim(artist)) = lower(trim(?1)) AND lower(trim(album)) = lower(trim(?2))
+                AND format <> '' ORDER BY format",
+        )
+        .map_err(|error| error.to_string())?;
+    files.formats = statement
+        .query_map(params![artist, album], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare(
+            "SELECT DISTINCT folder FROM files
+              WHERE lower(trim(artist)) = lower(trim(?1)) AND lower(trim(album)) = lower(trim(?2))
+                AND folder <> '' LIMIT ?3",
+        )
+        .map_err(|error| error.to_string())?;
+    files.folders = statement
+        .query_map(params![artist, album, ALBUM_DETAIL_LIST_LIMIT as i64], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare(
+            "SELECT DISTINCT track_number FROM files
+              WHERE lower(trim(artist)) = lower(trim(?1)) AND lower(trim(album)) = lower(trim(?2))
+                AND track_number > 0 ORDER BY track_number LIMIT ?3",
+        )
+        .map_err(|error| error.to_string())?;
+    files.numbers = statement
+        .query_map(params![artist, album, ALBUM_DETAIL_LIST_LIMIT as i64], |row| {
+            row.get::<_, i64>(0).map(|number| number.max(0) as u64)
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    // The neighbours, in the folders this album's own files sit in.
+    for folder in &files.folders {
+        let (untagged, others) = connection
+            .query_row(
+                "SELECT
+                   COALESCE(SUM(CASE WHEN trim(album) = '' THEN 1 ELSE 0 END), 0),
+                   COALESCE((SELECT group_concat(name, char(10)) FROM (
+                      SELECT album AS name FROM files
+                       WHERE folder = ?1 AND trim(album) <> ''
+                         AND lower(trim(album)) <> lower(trim(?2))
+                         AND lower(trim(artist)) = lower(trim(?3))
+                       GROUP BY lower(trim(album)) ORDER BY COUNT(*) DESC LIMIT 8)), '')
+                 FROM files WHERE folder = ?1 AND lower(trim(artist)) = lower(trim(?3))",
+                params![folder, album, artist],
+                |row| Ok((row.get::<_, i64>(0)?.max(0) as u64, row.get::<_, String>(1)?)),
+            )
+            .map_err(|error| error.to_string())?;
+        files.untagged += untagged;
+        for name in others.lines() {
+            let name = name.trim().to_string();
+            if !name.is_empty() && !files.others.contains(&name) {
+                files.others.push(name);
+            }
+        }
+    }
+    Ok(files)
 }
 
 /// The verdict held for every album this computer has asked about.
@@ -2212,7 +2495,7 @@ mod tests {
             .unwrap();
         }
         let albums = |sort: &str, descending: bool| {
-            cover_inventory(&connection, sort, descending, 0, 20)
+            cover_inventory(&connection, sort, descending, InventoryFilter::default(), 0, 20)
                 .unwrap()
                 .rows
                 .into_iter()
@@ -2236,7 +2519,7 @@ mod tests {
         );
         // The key is split into its two halves for the row, rather than left for
         // the window to parse.
-        let first = cover_inventory(&connection, "artist", false, 0, 1).unwrap();
+        let first = cover_inventory(&connection, "artist", false, InventoryFilter::default(), 0, 1).unwrap();
         assert_eq!(first.rows[0].artist, "ant");
         assert_eq!(first.rows[0].album, "last album");
     }

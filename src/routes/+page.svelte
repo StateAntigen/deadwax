@@ -34,6 +34,13 @@
     livePeers: number;
     describedLive: number;
     held: number;
+    /** What the live half would take on a disk, in bytes, one size per file. */
+    liveBytes: number;
+    /** Kind `30427` cover claims held here, and how many this identity wrote. */
+    coverClaims: number;
+    signedClaims: number;
+    /** Playlists on this computer, at any author. */
+    playlists: number;
     lastWrite: string;
     formats: CatalogueCount[];
     artists: CatalogueCount[];
@@ -347,7 +354,7 @@
   let catalogueStatsPending = false;
   let catalogueStatsError: string | Message = '';
   /** One page of the peers behind the catalogue, and where the pager is. */
-  type SeederRow = { pubkey: string; npub: string; name: string; announced: number; live: number };
+  type SeederRow = { pubkey: string; npub: string; name: string; announced: number; live: number; indexed: number };
   type SeederPage = { rows: SeederRow[]; total: number };
   const SEEDER_PAGE_SIZE = 12;
   let seedersPage: SeederPage = { rows: [], total: 0 };
@@ -1685,6 +1692,65 @@
   let coverSortAsc = true;
   let coverPageIndex = 0;
   let coverInventory: CoverInventory = { rows: [], total: 0 };
+  /**
+   * The three narrowings of the album list.
+   *
+   * They are switches rather than tabs because they overlap: an album this
+   * computer holds can also have a failed lookup behind it, and somebody looking
+   * for what to fetch wants the missing ones however the last attempt ended.
+   * All three off is the whole list. The host filters, not the window, so the
+   * pager counts the rows somebody is actually looking at.
+   */
+  let coverShowCached = false;
+  let coverShowFailed = false;
+  let coverShowMissing = false;
+
+  function toggleCoverFilter(which: 'cached' | 'failed' | 'missing') {
+    if (which === 'cached') coverShowCached = !coverShowCached;
+    else if (which === 'failed') coverShowFailed = !coverShowFailed;
+    else coverShowMissing = !coverShowMissing;
+    coverPageIndex = 0;
+    void refreshCoverInventory();
+  }
+
+  /** One claim this computer holds for an album (`cover::AlbumClaim`). */
+  type AlbumClaim = {
+    author: string; art: string; thumb: string; mbid: string; year: string;
+    genre: string; collection: string; source: string; seeder: boolean;
+    inUse: boolean; createdAt: number;
+  };
+  /** The library's side of it (`cover::AlbumFiles`). */
+  type AlbumFiles = {
+    count: number; bytes: number; formats: string[]; folders: string[];
+    numbers: number[]; untagged: number; others: string[];
+  };
+  /** Everything this computer knows about one album (`cover::AlbumDetail`). */
+  type AlbumDetail = {
+    key: string; artist: string; album: string; claims: AlbumClaim[];
+    files: AlbumFiles; held: boolean; outcome: string; reason: string;
+  };
+  /** The album whose own window is open, or null. */
+  let coverAlbum: AlbumDetail | null = null;
+  let coverAlbumKey = '';
+  let coverAlbumError: string | Message = '';
+
+  async function openCoverAlbum(row: CoverRow) {
+    coverAlbumKey = row.key;
+    coverAlbumError = '';
+    coverAlbum = null;
+    try {
+      const detail = await invoke<AlbumDetail>('cover_album_detail', { key: row.key });
+      if (coverAlbumKey === row.key) coverAlbum = detail;
+    } catch (error) {
+      coverAlbumError = String(error);
+    }
+  }
+
+  function closeCoverAlbum() {
+    coverAlbum = null;
+    coverAlbumKey = '';
+    coverAlbumError = '';
+  }
 
   /** What the row's picture column says, in the plainest word that is true. */
   function coverRowState(row: CoverRow) {
@@ -1719,6 +1785,9 @@
       coverInventory = await invoke<CoverInventory>('cover_inventory', {
         sort: coverSort,
         descending: !coverSortAsc,
+        cached: coverShowCached,
+        failed: coverShowFailed,
+        missing: coverShowMissing,
         offset: coverPageIndex * COVER_PAGE_SIZE,
         limit: COVER_PAGE_SIZE,
       });
@@ -2694,6 +2763,22 @@
 
   const countFormat = new Intl.NumberFormat();
   function counted(value: number) { return countFormat.format(value); }
+  /**
+   * One seeder's part of the playable catalogue this computer can see.
+   *
+   * A share rather than a count, because "seeds 1,204 files" says nothing on its
+   * own — a fifth of everything playable and a rounding error in it look the same
+   * written down. The denominator is deliberately this computer's own view of the
+   * live half, so the label stays honest: these are the seeders *here*, not the
+   * network's own totals, and the percentages add up to the same 100%.
+   */
+  function seederShare(indexed: number) {
+    const total = catalogueStats?.liveFiles ?? 0;
+    if (total <= 0 || indexed <= 0) return '—';
+    const share = (indexed / total) * 100;
+    if (share < 0.1) return '<0.1%';
+    return `${share.toFixed(share >= 10 ? 0 : 1)}%`;
+  }
   function shortKey(pubkey: string) { return `${pubkey.slice(0, 10)}…${pubkey.slice(-4)}`; }
   /**
    * When the mirror last wrote an announcement down. This is a fact about *this*
@@ -4180,8 +4265,8 @@
 
     <div class="workspace">
       {#if activeView === 'Search'}
+        <div class="panel-title"><span></span><b>{$t("Search the network")}</b><span></span></div>
         <section class="panel search-panel">
-          <div class="panel-title"><span></span><b>{$t("Search the network")}</b><span></span></div>
           <form class="search-form" onsubmit={(e) => { e.preventDefault(); search(); }}>
             <label for="search-query">{$t("Search:")}</label>
             <input id="search-query" bind:value={query} list="search-suggestions" autocomplete="off" placeholder={$t("punk, rock, jazz, audiobook")} />
@@ -4408,7 +4493,7 @@
             <table class="file-table shared-table"><thead><tr><th>{$t("Name")}</th><th>{$t("Folder")}</th><th>{$t("Size")}</th><th>{$t("Catalogue")}</th><th>{$t("Active peers")}</th></tr></thead><tbody>{#each sharedRows as file}<tr class:selected={selectedShared?.fileId === file.fileId} onclick={() => selectSharedRow(file)} ondblclick={() => playAudio(file.fileId, file.name, playerMode, 'shared')}><td>{file.name}</td><td>{folderName(file.folder)}</td><td>{file.readableSize}</td><td><span class:amber={!networkConnected} class="led"></span>{networkConnected ? $t("Published") : $t("Indexed")}</td><td>{file.peers}</td></tr>{/each}</tbody></table>
           </div>
           {#if sharedVisible.length > LOCAL_PAGE_SIZE}<div class="results-pager"><button disabled={sharedLibraryPage === 0} onclick={() => changeSharedLibraryPage(sharedLibraryPage - 1)}>{$t("◀ Previous")}</button><span>{$t("Showing {range} of {count} loaded", { range: localPageRange(sharedLibraryPage, sharedVisible.length), count: sharedVisible.length })} · {$t("Page {page} of {pages}", { page: sharedLibraryPage + 1, pages: sharedPageCount })}</span><button disabled={sharedLibraryPage + 1 >= sharedPageCount} onclick={() => changeSharedLibraryPage(sharedLibraryPage + 1)}>{$t("Next ▶")}</button></div>{/if}
-          <div class="panel-title"><span></span><b>{$t("Track Tags")}</b><span></span></div>
+          <div class="panel-title section-head"><span></span><b>{$t("Track Tags")}</b><span></span></div>
           <div class="tag-editor">
             <b>{selectedTagFile?.filename ?? $t("Select a track above")}</b>
             <input bind:value={tagDraft} disabled={!selectedTagFile || tagSaving} maxlength="256" placeholder={$t("punk, live, audiobook")} onkeydown={(event) => { if (event.key === 'Enter') saveTags(); }} />
@@ -4719,6 +4804,14 @@
             <div class="cover-panel-head">
               <b>{$t("Every album this computer knows")}</b>
               <span>{$t("What it holds, what it went and found, and who signed the picture it uses.")}</span>
+              <!-- Three switches, not three tabs: a held album can still have a
+                   failed lookup behind it, and somebody hunting for what to fetch
+                   wants the missing ones whatever the last attempt said. -->
+              <div class="cover-filters" role="group" aria-label={$t("Narrow the album list")}>
+                <button type="button" class:on={coverShowCached} aria-pressed={coverShowCached} onclick={() => toggleCoverFilter('cached')}>{$t("Cached")}</button>
+                <button type="button" class:on={coverShowFailed} aria-pressed={coverShowFailed} onclick={() => toggleCoverFilter('failed')}>{$t("Lookup failed")}</button>
+                <button type="button" class:on={coverShowMissing} aria-pressed={coverShowMissing} onclick={() => toggleCoverFilter('missing')}>{$t("Missing")}</button>
+              </div>
             </div>
             {#if coverInventory.rows.length > 0}
               <div class="table-wrap">
@@ -4730,7 +4823,11 @@
                   </tr></thead>
                   <tbody>
                   {#each coverInventory.rows as row (row.key)}
-                    <tr>
+                    <!-- The row is the way into the album: its art, everything
+                         known about it, and the two buttons that change it. -->
+                    <tr tabindex="0" title={$t("Open this album")}
+                      onclick={() => void openCoverAlbum(row)}
+                      onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); void openCoverAlbum(row); } }}>
                       <td title={row.album || row.key}>{row.album || row.key}</td>
                       <td title={row.artist}>{row.artist || '—'}</td>
                       <td><i class="playlist-badge" class:amber={!row.held && Boolean(row.reason)}>{$t(coverRowState(row))}</i></td>
@@ -4892,6 +4989,26 @@
                 <b class="net-value">{counted(catalogueStats.indexed)}</b>
                 <span class="net-under">{$t("of {p0} described", { p0: counted(catalogueStats.announced) })}</span>
               </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Network size")}</span>
+                <b class="net-value">{readableSize(catalogueStats.liveBytes)}</b>
+                <span class="net-under">{$t("of playable audio")}</span>
+              </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Cover claims")}</span>
+                <b class="net-value">{counted(catalogueStats.coverClaims)}</b>
+                <span class="net-under">{$t("kind {p0} held here", { p0: '30427' })}</span>
+              </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Claims you signed")}</span>
+                <b class="net-value">{counted(catalogueStats.signedClaims)}</b>
+                <span class="net-under">{$t("of {p0} held", { p0: counted(catalogueStats.coverClaims) })}</span>
+              </article>
+              <article class="net-kpi">
+                <span class="net-label">{$t("Playlists")}</span>
+                <b class="net-value">{counted(catalogueStats.playlists)}</b>
+                <span class="net-under">{$t("held here, at any author")}</span>
+              </article>
             </div>
             {#if behind}
               <p class="net-warn">{$t("The index is behind the mirror, so a search may be missing something.")}</p>
@@ -4930,12 +5047,13 @@
               </div>
               {#if seederError}<p class="net-error">{$t(seederError)}</p>{/if}
               <table>
-                <thead><tr><th>{$t("Seeder")}</th><th class="num">{$t("Live")}</th><th class="num">{$t("Announced")}</th></tr></thead>
+                <thead><tr><th>{$t("Seeder")}</th><th class="num">{$t("Live")}</th><th class="num" title={$t("Their share of the playable files this computer knows about")}>{$t("Share")}</th><th class="num">{$t("Announced")}</th></tr></thead>
                 <tbody>
                   {#each seedersPage.rows as seeder (seeder.pubkey)}
                     <tr>
                       <td><button class="user-name seeder-name" title={seeder.npub || seeder.pubkey} onclick={() => browseUser({ pubkey: seeder.pubkey, npub: seeder.npub, displayName: seederLabel(seeder) })}>{seederLabel(seeder)}</button>{#if seeder.name}<code class="seeder-key" title={seeder.npub}>{shortKey(seeder.npub || seeder.pubkey)}</code>{/if}</td>
                       <td class="num" class:quiet={seeder.live === 0}>{counted(seeder.live)}</td>
+                      <td class="num" class:quiet={seeder.live === 0}>{seederShare(seeder.indexed)}</td>
                       <td class="num">{counted(seeder.announced)}</td>
                     </tr>
                   {/each}
@@ -4950,6 +5068,9 @@
             </section>
             <footer class="net-foot">
               <span>{$t("Last mirror write {p0}", { p0: mirrorWritten(catalogueStats.lastWrite) })}</span>
+              <!-- Coverage, not an alarm: a live file the mirror has not seen is
+                   normal, and a warning that shows every day is not a warning. -->
+              <span>{$t("Describes {p0} of the {p1} playable files.", { p0: counted(catalogueStats.describedLive), p1: counted(catalogueStats.liveFiles) })}</span>
               <span>{$t("These are this computer's own counts, not the network's totals.")}</span>
             </footer>
           {:else if !catalogueStatsPending}
@@ -5056,6 +5177,120 @@
       onClose={() => (coverReport = null)}
       onReported={(message: string) => (activityMessage = message)}
     />
+  {/if}
+
+  <!--
+    One album's own window. The list says what state an album is in; this says
+    everything behind that state: the picture, every claim held for it, and the
+    files on this computer that say they are in it - including the ones sitting
+    in the same folder that name no album at all, which is why one album can look
+    half-catalogued while its neighbours are complete.
+  -->
+  {#if coverAlbumKey}
+    <div class="modal-backdrop" role="presentation" onclick={closeCoverAlbum}>
+      <dialog class="dialog album-dialog" open aria-label={$t("Album")} onclick={(event) => event.stopPropagation()}>
+        <header class="titlebar">
+          <div class="title-left">
+            <span class="app-icon"><img src="/deadwax-logo.png" alt="" /></span>
+            <span>{coverAlbum?.album || $t("Album")}</span>
+          </div>
+          <div class="window-controls"><button onclick={closeCoverAlbum}>×</button></div>
+        </header>
+        <div class="dialog-body album-dialog-body">
+          <div class="album-dialog-art">
+            {#if coverAlbum}
+              <CoverArt artist={coverAlbum.artist} album={coverAlbum.album} size="large" revision={coverRevision} />
+            {:else}
+              <span class="cover-art large empty" aria-hidden="true">♪</span>
+            {/if}
+            {#if coverAlbum}
+              <div class="album-dialog-actions">
+                <button class="classic-button" onclick={() => openCoverReport(coverAlbum!.artist, coverAlbum!.album)}>{$t("Report cover…")}</button>
+                <button class="classic-button" disabled={!coverAlbum.artist || !coverAlbum.album} onclick={() => void openCoverPicker(coverAlbum!.artist, coverAlbum!.album)}>{$t("Fix album art…")}</button>
+              </div>
+            {/if}
+          </div>
+          <div class="album-dialog-facts">
+            {#if coverAlbumError}
+              <p class="net-error">{$t(coverAlbumError)}</p>
+            {:else if !coverAlbum}
+              <p class="empty-state compact">{$t("Reading…")}</p>
+            {:else}
+              <h3>{coverAlbum.album}{#if coverAlbum.artist}<small>{coverAlbum.artist}</small>{/if}</h3>
+              <dl class="album-facts">
+                <dt>{$t("Picture")}</dt>
+                <dd>
+                  {#if coverAlbum.held}{$t("Held here")}
+                  {:else if coverAlbum.reason}{$t("Lookup failed")}
+                  {:else if coverAlbum.outcome === 'none'}{$t("Nobody has one")}
+                  {:else if coverAlbum.outcome === 'found'}{$t("Found, not fetched")}
+                  {:else}{$t("Not looked up yet")}{/if}
+                  {#if coverAlbum.reason}<small>{coverAlbum.reason}</small>{/if}
+                </dd>
+                <dt>{$t("Files here")}</dt>
+                <dd>
+                  {#if coverAlbum.files.count > 0}
+                    {$t("{p0} in this album", { p0: counted(coverAlbum.files.count) })}
+                    {' · '}{readableSize(coverAlbum.files.bytes)}
+                    {#if coverAlbum.files.formats.length}{' · '}{coverAlbum.files.formats.join(', ')}{/if}
+                  {:else}
+                    {$t("No file on this computer names this album.")}
+                  {/if}
+                </dd>
+                {#if coverAlbum.files.numbers.length}
+                  <dt>{$t("Track numbers")}</dt>
+                  <dd>{coverAlbum.files.numbers.join(', ')}</dd>
+                {/if}
+                {#if coverAlbum.files.folders.length}
+                  <dt>{$t("Folder")}</dt>
+                  <dd class="album-folders">{#each coverAlbum.files.folders as folder}<code>{folder}</code>{/each}</dd>
+                {/if}
+                {#if coverAlbum.files.untagged > 0 || coverAlbum.files.others.length}
+                  <!-- The answer to "do some tracks know the album and others
+                       not": this is the same folder, one level down. -->
+                  <dt>{$t("Beside it")}</dt>
+                  <dd>
+                    {#if coverAlbum.files.untagged > 0}
+                      {$t("{p0} files in the same folder name no album at all.", { p0: counted(coverAlbum.files.untagged) })}
+                    {/if}
+                    {#if coverAlbum.files.others.length}
+                      {$t("Other albums named there: {p0}.", { p0: coverAlbum.files.others.slice(0, 6).join(' · ') })}
+                    {/if}
+                  </dd>
+                {/if}
+                <dt>{$t("Claims")}</dt>
+                <dd>
+                  {#if coverAlbum.claims.length === 0}
+                    {$t("Nobody has published a claim this computer received.")}
+                  {:else}
+                    <ul class="album-claims">
+                      {#each coverAlbum.claims as claim (claim.author)}
+                        <li class:in-use={claim.inUse}>
+                          <code title={claim.author}>{shortKey(claim.author)}</code>
+                          {#if claim.inUse}<i class="playlist-badge">{$t("In use")}</i>{/if}
+                          {#if claim.seeder}<i class="playlist-badge">{$t("Seeds this album")}</i>{/if}
+                          <small>
+                            {[
+                              claim.year,
+                              claim.genre,
+                              claim.collection,
+                              claim.mbid,
+                              claim.source,
+                              new Date(claim.createdAt * 1000).toLocaleDateString($locale, { dateStyle: 'medium' })
+                            ].filter(Boolean).join(' · ')}
+                          </small>
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </dd>
+              </dl>
+            {/if}
+          </div>
+        </div>
+        <div class="dialog-actions"><button class="classic-button primary" onclick={closeCoverAlbum}>{$t("Close")}</button></div>
+      </dialog>
+    </div>
   {/if}
 
   {#if aboutOpen}

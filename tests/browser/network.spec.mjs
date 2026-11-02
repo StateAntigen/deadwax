@@ -13,7 +13,7 @@ test('the Network page reports what this computer can see', async ({ page }) => 
   await page.locator('.tool-button').filter({ hasText: 'Network' }).click();
 
   const kpis = page.locator('.net-kpi');
-  await expect(kpis).toHaveCount(4);
+  await expect(kpis).toHaveCount(8);
   await expect(kpis.nth(0)).toContainText('Playable now');
   await expect(kpis.nth(0)).toContainText('22,322');
   await expect(kpis.nth(0)).toContainText('75,698 ever announced');
@@ -23,6 +23,18 @@ test('the Network page reports what this computer can see', async ({ page }) => 
   await expect(kpis.nth(2)).toContainText('3,189');
   await expect(kpis.nth(3)).toContainText('75,698');
   await expect(kpis.nth(3)).toContainText('of 75,698 described');
+
+  // The four health figures beside them: how much there is to play, how many
+  // kind 30427 claims this computer holds, how many of those it signed itself,
+  // and how many playlists it holds at any author.
+  await expect(kpis.nth(4)).toContainText('Network size');
+  await expect(kpis.nth(4)).toContainText('38.4 GB');
+  await expect(kpis.nth(5)).toContainText('Cover claims');
+  await expect(kpis.nth(5)).toContainText('1,402');
+  await expect(kpis.nth(6)).toContainText('Claims you signed');
+  await expect(kpis.nth(6)).toContainText('37');
+  await expect(kpis.nth(7)).toContainText('Playlists');
+  await expect(kpis.nth(7)).toContainText('9');
 
   // The live figure is the only one allowed an accent colour.
   const live = await kpis.nth(0).locator('.net-value').evaluate((element) => getComputedStyle(element).color);
@@ -37,10 +49,17 @@ test('the Network page reports what this computer can see', async ({ page }) => 
   await expect(seeders).toHaveCount(1);
   await expect(seeders.first()).toContainText('Seeder A');
   await expect(seeders.first()).toContainText('1,400');
+  // A count on its own says nothing about how much of the catalogue one peer is;
+  // the Share column is that count over the playable files this computer knows.
+  await expect(page.locator('.net-publishers thead')).toContainText('Share');
+  await expect(seeders.first().locator('td').nth(2)).toHaveText('6.3%');
   await page.locator('.net-toggle input').check();
   await expect(seeders).toHaveCount(2);
   await expect(seeders.nth(1)).toContainText('npub1seederb'.slice(0, 10));
+  // A peer that is not holding anything has no share, rather than 0%.
+  await expect(seeders.nth(1).locator('td').nth(2)).toHaveText('—');
   await expect(page.locator('.net-foot')).toContainText('Last mirror write');
+  await expect(page.locator('.net-foot')).toContainText('Describes 20,511 of the 22,322 playable files.');
   await expect(page.locator('.net-foot')).toContainText("not the network's totals");
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

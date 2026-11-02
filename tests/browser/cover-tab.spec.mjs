@@ -300,3 +300,71 @@ test('the Covers tab is a summary line and one list, sorted five ways', async ({
   await page.locator('.tool-button', { hasText: 'Settings' }).click();
   await expect(page.locator('#cover-art-hosts')).toBeVisible();
 });
+
+/**
+ * The album window is the answer to "what else do we know about this album?".
+ *
+ * The list can only say what state an album is in; the window behind a row says
+ * why - every claim held for it, and the files on this computer that name it,
+ * including the neighbours in the same folder that name no album at all. That
+ * last number is the one that explains a half-catalogued album.
+ */
+test('an album opens into its own window with its claims and its files', async ({ page }) => {
+  await openCovers(page, busy);
+  await page.locator('.cover-table tbody tr').first().click();
+
+  const album = page.locator('.album-dialog');
+  await expect(album).toBeVisible();
+  await expect(album.locator('.titlebar')).toContainText('Machine Head');
+  await expect(album.locator('.album-dialog-facts')).toContainText('Deep Purple');
+  // The files that say they are in it, and how big they are.
+  await expect(album.locator('.album-dialog-facts')).toContainText('7 in this album');
+  await expect(album.locator('.album-dialog-facts')).toContainText('280 MB');
+  await expect(album.locator('.album-dialog-facts')).toContainText('flac, mp3');
+  // The neighbours: two files in the same folder name no album, which is why one
+  // album can look complete and the one beside it does not.
+  await expect(album.locator('.album-dialog-facts')).toContainText('2 files in the same folder name no album at all.');
+  // Every claim held for it, with the one in use marked.
+  await expect(album.locator('.album-claims li')).toHaveCount(2);
+  await expect(album.locator('.album-claims li.in-use')).toHaveCount(1);
+  await expect(album.locator('.album-claims')).toContainText('In use');
+  await expect(album.locator('.album-claims')).toContainText('Seeds this album');
+  await expect(album.locator('.album-claims')).toContainText('1972 · Rock');
+
+  // The two things a person came to do about the picture are here, rather than
+  // only on the search page's album art.
+  await expect(album.getByRole('button', { name: 'Report cover…' })).toBeVisible();
+  await expect(album.getByRole('button', { name: 'Fix album art…' })).toBeVisible();
+
+  await album.getByRole('button', { name: 'Close' }).last().click();
+  await expect(page.locator('.album-dialog')).toHaveCount(0);
+});
+
+/**
+ * The three switches narrow the list at the host, so the pager counts what is
+ * actually shown. They are switches rather than tabs because they overlap: an
+ * album held here can also have a failed lookup behind it.
+ */
+test('the album list is narrowed by three switches that ask the host', async ({ page }) => {
+  await openCovers(page, busy);
+  const asked = () =>
+    page.evaluate(() =>
+      window.calls
+        .filter((call) => call.cmd === 'cover_inventory')
+        .map((call) => ({ cached: call.args?.cached, failed: call.args?.failed, missing: call.args?.missing, offset: call.args?.offset }))
+        .at(-1)
+    );
+  expect(await asked()).toEqual({ cached: false, failed: false, missing: false, offset: 0 });
+
+  await page.locator('.cover-filters button', { hasText: 'Cached' }).click();
+  await expect.poll(asked).toEqual({ cached: true, failed: false, missing: false, offset: 0 });
+  await expect(page.locator('.cover-filters button', { hasText: 'Cached' })).toHaveAttribute('aria-pressed', 'true');
+
+  // A second switch narrows further rather than replacing the first.
+  await page.locator('.cover-filters button', { hasText: 'Lookup failed' }).click();
+  await expect.poll(asked).toEqual({ cached: true, failed: true, missing: false, offset: 0 });
+
+  // Turning one off leaves the other on.
+  await page.locator('.cover-filters button', { hasText: 'Cached' }).click();
+  await expect.poll(asked).toEqual({ cached: false, failed: true, missing: false, offset: 0 });
+});

@@ -228,6 +228,7 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           case 'catalogue_status': return {
             announced: 75698, indexed: 75698, publishers: 118,
             liveFiles: 22322, livePeers: 5, describedLive: 20511, held: 3189,
+            liveBytes: 41_278_000_000, coverClaims: 1402, signedClaims: 37, playlists: 9,
             lastWrite: '2026-10-30T04:49:35.114193300+00:00',
             formats: [{ label: 'MP3', count: 14039 }, { label: 'FLAC', count: 6470 }, { label: 'OPUS', count: 1 }],
             artists: [{ label: 'Deep Purple', count: 1077 }, { label: 'Frank Sinatra', count: 840 }],
@@ -241,8 +242,8 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           // pages it. A spec that cares seeds `window.seeders`.
           case 'catalogue_seeders': {
             const all = window.seeders ?? [
-              { pubkey: 'a'.repeat(64), npub: 'npub1seedera', name: 'Seeder A', announced: 25630, live: 1400 },
-              { pubkey: 'b'.repeat(64), npub: 'npub1seederb', name: '', announced: 13136, live: 0 }
+              { pubkey: 'a'.repeat(64), npub: 'npub1seedera', name: 'Seeder A', announced: 25630, live: 1400, indexed: 1400 },
+              { pubkey: 'b'.repeat(64), npub: 'npub1seederb', name: '', announced: 13136, live: 0, indexed: 0 }
             ];
             const quiet = args?.hideQuiet === false ? all : all.filter((row) => row.live > 0);
             const offset = args?.offset ?? 0;
@@ -259,6 +260,26 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
             const offset = args?.offset ?? 0;
             const limit = args?.limit ?? 20;
             return { rows: rows.slice(offset, offset + limit), total: rows.length };
+          }
+          // One album's own window: the claims held for it and the files here
+          // that name it, including the neighbours that do not.
+          case 'cover_album_detail': {
+            const [keyArtist, keyAlbum] = String(args?.key ?? '').split('|');
+            return window.coverAlbumDetail ?? {
+              key: args?.key ?? '',
+              // The host answers with the library's own spelling when it holds
+              // files for the album, because a cover key is case-folded.
+              artist: keyArtist === 'deep purple' ? 'Deep Purple' : (keyArtist ?? ''),
+              album: keyAlbum === 'machine head' ? 'Machine Head' : (keyAlbum ?? ''),
+              claims: [
+                { author: 'a'.repeat(64), art: 'https://coverartarchive.org/release/aaaaaaaa/1-1200.jpg', thumb: '', mbid: 'f4a7b0d2-0000-0000-0000-000000000000', year: '1972', genre: 'Rock', collection: '', source: 'musicbrainz', seeder: true, inUse: true, createdAt: 1700000000 },
+                { author: 'b'.repeat(64), art: 'https://example.invalid/other.jpg', thumb: '', mbid: '', year: '', genre: '', collection: 'Machine Head (Remaster)', source: 'fanart', seeder: false, inUse: false, createdAt: 1690000000 }
+              ],
+              files: { count: 7, bytes: 293_601_280, formats: ['flac', 'mp3'], folders: ['/music/Deep Purple/Machine Head'], numbers: [1, 2, 3, 5], untagged: 2, others: [] },
+              held: true,
+              outcome: 'found',
+              reason: ''
+            };
           }
           case 'start_network':
           case 'network_status': return { connected: true, pubkey: 'c'.repeat(64), npub: 'npub1test', relayCount: 1, torRunning: true, torStarting: false, torProgress: 100, torError: '', error: '' };
