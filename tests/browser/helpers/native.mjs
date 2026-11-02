@@ -71,9 +71,37 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
       };
       return window.remotePlaying;
     };
-    // The desktop's playlists, as the host stores them: rows a test seeds, which
-    // the page then lists, edits and deletes through the same commands the real
-    // host implements.
+    // The Folders page's own model: the sources, one level of the tree per parent,
+    // and one folder's files. A spec seeds `window.library` when it wants a
+    // different library; the exclusion cases below edit that same object, so the
+    // page's next read is an answer rather than an echo of what it asked for.
+    const library = () => window.library ?? (window.library = {
+      sources: [
+        { id: 1, name: 'Music', path: '/music/Aristotle', state: 'active', reachable: true, files: 2, bytes: 40_000_000, folders: 2 },
+        { id: 2, name: 'Audiobooks', path: '/audiobooks', state: 'parked', reachable: true, files: 0, bytes: 0, folders: 0 }
+      ],
+      tree: {
+        '': [
+          { sourceId: 1, key: 'Music', name: 'Music', path: '/music/Aristotle', depth: 0, files: 2, shared: true, reason: '', expandable: true }
+        ],
+        '1|Music': [
+          { sourceId: 1, key: 'Music/Muse', name: 'Muse', path: '/music/Aristotle/Muse', depth: 1, files: 2, shared: true, reason: '', expandable: false },
+          { sourceId: 1, key: 'Music/Podcasts', name: 'Podcasts', path: '/music/Aristotle/Podcasts', depth: 1, files: 0, shared: false, reason: 'not music, kept off the network', expandable: false }
+        ]
+      },
+      contents: {
+        '1|Music': {
+          sourceId: 1, key: 'Music', name: 'Music', path: '/music/Aristotle',
+          rows: [
+            { name: '01 - Intro.mp3', size: 4_000_000, status: 'shared', reason: '', detail: '', fileId: 'a'.repeat(64), key: 'Music/01 - Intro.mp3' },
+            { name: '02 - Interlude.mp3', size: 2_000_000, status: 'shared', reason: '', detail: '', fileId: 'b'.repeat(64), key: 'Music/02 - Interlude.mp3' },
+            { name: '07 - Hysteria.m4a', size: 8_000_000, status: 'notShared', reason: 'unsupportedFormat', detail: 'M4A', fileId: '', key: 'Music/07 - Hysteria.m4a' },
+            { name: 'cover.jpg', size: 180_000, status: 'ignored', reason: 'notAudio', detail: '', fileId: '', key: 'Music/cover.jpg' }
+          ],
+          audio: 2, shared: 2, unsupported: 1, folders: 2, parked: false
+        }
+      }
+    });
     const playlistRows = () => window.playlistStore ?? [];
     const ownPlaylistAuthor = () => window.playlistAuthor ?? 'c'.repeat(64);
     // The key a phone's own things are filed under is the phone's, not the
@@ -283,6 +311,97 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
           }
           // What this computer is ignoring, and the one action that page offers.
           case 'blocked_content': return window.blockedContent ?? { pubkeys: [], covers: [], files: [] };
+          // The Folders page: its sources, one level of the tree, and one folder's
+          // files. No folder chosen is the sources themselves, which is why the
+          // key of the roots is the empty string.
+          case 'library_sources': return library().sources;
+          case 'library_tree': {
+            const key = args?.sourceId == null ? '' : `${args.sourceId}|${args.folder ?? ''}`;
+            return library().tree[key] ?? [];
+          }
+          case 'folder_contents': {
+            const key = `${args.sourceId}|${args.folder}`;
+            return library().contents[key] ?? {
+              sourceId: args.sourceId, key: args.folder, name: args.folder, path: '',
+              rows: [], audio: 0, shared: 0, unsupported: 0, folders: 0, parked: false
+            };
+          }
+          // Stopping sharing takes the rows out of the answer at once, which is what
+          // the host does: the next catalogue is already the truth.
+          case 'exclude_shared': {
+            const model = library();
+            for (const folder of Object.values(model.contents)) {
+              for (const row of folder.rows) {
+                const inside = args.kind === 'file'
+                  ? row.key === args.key
+                  : row.key === args.key || row.key.startsWith(`${args.key}/`);
+                if (!inside || row.status !== 'shared') continue;
+                row.status = 'excluded';
+                row.reason = 'excluded';
+                row.detail = args.reason ?? '';
+                folder.shared = Math.max(0, folder.shared - 1);
+              }
+            }
+            for (const rows of Object.values(model.tree)) {
+              for (const node of rows) {
+                const inside = args.kind === 'file'
+                  ? node.key === args.key
+                  : node.key === args.key || node.key.startsWith(`${args.key}/`);
+                if (!inside) continue;
+                node.shared = false;
+                node.reason = args.reason ?? '';
+                node.files = 0;
+              }
+            }
+            return null;
+          }
+          case 'include_shared': {
+            const model = library();
+            for (const folder of Object.values(model.contents)) {
+              for (const row of folder.rows) {
+                const inside = args.kind === 'file'
+                  ? row.key === args.key
+                  : row.key === args.key || row.key.startsWith(`${args.key}/`);
+                if (!inside || row.status !== 'excluded') continue;
+                row.status = row.fileId ? 'shared' : 'notShared';
+                row.reason = '';
+                row.detail = '';
+                if (row.status === 'shared') folder.shared += 1;
+              }
+            }
+            for (const rows of Object.values(model.tree)) {
+              for (const node of rows) {
+                const inside = args.kind === 'file'
+                  ? node.key === args.key
+                  : node.key === args.key || node.key.startsWith(`${args.key}/`);
+                if (!inside) continue;
+                node.shared = true;
+                node.reason = '';
+              }
+            }
+            return null;
+          }
+          case 'add_library_source': {
+            const model = library();
+            const name = String(args.path).split(/[\\/]/).filter(Boolean).pop() ?? 'Source';
+            const id = Math.max(0, ...model.sources.map((source) => source.id)) + 1;
+            model.sources.push({ id, name, path: args.path, state: 'active', reachable: true, files: 0, bytes: 0, folders: 0 });
+            model.tree[''] = [...(model.tree[''] ?? []), { sourceId: id, key: name, name, path: args.path, depth: 0, files: 0, shared: true, reason: '', expandable: false }];
+            return model.sources.at(-1);
+          }
+          case 'set_library_source_state': {
+            const source = library().sources.find((row) => row.id === args.id);
+            if (!source) throw new Error('that source is not shared');
+            source.state = args.status;
+            return null;
+          }
+          case 'remove_library_source': {
+            const model = library();
+            model.sources = model.sources.filter((row) => row.id !== args.id);
+            model.tree[''] = (model.tree[''] ?? []).filter((node) => node.sourceId !== args.id);
+            return null;
+          }
+          case 'open_library_folder': return null;
           case 'unblock': {
             const list = window.blockedContent ?? { pubkeys: [], covers: [], files: [] };
             const bucket = args?.kind === 'user' ? 'pubkeys' : args?.kind === 'cover' ? 'covers' : 'files';

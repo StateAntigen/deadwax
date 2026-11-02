@@ -3010,8 +3010,9 @@ mod tests {
         connection
             .execute_batch(
                 "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                 CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL);
-                 CREATE TABLE blocked_files (file_id TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL);
+                 CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
+                 CREATE TABLE blocked_files (file_id TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
+                 CREATE TABLE blocked_covers (cover_key TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
                  CREATE TABLE files (
                    file_id TEXT PRIMARY KEY, filename TEXT NOT NULL, path TEXT NOT NULL, size INTEGER NOT NULL,
                    format TEXT NOT NULL, indexed_at TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',

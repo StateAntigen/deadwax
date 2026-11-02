@@ -1914,3 +1914,111 @@ input:focus, select:focus, textarea:focus {
    centred; every other switch in the card is left-aligned. */
 .cover-settings .settings-hosts { align-items: flex-start; text-align: start; }
 .cover-settings .settings-hosts textarea { max-width: 520px; }
+
+/* ---------------------------------------------------------------------------
+   Folders: what this computer shares, and the reason for everything it does
+   not. Two cards under one title - the sources and their tree on the left, the
+   contents of the chosen folder on the right - and a row says why it is or is
+   not on the network rather than leaving the person to guess.
+--------------------------------------------------------------------------- */
+.folders-view { gap: 10px; }
+.folders-subtitle { margin: -4px 0 0; color: var(--dim); font-size: 11.5px; text-align: start; }
+.folders-tools { display: flex; align-items: center; gap: 10px; color: var(--dim); font-size: 11.5px; }
+.folders-tools > span { flex: 1 1 auto; min-width: 0; }
+.folders-split { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 12px; flex: 1 1 auto; min-height: 0; }
+.folders-card {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.folders-card > .section-caption { flex: 0 0 auto; padding: 6px 10px; }
+.folders-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+.source-row {
+  display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 22px 18px;
+  align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--line);
+}
+.source-row.parked { opacity: 0.6; }
+.source-copy { display: flex; flex-direction: column; min-width: 0; }
+.source-copy b { color: var(--text); font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-copy small { color: var(--dim); font-family: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-badge {
+  padding: 1px 7px; border: 1px solid var(--accent-line); border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+.source-badge.off { border-color: var(--line-strong); background: transparent; color: var(--dim); }
+
+.folder-node {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) minmax(0, auto) 22px;
+  align-items: center; gap: 7px; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line);
+  cursor: default;
+}
+.folder-node:hover { background: var(--hover); }
+.folder-node.selected { background: var(--accent-soft); }
+.folder-node.root .folder-open b { color: var(--text); font-weight: 600; }
+.folder-node.excluded .folder-open b { color: var(--dim); text-decoration: line-through; }
+.folder-twisty {
+  width: 14px; padding: 0; border: 0; background: none; color: var(--dim);
+  font-size: 10px; line-height: 1; cursor: pointer;
+}
+.folder-twisty:disabled { cursor: default; }
+.folder-open {
+  display: flex; align-items: center; gap: 7px; min-width: 0; padding: 0;
+  border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px;
+  text-align: start; cursor: pointer;
+}
+.folder-open > span { flex: 0 0 auto; font-size: 11px; }
+.folder-open b { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.folder-node-count { color: var(--dim); font-family: var(--mono); font-size: 10.5px; }
+.folder-node-why { max-width: 190px; color: var(--dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-tick {
+  width: 22px; height: 20px; padding: 0; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--accent); font-size: 11px; line-height: 1; cursor: pointer;
+}
+.folder-tick:hover { border-color: var(--line-strong); background: var(--hover); }
+.folder-tick[aria-pressed="false"] { color: var(--dim); }
+.folder-drop {
+  width: 18px; height: 20px; padding: 0; border: 0; border-radius: 6px;
+  background: none; color: var(--dim); font-size: 12px; line-height: 1; cursor: pointer;
+}
+.folder-drop:hover { background: var(--danger-soft); color: var(--danger); }
+
+.folder-crumb {
+  flex: 0 0 auto; padding: 5px 10px; border-bottom: 1px solid var(--line);
+  background: var(--sunken); color: var(--dim); font-family: var(--mono); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.folder-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.folder-table th {
+  position: sticky; top: 0; z-index: 1; padding: 6px 10px; text-align: start;
+  background: var(--panel-raised); color: var(--dim); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.folder-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-table th.num, .folder-table td.num { width: 84px; text-align: end; font-family: var(--mono); font-size: 11px; }
+.folder-table th:nth-child(3), .folder-table td:nth-child(3) { width: 104px; text-align: start; }
+.folder-table th:nth-child(4), .folder-table td:nth-child(4) { width: 27%; }
+.folder-table th:last-child, .folder-table td:last-child { width: 96px; padding-inline: 8px; text-align: end; }
+.folder-table tr.excluded .folder-file-name, .folder-table tr.ignored .folder-file-name { color: var(--dim); }
+.folder-table tr.not-shared .folder-file-name { color: var(--warn); }
+.folder-file-name { color: var(--text); }
+.folder-reason-cell { color: var(--dim); font-size: 11px; }
+.folder-row-action { text-align: end; overflow: visible; }
+.folder-row-action .caption-button { padding: 0 8px; font-size: 10.5px; white-space: nowrap; }
+
+.folder-pill {
+  display: inline-block; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
+  color: var(--muted); font-size: 10.5px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+}
+.folder-pill.ok { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+.folder-pill.off { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.folder-pill.dim { border-color: var(--line); color: var(--dim); }
+
+.folder-summary {
+  display: flex; align-items: center; gap: 14px; flex: 0 0 auto;
+  padding: 6px 10px; border-top: 1px solid var(--line); background: var(--panel-raised);
+  color: var(--dim); font-size: 11px;
+}
+.folder-summary .warn { color: var(--warn); }
+.folder-reason { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; color: var(--muted); font-size: 11.5px; }
+.folder-reason input { max-width: 340px; }

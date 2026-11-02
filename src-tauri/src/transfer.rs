@@ -1065,9 +1065,10 @@ async fn download_offer(
             let transaction = connection
                 .transaction()
                 .map_err(|error| error.to_string())?;
+            let source = crate::folders::source_for_download(&transaction, &final_destination)?;
             crate::upsert_verified_file(
                 &transaction,
-                &napstr_folder,
+                &source,
                 &final_destination,
                 &offer.file_id,
                 size,

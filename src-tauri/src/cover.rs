@@ -2886,7 +2886,8 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         connection
             .execute_batch(
-                "CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL);",
+                "CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');
+                 CREATE TABLE blocked_covers (cover_key TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT NOT NULL DEFAULT '');",
             )
             .unwrap();
         crate::network::initialise_network_schema(&connection).unwrap();

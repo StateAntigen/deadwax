@@ -25,6 +25,7 @@ mod cover;
 mod cover_publish;
 mod device_account;
 mod diag;
+mod folders;
 mod mobile;
 mod network;
 mod playback_bridge;
@@ -50,7 +51,7 @@ struct AppState {
     db_path: Mutex<PathBuf>,
     network: Arc<network::NetworkService>,
     tor: Arc<tor::TorManager>,
-    watcher: Mutex<Option<FolderWatcher>>,
+    watcher: Mutex<Vec<FolderWatcher>>,
     scan_lock: Arc<Mutex<()>>,
     scan_cancel: Arc<AtomicBool>,
     app_handle: tauri::AppHandle,
@@ -257,6 +258,9 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         ("channels", "INTEGER NOT NULL DEFAULT 0"),
         ("lossless", "INTEGER NOT NULL DEFAULT 0"),
         ("duration_ms", "INTEGER NOT NULL DEFAULT 0"),
+        // Which source a row came from. A library is a list of roots now, so
+        // the folder key alone no longer says where a file lives.
+        ("source_id", "INTEGER NOT NULL DEFAULT 1"),
     ] {
         ensure_column(&connection, "files", column, declaration)?;
     }
@@ -302,6 +306,7 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     network::initialise_network_schema(&connection)?;
     playlist::initialise_schema(&connection)?;
+    folders::initialise_schema(&connection)?;
     connection
         .execute_batch(
             "DELETE FROM download_sources WHERE request_id IN (
@@ -384,6 +389,11 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
             )
             .map_err(|error| error.to_string())?;
     }
+    // The library was one folder before it was a list of sources. The settings'
+    // folder becomes the first source, and the folder keys written without one in
+    // front of them get it - once, here, because the walk's fast path would leave
+    // an unchanged row's old key alone for ever.
+    folders::adopt_shared_folder(&connection, &shared_folder)?;
     Ok(())
 }
 
@@ -403,22 +413,6 @@ fn load_settings(connection: &Connection) -> Result<Settings, String> {
         profile_about: get_setting(connection, "profile_about")?,
         profile_picture: get_setting(connection, "profile_picture")?,
     })
-}
-
-fn library_folder(root: &Path, file: &Path) -> String {
-    file.parent()
-        .and_then(|parent| parent.strip_prefix(root).ok())
-        .map(|relative| {
-            relative
-                .components()
-                .filter_map(|component| match component {
-                    std::path::Component::Normal(value) => Some(value.to_string_lossy()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-                .join("/")
-        })
-        .unwrap_or_default()
 }
 
 fn shared_file_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SharedFile> {
@@ -919,7 +913,7 @@ fn modified_ns(metadata: &fs::Metadata) -> i64 {
 
 pub(crate) fn upsert_verified_file(
     connection: &Connection,
-    folder_root: &Path,
+    source: &folders::Source,
     path: &Path,
     file_id: &str,
     size: u64,
@@ -933,20 +927,26 @@ pub(crate) fn upsert_verified_file(
     if filename.is_empty() {
         return Err("audio filename has no safe public text".into());
     }
-    let relative_folder = library_folder(folder_root, path);
+    let relative = folders::relative_path(&source.path, path).unwrap_or_default();
+    // The folder a row is filed under is the one it lives in, not its own name.
+    let parent = relative
+        .rsplit_once('/')
+        .map(|(folder, _)| folder)
+        .unwrap_or("");
+    let relative_folder = source.key(parent);
     let modified = fs::metadata(path)
         .map(|metadata| modified_ns(&metadata))
         .unwrap_or(0);
     connection
         .execute(
-            "INSERT INTO files (file_id, filename, path, size, format, indexed_at, mime, folder, modified_ns, title, artist, album, metadata_version, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
+            "INSERT INTO files (file_id, filename, path, size, format, indexed_at, mime, folder, modified_ns, title, artist, album, metadata_version, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms, source_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
              ON CONFLICT(file_id) DO UPDATE SET filename=excluded.filename,path=excluded.path,size=excluded.size,
              format=excluded.format,mime=excluded.mime,folder=excluded.folder,indexed_at=excluded.indexed_at,
              modified_ns=excluded.modified_ns,title=excluded.title,artist=excluded.artist,album=excluded.album,
              metadata_version=excluded.metadata_version,track_number=excluded.track_number,disc_number=excluded.disc_number,
              bitrate_kbps=excluded.bitrate_kbps,sample_rate_hz=excluded.sample_rate_hz,channels=excluded.channels,
-             lossless=excluded.lossless,duration_ms=excluded.duration_ms",
+             lossless=excluded.lossless,duration_ms=excluded.duration_ms,source_id=excluded.source_id",
             params![
                 file_id,
                 filename,
@@ -968,6 +968,7 @@ pub(crate) fn upsert_verified_file(
                 audio.properties.channels,
                 audio.properties.lossless as i64,
                 audio.properties.duration_ms as i64,
+                source.id,
             ],
         )
         .map_err(|error| error.to_string())?;
@@ -1006,14 +1007,7 @@ fn keep_unreadable_index_row(
 }
 
 fn supported_audio_path(path: &Path) -> bool {
-    path.extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|extension| {
-            matches!(
-                extension.to_ascii_lowercase().as_str(),
-                "mp3" | "flac" | "wav" | "ogg" | "opus"
-            )
-        })
+    folders::is_shared_audio_path(path)
 }
 
 fn record_index_error(report: &mut IndexReport, message: String) {
@@ -1038,9 +1032,23 @@ fn validate_and_hash_index_file(
     Ok((path.to_path_buf(), Some(audio), file_id, size))
 }
 
+/// The source a path belongs to. A source nested inside another - an audiobooks
+/// folder inside a music share is the ordinary case - belongs to the deeper one,
+/// because that is the root the person pointed at for it.
+fn source_for_path<'a>(
+    roots: &'a [folders::Source],
+    path: &Path,
+) -> Result<&'a folders::Source, String> {
+    roots
+        .iter()
+        .filter(|root| path.starts_with(&root.path))
+        .max_by_key(|root| root.path.as_os_str().len())
+        .ok_or_else(|| format!("{} is not inside a shared folder", path.display()))
+}
+
 fn commit_index_batch(
     connection: &mut Connection,
-    folder: &Path,
+    roots: &[folders::Source],
     batch: &mut Vec<VerifiedIndexFile>,
     report: &mut IndexReport,
 ) -> Result<Vec<SharedFile>, String> {
@@ -1068,7 +1076,8 @@ fn commit_index_batch(
             continue;
         }
         if let Some(audio) = audio {
-            upsert_verified_file(&transaction, folder, &path, &file_id, size, audio)?;
+            let source = source_for_path(roots, &path)?;
+            upsert_verified_file(&transaction, source, &path, &file_id, size, audio)?;
             report.changed_files += 1;
             if changed_ids_seen.insert(file_id.clone()) {
                 changed_ids.push(file_id.clone());
@@ -1089,13 +1098,21 @@ fn commit_index_batch(
 
 fn index_path_with_progress(
     connection: &mut Connection,
-    folder: &Path,
+    roots: &[folders::Source],
     cancelled: &AtomicBool,
     mut progress: impl FnMut(usize, usize),
     mut batch_committed: impl FnMut(IndexBatch),
 ) -> Result<IndexReport, String> {
-    if !folder.is_dir() {
-        return Err("The selected Deadwax folder does not exist or is not a directory".into());
+    if roots.is_empty() {
+        return Err("No folder is being shared. Add one on the Folders page.".into());
+    }
+    // A root that is not there is nearly always a share that has not been mounted,
+    // and the walk refuses rather than sweeping away everything it cannot see.
+    if let Some(missing) = roots.iter().find(|root| !root.path.is_dir()) {
+        return Err(format!(
+            "{} is not available right now, so nothing was re-indexed",
+            missing.path.display()
+        ));
     }
     let mut report = IndexReport {
         file_count: 0,
@@ -1106,6 +1123,12 @@ fn index_path_with_progress(
     };
     let mut verified = Vec::with_capacity(INDEX_COMMIT_BATCH_SIZE);
     let mut processed_files = 0usize;
+    // Read once, not once per file: a library of 20,000 tracks would otherwise ask
+    // the database 20,000 questions to answer one about a handful of exclusions.
+    let mut excluded: HashMap<i64, Vec<folders::Exclusion>> = HashMap::new();
+    for (source_id, exclusion) in folders::exclusions(connection)? {
+        excluded.entry(source_id).or_default().push(exclusion);
+    }
     let existing = {
         let mut statement = connection
             .prepare("SELECT path,file_id,size,modified_ns,metadata_version FROM files")
@@ -1137,14 +1160,12 @@ fn index_path_with_progress(
     // Audio validation and SHA-256 hashing stay outside write transactions.
     // Small commits make verified tracks visible without holding the database
     // while the rest of a large collection is scanned.
-    for entry in WalkDir::new(folder)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file() && supported_audio_path(entry.path()))
-    {
+    //
+    // A folder or a file somebody has stopped sharing is never entered: the
+    // exclusion is checked as a `filter_entry`, so an excluded folder costs one
+    // comparison rather than a descent and a refusal per file.
+    let mut walk_file = |entry: walkdir::DirEntry| -> Result<(), String> {
         if cancelled.load(Ordering::Relaxed) {
-            let _ = connection.execute("DROP TABLE IF EXISTS temp.napstr_seen", []);
             return Err("Indexing cancelled".into());
         }
         processed_files += 1;
@@ -1156,7 +1177,7 @@ fn index_path_with_progress(
                 // It was here when the walk listed it and cannot be read now, so it
                 // is unread rather than absent: its row stays.
                 keep_unreadable_index_row(connection, &existing, path)?;
-                continue;
+                return Ok(());
             }
         };
         let path_key = path.to_string_lossy();
@@ -1215,7 +1236,7 @@ fn index_path_with_progress(
             }
         }
         if verified.len() >= INDEX_COMMIT_BATCH_SIZE {
-            let files = commit_index_batch(connection, folder, &mut verified, &mut report)?;
+            let files = commit_index_batch(connection, roots, &mut verified, &mut report)?;
             if !files.is_empty() {
                 batch_committed(IndexBatch {
                     files,
@@ -1227,13 +1248,40 @@ fn index_path_with_progress(
         if processed_files % INDEX_PROGRESS_INTERVAL == 0 {
             progress(processed_files, report.file_count + verified.len());
         }
+        Ok(())
+    };
+
+    for root in roots {
+        let list = excluded.get(&root.id).cloned().unwrap_or_default();
+        for entry in WalkDir::new(&root.path)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|entry| {
+                if entry.depth() == 0 {
+                    return true;
+                }
+                let path = entry.path();
+                let Some(relative) = folders::relative_path(&root.path, path) else {
+                    return true;
+                };
+                folders::excluded_by(&list, &relative).is_none()
+            })
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_file() && supported_audio_path(entry.path()))
+        {
+            if let Err(error) = walk_file(entry) {
+                let _ = connection.execute("DROP TABLE IF EXISTS temp.napstr_seen", []);
+                return Err(error);
+            }
+        }
     }
+    drop(walk_file);
 
     if cancelled.load(Ordering::Relaxed) {
         let _ = connection.execute("DROP TABLE IF EXISTS temp.napstr_seen", []);
         return Err("Indexing cancelled".into());
     }
-    let files = commit_index_batch(connection, folder, &mut verified, &mut report)?;
+    let files = commit_index_batch(connection, roots, &mut verified, &mut report)?;
     if !files.is_empty() {
         batch_committed(IndexBatch {
             files,
@@ -1261,9 +1309,15 @@ fn index_path_with_progress(
 
 #[cfg(test)]
 fn index_path(connection: &mut Connection, folder: &Path) -> Result<IndexReport, String> {
+    let source = folders::Source {
+        id: 1,
+        name: folders::derive_name(folder, &[]),
+        path: folder.to_path_buf(),
+        state: folders::ACTIVE.into(),
+    };
     index_path_with_progress(
         connection,
-        folder,
+        &[source],
         &AtomicBool::new(false),
         |_, _| {},
         |_| {},
@@ -1272,7 +1326,7 @@ fn index_path(connection: &mut Connection, folder: &Path) -> Result<IndexReport,
 
 fn run_index_job(
     db_path: &Path,
-    folder: &Path,
+    roots: &[folders::Source],
     scan_lock: &Mutex<()>,
     scan_cancel: &AtomicBool,
     app_handle: &tauri::AppHandle,
@@ -1287,13 +1341,13 @@ fn run_index_job(
             scanning: true,
             processed_files: 0,
             indexed_files: 0,
-            message: "Scanning the Deadwax folder…".into(),
+            message: "Scanning the shared folders…".into(),
         },
     );
     let mut connection = open_connection(db_path)?;
     let result = index_path_with_progress(
         &mut connection,
-        folder,
+        roots,
         scan_cancel,
         |processed_files, indexed_files| {
             let _ = app_handle.emit(
@@ -1384,15 +1438,31 @@ fn index_entry_is_current(
 /// change, so the catalogue is published again and the withdrawal travels.
 fn index_given_paths(
     connection: &mut Connection,
-    folder: &Path,
+    roots: &[folders::Source],
     paths: &[PathBuf],
     report: &mut IndexReport,
 ) -> Result<Vec<SharedFile>, String> {
     let mut verified: Vec<VerifiedIndexFile> = Vec::new();
     let mut vanished = Vec::new();
+    // An event about a file inside a folder somebody stopped sharing is not a
+    // change to this index at all: the file is meant to be absent.
+    let excluded = folders::exclusions(connection)?;
     for path in paths {
         if !supported_audio_path(path) {
             continue;
+        }
+        if let Ok(source) = source_for_path(roots, path) {
+            if let Some(relative) = folders::relative_path(&source.path, path) {
+                let list = excluded
+                    .iter()
+                    .filter(|(id, _)| *id == source.id)
+                    .map(|(_, exclusion)| exclusion)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if folders::excluded_by(&list, &relative).is_some() {
+                    continue;
+                }
+            }
         }
         match fs::metadata(path) {
             Ok(metadata) if metadata.is_file() => {
@@ -1419,7 +1489,7 @@ fn index_given_paths(
             [],
         )
         .map_err(|error| error.to_string())?;
-    let mut changed = commit_index_batch(connection, folder, &mut verified, report)?;
+    let mut changed = commit_index_batch(connection, roots, &mut verified, report)?;
     for path in vanished {
         let removed = connection
             .execute("DELETE FROM files WHERE path=?1", [&path])
@@ -1521,7 +1591,7 @@ fn index_scope(events: &[notify::Event]) -> IndexScope {
 /// the cost of the lock; being absent from the index is.
 fn run_path_index_job(
     db_path: &Path,
-    folder: &Path,
+    roots: &[folders::Source],
     paths: &[PathBuf],
     scan_lock: &Mutex<()>,
     app_handle: &tauri::AppHandle,
@@ -1537,7 +1607,7 @@ fn run_path_index_job(
         error_count: 0,
         changed_files: 0,
     };
-    let changed = index_given_paths(&mut connection, folder, paths, &mut report)?;
+    let changed = index_given_paths(&mut connection, roots, paths, &mut report)?;
     if !changed.is_empty() {
         let file_ids: Vec<String> = changed.iter().map(|file| file.file_id.clone()).collect();
         let _ = app_handle.emit(
@@ -1560,7 +1630,7 @@ fn run_path_index_job(
 }
 
 fn start_folder_watcher(
-    folder: PathBuf,
+    source: folders::Source,
     db_path: PathBuf,
     network: Arc<network::NetworkService>,
     covers: Arc<cover_publish::CoverPublisher>,
@@ -1568,6 +1638,7 @@ fn start_folder_watcher(
     scan_cancel: Arc<AtomicBool>,
     app_handle: tauri::AppHandle,
 ) -> Result<FolderWatcher, String> {
+    let folder = source.path.clone();
     let (event_tx, event_rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
     let mut watcher = notify::recommended_watcher(move |event| {
         let _ = event_tx.send(event);
@@ -1579,6 +1650,15 @@ fn start_folder_watcher(
     std::thread::Builder::new()
         .name("napstr-folder-watch".into())
         .spawn(move || {
+            // The watcher is for one root, but a row is filed under the deepest
+            // source that contains it, so every job is answered with the whole
+            // active list rather than this root alone.
+            let roots = || {
+                open_connection(&db_path)
+                    .ok()
+                    .and_then(|connection| folders::active_sources(&connection).ok())
+                    .unwrap_or_else(|| vec![source.clone()])
+            };
             while let Ok(event) = event_rx.recv() {
                 let Ok(event) = event else { continue };
                 if matches!(event.kind, EventKind::Access(_)) {
@@ -1605,7 +1685,7 @@ fn start_folder_watcher(
                     IndexScope::Nothing => continue,
                     IndexScope::Paths(paths) => run_path_index_job(
                         &db_path,
-                        &folder,
+                        &roots(),
                         &paths,
                         &scan_lock,
                         &app_handle,
@@ -1614,7 +1694,7 @@ fn start_folder_watcher(
                     ),
                     IndexScope::WholeFolder => run_index_job(
                         &db_path,
-                        &folder,
+                        &roots(),
                         &scan_lock,
                         &scan_cancel,
                         &app_handle,
@@ -1624,7 +1704,7 @@ fn start_folder_watcher(
                 };
                 if let Err(error) = outcome {
                     diag::note(&format!(
-                        "The Deadwax folder changed but could not be indexed: {error}"
+                        "A shared folder changed but could not be indexed: {error}"
                     ));
                 }
             }
@@ -1648,7 +1728,7 @@ const FOLDER_WAIT_ATTEMPTS: usize = 240;
 /// that arrives a minute - or ten - after the app a library that is live again
 /// without anybody doing anything, and it ends as soon as the folder is there.
 fn wait_for_folder_and_watch(
-    folder: PathBuf,
+    source: folders::Source,
     db_path: PathBuf,
     app_handle: tauri::AppHandle,
     network: Arc<network::NetworkService>,
@@ -1656,13 +1736,14 @@ fn wait_for_folder_and_watch(
     scan_lock: Arc<Mutex<()>>,
     scan_cancel: Arc<AtomicBool>,
 ) {
+    let folder = source.path.clone();
     for _ in 0..FOLDER_WAIT_ATTEMPTS {
         std::thread::sleep(FOLDER_WAIT_INTERVAL);
         if !folder.is_dir() {
             continue;
         }
         match start_folder_watcher(
-            folder.clone(),
+            source.clone(),
             db_path.clone(),
             network.clone(),
             covers.clone(),
@@ -1676,15 +1757,19 @@ fn wait_for_folder_and_watch(
                 // thread returned.
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     if let Ok(mut slot) = state.watcher.lock() {
-                        *slot = Some(watcher);
+                        slot.push(watcher);
                     }
                 }
                 // The folder was unreachable for a while, so everything that
                 // changed while it was away is absent from the index: only a walk
                 // can say what is in there now.
+                let roots = open_connection(&db_path)
+                    .ok()
+                    .and_then(|connection| folders::active_sources(&connection).ok())
+                    .unwrap_or_else(|| vec![source.clone()]);
                 let _ = run_index_job(
                     &db_path,
-                    &folder,
+                    &roots,
                     &scan_lock,
                     &scan_cancel,
                     &app_handle,
@@ -1695,14 +1780,14 @@ fn wait_for_folder_and_watch(
             }
             Err(error) => {
                 diag::note(&format!(
-                    "The Deadwax folder is back but could not be watched: {error}"
+                    "The shared folder is back but could not be watched: {error}"
                 ));
                 return;
             }
         }
     }
     diag::note(&format!(
-        "The Deadwax folder {} was not there when Deadwax started and has not appeared since; press Rescan once it is mounted.",
+        "The shared folder {} was not there when Deadwax started and has not appeared since; press Rescan once it is mounted.",
         folder.display()
     ));
 }
@@ -1820,85 +1905,245 @@ async fn set_napstr_folder(
             [&path],
         )
         .map_err(|error| error.to_string())?;
-    connection
-        .execute("DELETE FROM files", [])
-        .map_err(|error| error.to_string())?;
-    connection
-        .execute("DELETE FROM local_audiobooks", [])
-        .map_err(|error| error.to_string())?;
+    // The first source is this folder. Its key in front of the rows it already
+    // had does not change, because a moved music folder is still the same music.
+    folders::adopt_shared_folder(&connection, &path)?;
+    let first = folders::sources(&connection)?.into_iter().next();
+    if let Some(first) = &first {
+        connection
+            .execute("DELETE FROM files WHERE source_id = ?1", [first.id])
+            .map_err(|error| error.to_string())?;
+    }
     drop(connection);
     let _ = state.app_handle.emit(LIBRARY_CHANGED_EVENT, ());
     state.network.queue_catalogue_publish(false);
-    let db_path = state
-        .db_path
-        .lock()
-        .map_err(|_| "database lock poisoned")?
-        .clone();
-    *state
-        .watcher
-        .lock()
-        .map_err(|_| "folder watcher lock poisoned")? = Some(start_folder_watcher(
-        folder,
-        db_path.clone(),
-        state.network.clone(),
-        state.covers.clone(),
-        state.scan_lock.clone(),
-        state.scan_cancel.clone(),
-        state.app_handle.clone(),
-    )?);
-    let scan_lock = state.scan_lock.clone();
-    let scan_cancel = state.scan_cancel.clone();
-    let app_handle = state.app_handle.clone();
-    let network = state.network.clone();
-    let covers = state.covers.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        run_index_job(
-            &db_path,
-            Path::new(&path),
-            &scan_lock,
-            &scan_cancel,
-            &app_handle,
-            &network,
-            &covers,
-        )
-    })
-    .await
-    .map_err(|error| format!("library scan task failed: {error}"))?
+    restart_watchers(&state)?;
+    index_active_sources(&state).await
 }
 
 #[tauri::command]
 async fn rescan_napstr_folder(state: State<'_, AppState>) -> Result<IndexReport, String> {
-    let connection = open_db(&state)?;
-    let folder = PathBuf::from(get_setting(&connection, "shared_folder")?);
-    drop(connection);
-    let db_path = state
-        .db_path
-        .lock()
-        .map_err(|_| "database lock poisoned")?
-        .clone();
-    let scan_lock = state.scan_lock.clone();
-    let scan_cancel = state.scan_cancel.clone();
-    let app_handle = state.app_handle.clone();
-    let network = state.network.clone();
-    let covers = state.covers.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        run_index_job(
-            &db_path,
-            &folder,
-            &scan_lock,
-            &scan_cancel,
-            &app_handle,
-            &network,
-            &covers,
-        )
-    })
-    .await
-    .map_err(|error| format!("library scan task failed: {error}"))?
+    index_active_sources(&state).await
 }
 
 #[tauri::command]
 fn cancel_library_scan(state: State<'_, AppState>) {
     state.scan_cancel.store(true, Ordering::SeqCst);
+}
+
+/// Walk everything this computer shares, in one job.
+///
+/// One job and not one per source: the walk's final sweep withdraws every row it
+/// did not verify, so walking a source on its own would take the other sources off
+/// the network on every pass.
+async fn index_active_sources(state: &State<'_, AppState>) -> Result<IndexReport, String> {
+    let roots = {
+        let connection = open_db(state)?;
+        folders::active_sources(&connection)?
+    };
+    if roots.is_empty() {
+        return Ok(IndexReport {
+            file_count: 0,
+            total_bytes: 0,
+            errors: Vec::new(),
+            error_count: 0,
+            changed_files: 0,
+        });
+    }
+    let db_path = state
+        .db_path
+        .lock()
+        .map_err(|_| "database lock poisoned")?
+        .clone();
+    let scan_lock = state.scan_lock.clone();
+    let scan_cancel = state.scan_cancel.clone();
+    let app_handle = state.app_handle.clone();
+    let network = state.network.clone();
+    let covers = state.covers.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        run_index_job(
+            &db_path,
+            &roots,
+            &scan_lock,
+            &scan_cancel,
+            &app_handle,
+            &network,
+            &covers,
+        )
+    })
+    .await
+    .map_err(|error| format!("library scan task failed: {error}"))?
+}
+
+/// Watch every active source, replacing whatever was being watched before.
+///
+/// A source's folder can be added, parked or removed while the window is open, and
+/// the watchers have to follow: a share that was just added would otherwise only
+/// be noticed at the next Rescan.
+fn restart_watchers(state: &State<'_, AppState>) -> Result<(), String> {
+    let sources = {
+        let connection = open_db(state)?;
+        folders::active_sources(&connection)?
+    };
+    let db_path = state
+        .db_path
+        .lock()
+        .map_err(|_| "database lock poisoned")?
+        .clone();
+    let mut watchers = Vec::new();
+    for source in sources {
+        if !source.path.is_dir() {
+            continue;
+        }
+        watchers.push(start_folder_watcher(
+            source,
+            db_path.clone(),
+            state.network.clone(),
+            state.covers.clone(),
+            state.scan_lock.clone(),
+            state.scan_cancel.clone(),
+            state.app_handle.clone(),
+        )?);
+    }
+    *state
+        .watcher
+        .lock()
+        .map_err(|_| "folder watcher lock poisoned")? = watchers;
+    Ok(())
+}
+
+/// The Folders page asks for the sources their own card draws.
+#[tauri::command]
+fn library_sources(state: State<'_, AppState>) -> Result<Vec<folders::SourceRow>, String> {
+    folders::source_rows(&open_db(&state)?)
+}
+
+/// One level of the folder tree. No folder named means the sources themselves.
+#[tauri::command]
+fn library_tree(
+    source_id: Option<i64>,
+    folder: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<folders::TreeRow>, String> {
+    folders::tree(&open_db(&state)?, source_id, folder.as_deref())
+}
+
+/// What one folder holds, file by file, and why each row is or is not shared.
+#[tauri::command]
+fn folder_contents(
+    source_id: i64,
+    folder: String,
+    state: State<'_, AppState>,
+) -> Result<folders::FolderContents, String> {
+    folders::contents(&open_db(&state)?, source_id, &folder)
+}
+
+/// Add a folder to what this computer shares, and walk it straight away.
+#[tauri::command]
+async fn add_library_source(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<folders::SourceRow, String> {
+    let id = {
+        let connection = open_db(&state)?;
+        folders::add_source(&connection, Path::new(&path))?.id
+    };
+    restart_watchers(&state)?;
+    let _ = index_active_sources(&state).await;
+    folders::source_rows(&open_db(&state)?)?
+        .into_iter()
+        .find(|row| row.id == id)
+        .ok_or_else(|| "the new source disappeared".to_string())
+}
+
+/// Take a source off the network, or put it back.
+#[tauri::command]
+async fn set_library_source_state(
+    id: i64,
+    status: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    {
+        let connection = open_db(&state)?;
+        folders::set_state(&connection, id, &status)?;
+    }
+    restart_watchers(&state)?;
+    let _ = state.app_handle.emit(LIBRARY_CHANGED_EVENT, ());
+    state.network.queue_catalogue_publish(false);
+    if status == folders::ACTIVE {
+        let _ = index_active_sources(&state).await;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn remove_library_source(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    {
+        let connection = open_db(&state)?;
+        folders::remove_source(&connection, id)?;
+    }
+    restart_watchers(&state)?;
+    let _ = state.app_handle.emit(LIBRARY_CHANGED_EVENT, ());
+    state.network.queue_catalogue_publish(false);
+    Ok(())
+}
+
+/// Stop sharing one folder or one file, with a note on why.
+///
+/// Nothing moves on disk. The rows go out of the index at once, so the next
+/// catalogue this computer publishes is already the truth.
+#[tauri::command]
+fn exclude_shared(
+    source_id: i64,
+    kind: String,
+    key: String,
+    reason: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let kind = folders::Excluded::parse(&kind).ok_or("a folder or a file is excluded")?;
+    {
+        let connection = open_db(&state)?;
+        folders::exclude(
+            &connection,
+            source_id,
+            kind,
+            &key,
+            reason.as_deref().unwrap_or_default(),
+        )?;
+    }
+    let _ = state.app_handle.emit(LIBRARY_CHANGED_EVENT, ());
+    state.network.queue_catalogue_publish(false);
+    Ok(())
+}
+
+/// Share it again. What comes back is decided by a walk, so one is started.
+#[tauri::command]
+async fn include_shared(
+    source_id: i64,
+    kind: String,
+    key: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let kind = folders::Excluded::parse(&kind).ok_or("a folder or a file is included")?;
+    {
+        let connection = open_db(&state)?;
+        folders::include(&connection, source_id, kind, &key)?;
+    }
+    let _ = index_active_sources(&state).await;
+    Ok(())
+}
+
+/// Open one shared folder in the system's file manager.
+#[tauri::command]
+fn open_library_folder(
+    source_id: i64,
+    folder: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let connection = open_db(&state)?;
+    let source = folders::source(&connection, source_id)?;
+    let relative = folders::strip_source_name(&source.name, &folder);
+    open_with_system(&source.resolve(&relative), "shared folder")
 }
 
 #[tauri::command]
@@ -1930,6 +2175,10 @@ async fn save_settings(
                 )
                 .map_err(|error| error.to_string())?;
         }
+        // The first source follows the folder setting, so the Folders page and the
+        // Settings page cannot disagree about which folder is being shared.
+        let shared_folder = get_setting(&connection, "shared_folder")?;
+        folders::adopt_shared_folder(&connection, &shared_folder)?;
         if profile_changed {
             connection
                 .execute(
@@ -3398,6 +3647,10 @@ pub fn run() {
                     ));
                 }
             }
+            let startup_sources = open_connection(&db_path)
+                .ok()
+                .and_then(|connection| folders::active_sources(&connection).ok())
+                .unwrap_or_default();
             // A folder that is not a directory right now is almost never a folder
             // that has gone: this library is very often a network share, and a share
             // that is not mounted yet - or is being remounted - looks exactly like
@@ -3407,26 +3660,32 @@ pub fn run() {
             // file this computer cannot reach is refused where it is served. What is
             // missing for the absent case is the watcher and the walk, and the thread
             // below supplies both when the folder turns up.
-            let watcher = existing_folder.and_then(|folder| {
-                if !folder.is_dir() {
-                    return None;
-                }
-                start_folder_watcher(
-                    folder,
-                    db_path.clone(),
-                    network.clone(),
-                    covers.clone(),
-                    scan_lock.clone(),
-                    scan_cancel.clone(),
-                    app.handle().clone(),
-                )
-                .ok()
-            });
+            let watchers = startup_sources
+                .iter()
+                .filter(|source| source.path.is_dir())
+                .filter_map(|source| {
+                    start_folder_watcher(
+                        source.clone(),
+                        db_path.clone(),
+                        network.clone(),
+                        covers.clone(),
+                        scan_lock.clone(),
+                        scan_cancel.clone(),
+                        app.handle().clone(),
+                    )
+                    .ok()
+                })
+                .collect::<Vec<_>>();
+            let missing = startup_sources
+                .iter()
+                .filter(|source| !source.path.is_dir())
+                .cloned()
+                .collect::<Vec<_>>();
             app.manage(AppState {
                 db_path: Mutex::new(db_path),
                 network: network.clone(),
                 tor,
-                watcher: Mutex::new(watcher),
+                watcher: Mutex::new(watchers),
                 scan_lock: scan_lock.clone(),
                 scan_cancel: scan_cancel.clone(),
                 app_handle: app.handle().clone(),
@@ -3441,56 +3700,61 @@ pub fn run() {
                     let _ = mobile.start().await;
                 });
             }
-            match startup_folder {
-                // The folder is here: the watcher is already on it, so all that is
-                // left is to walk it.
-                Some(folder) if folder.is_dir() => {
-                    let startup_db_path = app
-                        .path()
-                        .app_data_dir()
-                        .map_err(|error| error.to_string())?
-                        .join("napstr.sqlite3");
-                    let startup_handle = app.handle().clone();
-                    let startup_covers = covers.clone();
-                    tauri::async_runtime::spawn_blocking(move || {
-                        let _ = run_index_job(
-                            &startup_db_path,
-                            &folder,
-                            &scan_lock,
-                            &scan_cancel,
-                            &startup_handle,
-                            &network,
-                            &startup_covers,
-                        );
-                    });
-                }
-                // It is not here. Nothing was emptied for it, so what is missing is
-                // the watcher and the walk: a thread waits for the path to come back
-                // and then does both.
-                Some(folder) => {
-                    let startup_db_path = app
-                        .path()
-                        .app_data_dir()
-                        .map_err(|error| error.to_string())?
-                        .join("napstr.sqlite3");
-                    let retry_handle = app.handle().clone();
-                    let retry_network = network.clone();
-                    let retry_covers = covers.clone();
-                    let retry_lock = scan_lock.clone();
-                    let retry_cancel = scan_cancel.clone();
-                    tauri::async_runtime::spawn_blocking(move || {
-                        wait_for_folder_and_watch(
-                            folder,
-                            startup_db_path,
-                            retry_handle,
-                            retry_network,
-                            retry_covers,
-                            retry_lock,
-                            retry_cancel,
-                        );
-                    });
-                }
-                None => {}
+            // Every root that is there is walked in one job, because the walk's
+            // final sweep withdraws whatever it did not see: one source at a time
+            // would take the other sources off the network on every pass.
+            if startup_sources.iter().any(|source| source.path.is_dir()) {
+                let startup_db_path = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(|error| error.to_string())?
+                    .join("napstr.sqlite3");
+                let startup_handle = app.handle().clone();
+                let startup_covers = covers.clone();
+                let roots = startup_sources
+                    .iter()
+                    .filter(|source| source.path.is_dir())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let job_lock = scan_lock.clone();
+                let job_cancel = scan_cancel.clone();
+                let job_network = network.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let _ = run_index_job(
+                        &startup_db_path,
+                        &roots,
+                        &job_lock,
+                        &job_cancel,
+                        &startup_handle,
+                        &job_network,
+                        &startup_covers,
+                    );
+                });
+            }
+            // A source whose folder is not here yet gets a thread that waits for
+            // it and then watches and walks it. Nothing was emptied for it.
+            for source in missing {
+                let startup_db_path = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(|error| error.to_string())?
+                    .join("napstr.sqlite3");
+                let retry_handle = app.handle().clone();
+                let retry_network = network.clone();
+                let retry_covers = covers.clone();
+                let retry_lock = scan_lock.clone();
+                let retry_cancel = scan_cancel.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    wait_for_folder_and_watch(
+                        source,
+                        startup_db_path,
+                        retry_handle,
+                        retry_network,
+                        retry_covers,
+                        retry_lock,
+                        retry_cancel,
+                    );
+                });
             }
             Ok(())
         })
@@ -3502,6 +3766,15 @@ pub fn run() {
             set_napstr_folder,
             rescan_napstr_folder,
             cancel_library_scan,
+            library_sources,
+            library_tree,
+            folder_contents,
+            add_library_source,
+            set_library_source_state,
+            remove_library_source,
+            exclude_shared,
+            include_shared,
+            open_library_folder,
             save_file_tags,
             save_settings,
             remove_transfer,
@@ -3616,6 +3889,17 @@ mod tests {
 
     fn test_directory(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("napstr-{name}-{}", std::process::id()))
+    }
+
+    /// The one source a walk test needs: the folder it made, filed under its own
+    /// name the way a real source is.
+    fn test_source(directory: &Path) -> folders::Source {
+        folders::Source {
+            id: 1,
+            name: folders::derive_name(directory, &[]),
+            path: directory.to_path_buf(),
+            state: folders::ACTIVE.into(),
+        }
     }
 
     #[test]
@@ -3774,13 +4058,16 @@ mod tests {
         let mut report = blank();
         let changed = index_given_paths(
             &mut connection,
-            &directory,
+            &[test_source(&directory)],
             std::slice::from_ref(&audio),
             &mut report,
         )
         .unwrap();
         assert_eq!(changed.len(), 1);
-        assert_eq!(changed[0].folder, "artist/album");
+        assert_eq!(
+            changed[0].folder,
+            format!("{}/artist/album", test_source(&directory).name)
+        );
         assert_eq!(report.changed_files, 1);
         assert_eq!(load_files(&connection, None).unwrap().len(), 1);
 
@@ -3789,7 +4076,7 @@ mod tests {
         let mut repeated = blank();
         let again = index_given_paths(
             &mut connection,
-            &directory,
+            &[test_source(&directory)],
             std::slice::from_ref(&audio),
             &mut repeated,
         )
@@ -3803,7 +4090,7 @@ mod tests {
         let mut gone = blank();
         index_given_paths(
             &mut connection,
-            &directory,
+            &[test_source(&directory)],
             std::slice::from_ref(&audio),
             &mut gone,
         )
@@ -3889,7 +4176,10 @@ mod tests {
         assert_eq!(report.changed_files, 1);
         let indexed = load_files(&connection, None).unwrap();
         assert_eq!(indexed.len(), 1);
-        assert_eq!(indexed[0].folder, "artist/album");
+        assert_eq!(
+            indexed[0].folder,
+            format!("{}/artist/album", test_source(&directory).name)
+        );
         connection
             .execute(
                 "UPDATE files SET tags='punk, favourite',metadata_version=0 WHERE file_id=?1",
@@ -4132,7 +4422,7 @@ mod tests {
         let cancelled = AtomicBool::new(true);
 
         let result =
-            index_path_with_progress(&mut connection, &directory, &cancelled, |_, _| {}, |_| {});
+            index_path_with_progress(&mut connection, &[test_source(&directory)], &cancelled, |_, _| {}, |_| {});
 
         assert_eq!(result.unwrap_err(), "Indexing cancelled");
         assert!(load_files(&connection, None).unwrap().is_empty());
@@ -4159,7 +4449,7 @@ mod tests {
 
         let report = index_path_with_progress(
             &mut connection,
-            &directory,
+            &[test_source(&directory)],
             &AtomicBool::new(false),
             |_, _| {},
             |batch| {
@@ -4202,7 +4492,7 @@ mod tests {
 
         let result = index_path_with_progress(
             &mut connection,
-            &directory,
+            &[test_source(&directory)],
             &cancelled,
             |_, _| {},
             |_| cancelled.store(true, Ordering::SeqCst),

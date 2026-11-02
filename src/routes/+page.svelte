@@ -21,7 +21,7 @@
   const CHAT_PAGE_SIZE = 100;
   const VISIBLE_SEEDER_LIMIT = 100;
 
-  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Clients' | 'Covers' | 'Blocked Content';
+  type View = 'Search' | 'Network' | 'Downloads' | 'Shared' | 'Playlists' | 'Profile' | 'Settings' | 'Trollbox' | 'Clients' | 'Covers' | 'Blocked Content' | 'Folders';
 
   /** One count with the thing counted beside it, as the host sends it. */
   type CatalogueCount = { label: string; count: number };
@@ -135,7 +135,9 @@
     Clients: 'M9.2 3h5.6v18H9.2zM12 18.2h.01',
     Covers: 'M4 4h6.6v6.6H4zM13.4 4H20v6.6h-6.6zM4 13.4h6.6V20H4zM13.4 13.4H20V20h-6.6z',
     // Reached from Settings rather than the rail, but every view needs a mark.
-    'Blocked Content': 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM7.2 7.2l9.6 9.6'
+    'Blocked Content': 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM7.2 7.2l9.6 9.6',
+    // Reached from Shared Files, which is where its folder lives.
+    Folders: 'M3.6 6.4h6l1.8 2.2h9v9.4a1.4 1.4 0 0 1-1.4 1.4H5a1.4 1.4 0 0 1-1.4-1.4V6.4zM3.6 8.6h16.8'
   };
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
   const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
@@ -1930,6 +1932,309 @@
   function blockedWhen(when: string) {
     const at = Date.parse(when);
     return Number.isFinite(at) ? new Date(at).toLocaleDateString($locale, { dateStyle: 'medium' }) : '—';
+  }
+
+  /** One source of shared files, as `library_sources` answers for it. */
+  type LibrarySource = {
+    id: number;
+    name: string;
+    path: string;
+    state: string;
+    reachable: boolean;
+    files: number;
+    bytes: number;
+    folders: number;
+  };
+  /** One row of the folder tree. `key` is the path with the source's name in
+   *  front, which is what every folder command is given back. */
+  type FolderNode = {
+    sourceId: number;
+    key: string;
+    name: string;
+    path: string;
+    depth: number;
+    files: number;
+    shared: boolean;
+    reason: string;
+    expandable: boolean;
+  };
+  /** One file in the chosen folder, with the code for why it is not shared. */
+  type FolderFile = {
+    name: string;
+    size: number;
+    status: string;
+    reason: string;
+    detail: string;
+    fileId: string;
+    key: string;
+  };
+  type ChosenFolder = {
+    sourceId: number;
+    key: string;
+    name: string;
+    path: string;
+    rows: FolderFile[];
+    audio: number;
+    shared: number;
+    unsupported: number;
+    folders: number;
+    parked: boolean;
+  };
+  type ShareExclusion = { sourceId: number; kind: 'folder' | 'file'; key: string; name: string };
+
+  let folderSources: LibrarySource[] = [];
+  /** One level of the tree per parent key; `''` is the sources themselves. */
+  let folderChildren = new Map<string, FolderNode[]>([['', []]]);
+  let folderExpanded = new Set<string>();
+  let folderChosen: FolderNode | null = null;
+  let folderShown: ChosenFolder | null = null;
+  let foldersLoading = false;
+  let foldersError: string | Message = '';
+  let folderExcluding: ShareExclusion | null = null;
+  let folderReason = '';
+  /**
+   * The tree as drawn.
+   *
+   * Derived from the two things it is made of rather than assembled by hand, so
+   * a level that arrives, or a branch that closes, is one assignment and the
+   * template names both dependencies and re-runs.
+   */
+  $: folderRows = flattenFolders(folderChildren, folderExpanded);
+
+  function flattenFolders(children: Map<string, FolderNode[]>, expanded: Set<string>) {
+    const rows: FolderNode[] = [];
+    const walk = (parent: string) => {
+      for (const node of children.get(parent) ?? []) {
+        rows.push(node);
+        if (expanded.has(node.key)) walk(node.key);
+      }
+    };
+    walk('');
+    return rows;
+  }
+
+  function folderSourceOf(node: FolderNode | null) {
+    return node ? folderSources.find((source) => source.id === node.sourceId) ?? null : null;
+  }
+
+  function openFolders() {
+    activeView = 'Folders';
+    void refreshFolders();
+  }
+
+  /**
+   * Read the sources and the first level of the tree.
+   *
+   * A source's top level is fetched with it because that is the level a person
+   * is always about to want; everything below it costs a press, which is what
+   * keeps a library of a hundred thousand files from being listed to draw a
+   * screenful.
+   */
+  async function refreshFolders() {
+    if (!nativeReady || foldersLoading) return;
+    foldersLoading = true;
+    foldersError = '';
+    try {
+      folderSources = await invoke<LibrarySource[]>('library_sources');
+      const roots = await invoke<FolderNode[]>('library_tree', { sourceId: null, folder: null });
+      const children = new Map<string, FolderNode[]>([['', roots]]);
+      const expanded = new Set<string>();
+      for (const root of roots) {
+        if (!root.expandable) continue;
+        try {
+          children.set(root.key, await invoke<FolderNode[]>('library_tree', { sourceId: root.sourceId, folder: root.key }));
+          expanded.add(root.key);
+        } catch {
+          // A source that has gone is still a row in the card; it is simply not
+          // one that can open.
+        }
+      }
+      folderChildren = children;
+      folderExpanded = expanded;
+      const rows = flattenFolders(children, expanded);
+      const again = folderChosen ? rows.find((row) => row.key === folderChosen!.key) ?? null : null;
+      await chooseFolder(again ?? rows.find((row) => row.expandable) ?? rows[0] ?? null);
+    } catch (error) {
+      foldersError = msg("Could not read the shared folders: {p0}", { p0: String(error) });
+    } finally {
+      foldersLoading = false;
+    }
+  }
+
+  /** Choose a folder: the contents pane follows the selection. */
+  async function chooseFolder(node: FolderNode | null) {
+    folderChosen = node;
+    if (!node) {
+      folderShown = null;
+      return;
+    }
+    if (!nativeReady) return;
+    try {
+      folderShown = await invoke<ChosenFolder>('folder_contents', { sourceId: node.sourceId, folder: node.key });
+    } catch (error) {
+      folderShown = null;
+      foldersError = msg("Could not read that folder: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** Open or close one branch, asking for its level the first time. */
+  async function toggleFolder(node: FolderNode) {
+    if (!node.expandable) {
+      await chooseFolder(node);
+      return;
+    }
+    const expanded = new Set(folderExpanded);
+    if (expanded.has(node.key)) {
+      expanded.delete(node.key);
+      folderExpanded = expanded;
+      return;
+    }
+    if (!folderChildren.has(node.key)) {
+      try {
+        const rows = await invoke<FolderNode[]>('library_tree', { sourceId: node.sourceId, folder: node.key });
+        folderChildren = new Map(folderChildren).set(node.key, rows);
+      } catch (error) {
+        foldersError = msg("Could not read that folder: {p0}", { p0: String(error) });
+        return;
+      }
+    }
+    expanded.add(node.key);
+    folderExpanded = expanded;
+  }
+
+  async function addLibrarySource() {
+    if (!nativeReady) {
+      activityMessage = msg("Folder selection is available in the packaged desktop app");
+      return;
+    }
+    try {
+      const picked = await open({ directory: true, multiple: false, title: $t("Choose a folder to share on the network"), defaultPath: napstrFolder || undefined });
+      if (!picked || Array.isArray(picked)) return;
+      foldersLoading = true;
+      await invoke('add_library_source', { path: picked });
+      foldersLoading = false;
+      activityMessage = msg("Sharing {p0}", { p0: picked });
+      await refreshFolders();
+    } catch (error) {
+      foldersLoading = false;
+      foldersError = msg("Could not add that folder: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** Take a whole source off the network, or put it back. */
+  async function toggleSourceShared(source: LibrarySource) {
+    try {
+      foldersLoading = true;
+      await invoke('set_library_source_state', { id: source.id, status: source.state === 'active' ? 'parked' : 'active' });
+      foldersLoading = false;
+      activityMessage = source.state === 'active'
+        ? msg("Stopped sharing {p0}", { p0: source.name })
+        : msg("Sharing {p0}", { p0: source.name });
+      await refreshFolders();
+    } catch (error) {
+      foldersLoading = false;
+      foldersError = msg("Could not change that source: {p0}", { p0: String(error) });
+    }
+  }
+
+  async function removeLibrarySource(source: LibrarySource) {
+    try {
+      foldersLoading = true;
+      await invoke('remove_library_source', { id: source.id });
+      foldersLoading = false;
+      if (folderChosen?.sourceId === source.id) folderChosen = null;
+      activityMessage = msg("Removed {p0} from what this computer shares", { p0: source.name });
+      await refreshFolders();
+    } catch (error) {
+      foldersLoading = false;
+      foldersError = msg("Could not remove that source: {p0}", { p0: String(error) });
+    }
+  }
+
+  /**
+   * Stop sharing one folder or file, with the reason recorded beside it.
+   *
+   * The source travels with the target rather than being taken from whichever
+   * folder is on the right: the tree holds every source, and a tick in one of
+   * them must never unshare something in another.
+   */
+  function askToExclude(sourceId: number, kind: 'folder' | 'file', key: string, name: string) {
+    folderExcluding = { sourceId, kind, key, name };
+    folderReason = '';
+  }
+
+  async function confirmExclude() {
+    const target = folderExcluding;
+    if (!target) return;
+    folderExcluding = null;
+    try {
+      await invoke('exclude_shared', {
+        sourceId: target.sourceId,
+        kind: target.kind,
+        key: target.key,
+        reason: folderReason.trim() || null
+      });
+      activityMessage = msg("Stopped sharing {p0}", { p0: target.name });
+      await refreshFolders();
+    } catch (error) {
+      foldersError = msg("Could not stop sharing that: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** Share it again. What comes back is decided by a walk, so one is asked for. */
+  async function includeAgain(sourceId: number, kind: 'folder' | 'file', key: string, name: string) {
+    try {
+      await invoke('include_shared', { sourceId, kind, key });
+      activityMessage = msg("Sharing {p0} again", { p0: name });
+      await refreshFolders();
+    } catch (error) {
+      foldersError = msg("Could not share that again: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** The tick beside a tree row: a source is parked, a folder is excluded. */
+  function tickFolder(node: FolderNode) {
+    if (node.depth === 0) {
+      const source = folderSourceOf(node);
+      if (source) void toggleSourceShared(source);
+      return;
+    }
+    if (node.shared) askToExclude(node.sourceId, 'folder', node.key, node.name);
+    else void includeAgain(node.sourceId, 'folder', node.key, node.name);
+  }
+
+  async function openSharedFolder() {
+    const node = folderChosen;
+    if (!node || !nativeReady) return;
+    try {
+      await invoke('open_library_folder', { sourceId: node.sourceId, folder: node.key });
+    } catch (error) {
+      activityMessage = msg("Could not open that folder: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** The word for what a row's status means. */
+  function folderStatusWord(status: string) {
+    if (status === 'shared') return $t("Shared");
+    if (status === 'excluded') return $t("Excluded");
+    if (status === 'notShared') return $t("Not shared");
+    return $t("Ignored");
+  }
+
+  /** Why a row is not on the network, in words rather than in a code. */
+  function folderWhy(row: FolderFile) {
+    if (row.status === 'excluded') return row.detail || $t("You stopped sharing this");
+    if (row.reason === 'unsupportedFormat') return $t("{p0} audio is not a shared format", { p0: row.detail });
+    if (row.reason === 'parked') return $t("its source is parked");
+    if (row.reason === 'notIndexed') return $t("not indexed yet");
+    if (row.reason === 'notAudio') return $t("not audio");
+    return '';
+  }
+
+  /** How many of a source's files are on the network, or would be if shared. */
+  function sourceWord(source: LibrarySource) {
+    if (source.state !== 'active') return $t("Parked");
+    return source.reachable ? $t("Shared") : $t("Not there");
   }
 
   /** The worker changed what art exists, so nothing cached may survive it.
@@ -4669,7 +4974,7 @@
       {:else if activeView === 'Shared'}
         <section class="full-panel shared-view">
           <div class="panel-title"><span></span><b>{$t("Shared Files")}</b><span></span></div>
-          <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
+          <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={openFolders}>{$t("Folders")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
           <div class="folder-path"><b>{$t("Deadwax folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
           <div class="library-filter">
             <span class="library-filter-label">{$t("View folder:")}</span>
@@ -4714,6 +5019,111 @@
             </div>
           </div>
           <p class="privacy-note wide"><span>♜</span> {$t("Only validated MP3, FLAC, WAV, Ogg Vorbis, and Opus audio is indexed recursively. Put book folders or complete one-file books inside Audiobooks for automatic grouping. Existing contents are never replaced. Folder names remain local and embedded cover artwork is allowed.")}</p>
+        </section>
+      {:else if activeView === 'Folders'}
+        <!--
+          What this computer shares, folder by folder, and the reason for every
+          file that is not on the network. The tree is asked for one level at a
+          time; the right-hand card is the contents of whichever folder is chosen.
+        -->
+        <section class="full-panel folders-view">
+          <div class="panel-title"><span></span><b>{$t("Folders")}</b><span></span></div>
+          <p class="folders-subtitle">{$t("what this computer shares, folder by folder")}</p>
+          <div class="folders-tools">
+            <button class="caption-button" onclick={() => (activeView = 'Shared')}>← {$t("Shared Files")}</button>
+            <span>{foldersLoading ? $t("Reading…") : $t("{p0} sources · {p1} files shared", { p0: folderSources.length, p1: sharedFiles.length })}</span>
+            <button class="caption-button" title={$t("Refresh")} aria-label={$t("Refresh")} disabled={foldersLoading} onclick={() => void refreshFolders()}>⟳</button>
+          </div>
+          {#if foldersError}<div class="trollbox-error">{$t(foldersError)}</div>{/if}
+
+          <div class="folders-split">
+            <section class="folders-card" aria-label={$t("Sources and folders")}>
+              <div class="section-caption">
+                <span>{$t("Sources")}</span>
+                <small>{folderSources.length}</small>
+                <div class="results-caption-tools">
+                  <button class="caption-button primary" onclick={() => void addLibrarySource()}>+ {$t("Add")}</button>
+                </div>
+              </div>
+              <div class="folders-scroll">
+                {#each folderSources as source (source.id)}
+                  <div class="source-row" class:parked={source.state !== 'active'} class:missing={source.state === 'active' && !source.reachable}>
+                    <i class="led" class:amber={source.state !== 'active'} class:red={source.state === 'active' && !source.reachable}></i>
+                    <span class="source-copy"><b>{source.name}</b><small title={source.path}>{source.path}</small></span>
+                    <span class="source-badge" class:off={source.state !== 'active'}>{sourceWord(source)}</span>
+                    <button class="folder-tick" aria-pressed={source.state === 'active'} title={source.state === 'active' ? $t("Stop sharing this source") : $t("Share this source")} aria-label={source.state === 'active' ? $t("Stop sharing this source") : $t("Share this source")} onclick={() => void toggleSourceShared(source)}>{source.state === 'active' ? '✓' : '☐'}</button>
+                    {#if folderSources.length > 1}
+                      <button class="folder-drop" title={$t("Remove this source")} aria-label={$t("Remove this source")} onclick={() => void removeLibrarySource(source)}>×</button>
+                    {/if}
+                  </div>
+                {/each}
+                {#if folderSources.length === 0}<p class="empty-state compact">{$t("No folder is shared yet.")}</p>{/if}
+
+                {#each folderRows as node (node.key)}
+                  <div
+                    class="folder-node"
+                    class:root={node.depth === 0}
+                    class:selected={folderChosen?.key === node.key}
+                    class:excluded={!node.shared}
+                    style:padding-inline-start={`${10 + node.depth * 14}px`}
+                  >
+                    <button class="folder-twisty" disabled={!node.expandable} title={$t("Open or close this folder")} aria-label={$t("Open or close this folder")} onclick={() => void toggleFolder(node)}>{node.expandable ? (folderExpanded.has(node.key) ? '▾' : '▸') : ''}</button>
+                    <button class="folder-open" title={node.path} onclick={() => void chooseFolder(node)}><span aria-hidden="true">{node.depth === 0 ? '▤' : '📁'}</span><b>{node.name}</b></button>
+                    {#if !node.shared && node.reason}<small class="folder-node-why" title={node.reason}>{node.reason}</small>{:else}<small class="folder-node-count">{node.files}</small>{/if}
+                    <button class="folder-tick" aria-pressed={node.shared} title={node.shared ? $t("Stop sharing this folder") : $t("Share this folder")} aria-label={node.shared ? $t("Stop sharing this folder") : $t("Share this folder")} onclick={() => tickFolder(node)}>{node.shared ? '✓' : '☐'}</button>
+                  </div>
+                {/each}
+              </div>
+            </section>
+
+            <section class="folders-card" aria-label={$t("Folder contents")}>
+              <div class="section-caption">
+                <span>{folderShown?.name ?? $t("No folder chosen")}</span>
+                {#if folderChosen && folderChosen.depth > 0}<small>{folderSourceOf(folderChosen)?.name ?? ''}</small>{/if}
+                <div class="results-caption-tools">
+                  {#if folderChosen}
+                    <button class="caption-button" disabled={!folderChosen.shared} onclick={() => askToExclude(folderChosen!.sourceId, 'folder', folderChosen!.key, folderChosen!.name)}>{$t("Stop sharing")}</button>
+                    <button class="caption-button" onclick={() => void openSharedFolder()}>{$t("Open folder")}</button>
+                  {/if}
+                </div>
+              </div>
+              {#if folderShown}
+                <div class="folder-crumb" title={folderShown.path}>{folderShown.path}</div>
+              {/if}
+              <div class="folders-scroll">
+                {#if folderShown && folderShown.rows.length > 0}
+                  <table class="folder-table">
+                    <thead><tr><th>{$t("Name")}</th><th class="num">{$t("Size")}</th><th>{$t("Status")}</th><th>{$t("Why")}</th><th></th></tr></thead>
+                    <tbody>
+                      {#each folderShown.rows as row (row.key)}
+                        <tr class:excluded={row.status === 'excluded'} class:not-shared={row.status === 'notShared'} class:ignored={row.status === 'ignored'}>
+                          <td class="folder-file-name" title={row.name}>{row.name}</td>
+                          <td class="num">{readableSize(row.size)}</td>
+                          <td><span class="folder-pill" class:ok={row.status === 'shared'} class:off={row.status === 'notShared'} class:dim={row.status === 'excluded' || row.status === 'ignored'}>{folderStatusWord(row.status)}</span></td>
+                          <td class="folder-reason-cell" title={folderWhy(row)}>{folderWhy(row)}</td>
+                          <td class="folder-row-action">
+                            {#if row.status === 'shared'}<button class="caption-button" onclick={() => askToExclude(folderShown!.sourceId, 'file', row.key, row.name)}>{$t("Stop sharing")}</button>
+                            {:else if row.status === 'excluded'}<button class="caption-button" onclick={() => void includeAgain(folderShown!.sourceId, 'file', row.key, row.name)}>{$t("Share again")}</button>{/if}
+                          </td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                {:else if folderShown}
+                  <p class="empty-state compact">{$t("Nothing in this folder.")}</p>
+                {:else if !foldersLoading}
+                  <p class="empty-state compact">{$t("Choose a folder to see what it holds.")}</p>
+                {/if}
+              </div>
+              {#if folderShown}
+                <div class="folder-summary">
+                  <span>{$t("{p0} of {p1} audio files shared", { p0: folderShown.shared, p1: folderShown.audio })}</span>
+                  {#if folderShown.unsupported > 0}<span class="warn">{$t(folderShown.unsupported === 1 ? "1 file in no shared format" : "{p0} files in no shared format", { p0: folderShown.unsupported })}</span>{/if}
+                  <span>{$t(folderShown.folders === 1 ? "1 folder" : "{p0} folders", { p0: folderShown.folders })}</span>
+                </div>
+              {/if}
+            </section>
+          </div>
         </section>
       {:else if activeView === 'Trollbox'}
         <section class="full-panel trollbox-view">
@@ -5617,6 +6027,21 @@
         <header class="titlebar"><div class="title-left"><span class="app-icon">!</span><span>{$t("Confirm block")}</span></div><div class="window-controls"><button disabled={blockInProgress} onclick={() => (blockConfirmation = null)}>×</button></div></header>
         <div class="dialog-body"><div class="confirm-icon">!</div><div><h3>{$t("Are you sure?")}</h3>{#if blockConfirmation.kind === 'files'}<p>{$t("Block")} <strong>{$t(blockConfirmation.label)}</strong>?</p><p>{$t("Every seeder offering these exact file bytes will be hidden.")}</p>{:else if blockConfirmation.kind === 'file'}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Every seeder offering these exact file bytes will be hidden.")}</p>{:else}<p>{$t("Block")} <strong>{blockConfirmation.label}</strong>?</p><p>{$t("Their catalogue entries, public chat messages, and download requests will be ignored.")}</p>{/if}</div></div>
         <div class="dialog-actions"><button class="classic-button primary" disabled={blockInProgress} onclick={confirmBlock}>{blockInProgress ? $t("Blocking…") : $t("Block")}</button><button class="classic-button" disabled={blockInProgress} onclick={() => (blockConfirmation = null)}>{$t("Cancel")}</button></div>
+      </dialog>
+    </div>
+  {/if}
+  {#if folderExcluding}
+    <div class="modal-backdrop" role="presentation" onclick={() => (folderExcluding = null)}>
+      <dialog class="dialog confirm-dialog" open aria-label={$t("Stop sharing")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') folderExcluding = null; }}>
+        <header class="titlebar"><div class="title-left"><span class="app-icon">!</span><span>{$t("Stop sharing")}</span></div><div class="window-controls"><button onclick={() => (folderExcluding = null)}>×</button></div></header>
+        <div class="dialog-body"><div class="confirm-icon">!</div><div>
+          <h3>{$t("Stop sharing {p0}?", { p0: folderExcluding.name })}</h3>
+          <p>{$t("Nothing is deleted from this computer. The catalogue stops listing it at its next publish, and it can be shared again from this page.")}</p>
+          <label class="folder-reason">{folderExcluding.kind === 'folder' ? $t("Why stop sharing this folder?") : $t("Why stop sharing this track?")}
+            <input bind:value={folderReason} maxlength="200" placeholder={$t("Optional, for example: the rip is silent")} onkeydown={(event) => { if (event.key === 'Enter') void confirmExclude(); }} />
+          </label>
+        </div></div>
+        <div class="dialog-actions"><button class="classic-button primary" onclick={() => void confirmExclude()}>{$t("Stop sharing")}</button><button class="classic-button" onclick={() => (folderExcluding = null)}>{$t("Cancel")}</button></div>
       </dialog>
     </div>
   {/if}

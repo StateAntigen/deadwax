@@ -6748,13 +6748,13 @@ mod tests {
             .unwrap();
         connection
             .execute(
-                "INSERT INTO blocked_pubkeys VALUES(?1,'test','now')",
+                "INSERT INTO blocked_pubkeys(pubkey,reason,created_at) VALUES(?1,'test','now')",
                 [&blocked_source],
             )
             .unwrap();
         connection
             .execute(
-                "INSERT INTO blocked_files VALUES(?1,'test','now')",
+                "INSERT INTO blocked_files(file_id,reason,created_at) VALUES(?1,'test','now')",
                 [&blocked_file],
             )
             .unwrap();

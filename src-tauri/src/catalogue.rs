@@ -1325,8 +1325,8 @@ mod tests {
         connection
             .execute_batch(
                 "CREATE TABLE files (file_id TEXT PRIMARY KEY);
-                 CREATE TABLE blocked_files (file_id TEXT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '');
-                 CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '');",
+                 CREATE TABLE blocked_files (file_id TEXT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '', label TEXT NOT NULL DEFAULT '');
+                 CREATE TABLE blocked_pubkeys (pubkey TEXT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '', label TEXT NOT NULL DEFAULT '');",
             )
             .unwrap();
         crate::network::initialise_network_schema(&connection).unwrap();
