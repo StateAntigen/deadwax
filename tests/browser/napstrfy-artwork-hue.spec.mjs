@@ -183,9 +183,10 @@ test('a cover with no colour in it leaves the app’s own colour in place', asyn
   await playAndOpen(page);
 
   // A grey sleeve has no colour to name, and the app does not invent one: the
-  // fallback is its own, which is the violet it uses for everything else.
-  await expect.poll(() => sheetHue(page)).toBe('247');
-  expect(await drawnFill(page)).toBe(await paintOf(page, 'hsl(247 100% 64%)'));
+  // fallback is its own green. It used to be a blue, which meant a black-and-white
+  // cover was painted in the one hue it did not contain.
+  await expect.poll(() => sheetHue(page)).toBe('157');
+  expect(await drawnFill(page)).toBe(await paintOf(page, 'hsl(157 100% 64%)'));
 
   // Nothing to paint with, so nothing is painted with it: no swatch, and the bar keeps
   // the colour it has always had rather than being tinted grey by a grey sleeve.

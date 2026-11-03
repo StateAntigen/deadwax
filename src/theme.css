@@ -1,4 +1,4 @@
-﻿/*
+/*
  * The console skin.
  *
  * `styles.css` is the layout: grids, flex, sizes and the geometry that keeps a
@@ -1338,7 +1338,9 @@ input[type="checkbox"]:disabled { opacity: 0.55; cursor: default; }
 /* Playlists get the results page's shape: a browser on the left and the thing
    you picked on the right, so choosing one is a click rather than a page change. */
 .playlist-view { display: flex; flex-direction: column; min-height: 0; }
-.playlist-split { margin: 0; padding: 10px 12px 12px; flex: 1; min-height: 0; }
+/* The page's own edges are the window's; a split that insets itself again left the
+   playlists page with twice the padding of every other page. */
+.playlist-split { margin: 0; padding: 0; flex: 1; min-height: 0; }
 .playlist-browse {
   min-width: 0;
   display: flex;
@@ -1420,9 +1422,10 @@ input[type="checkbox"]:disabled { opacity: 0.55; cursor: default; }
 }
 
 /* The pairing cards read like every other card in the window: a left-aligned
-   heading in the same face, and paragraphs that are not centred. */
+   heading in the same face, and paragraphs that are not centred. Their padding
+   was twice that of every other card, which made the page look inset. */
 .pair-phone-card,
-.paired-devices-card { padding: 16px 18px; }
+.paired-devices-card { padding: 10px 12px; }
 .pair-phone-card h2,
 .paired-devices-card h2 {
   margin: 0 0 10px;
@@ -1925,6 +1928,30 @@ input:focus, select:focus, textarea:focus {
    centred; every other switch in the card is left-aligned. */
 .cover-settings .settings-hosts { align-items: flex-start; text-align: start; }
 .cover-settings .settings-hosts textarea { max-width: 520px; }
+
+/* Settings and Profile put their titles on the border, which is the one place in
+   the window a card's name sits outside it. Every other card says its name in a
+   bar inside the card, so these two do as well: the legend becomes that bar. */
+.settings-view fieldset,
+.profile-view fieldset {
+  position: relative;
+  margin: 0;
+  padding: 36px 14px 12px;
+}
+.settings-view fieldset > legend,
+.profile-view fieldset > legend {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  margin: 0;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 /* ---------------------------------------------------------------------------
    Folders: what this computer shares, and the reason for everything it does

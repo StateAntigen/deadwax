@@ -1204,13 +1204,17 @@
     if (playerRepeat === 'all' && playerQueue.length > 1) await loadPlayerTrack(0);
   }
 
-  function changePlayerMode() {
+  /**
+   * What follows the track that is playing.
+   *
+   * The window used to offer this as a select beside the volume. Which list a
+   * track belongs to is decided by where it was started from - a folder plays its
+   * folder, a record its record - so the control was a second way to say what the
+   * origin already said, and it is gone. What remains is the preference itself,
+   * read at startup and moved when a queue is longer than one track.
+   */
+  function rememberPlayerMode() {
     window.localStorage.setItem('napstr-player-mode', playerMode);
-    if (!currentTrack) return;
-    // A queue a phone chose is not a function of this window's mode, so it is
-    // left exactly as the phone sent it.
-    if (!playerQueueRemote) playerQueueOrder = queueForTrack(currentTrack, playerMode, playerOrigin);
-    applyPlayerQueueOrder();
   }
 
   /** Lay the chosen order out for playing, honouring shuffle. */
@@ -1258,7 +1262,7 @@
     // the window's own select does not show a mode that is not in force.
     if (order.length > 1 && playerMode === 'single') {
       playerMode = 'all';
-      window.localStorage.setItem('napstr-player-mode', playerMode);
+      rememberPlayerMode();
     }
     playerQueueOrder = order;
     playerQueue = playerShuffle ? shuffledQueue(order, fileId) : order;
@@ -2335,7 +2339,7 @@
     playerQueueRemote = false;
     if (list.length > 1 && playerMode === 'single') {
       playerMode = 'all';
-      window.localStorage.setItem('napstr-player-mode', playerMode);
+      rememberPlayerMode();
     }
     playerQueueOrder = list.map(toPlayerTrack);
     playerQueue = playerShuffle ? shuffledQueue(playerQueueOrder, list[0].fileId) : playerQueueOrder;
@@ -3032,7 +3036,7 @@
     playerQueueRemote = false;
     if (order.length > 1 && playerMode === 'single') {
       playerMode = 'all';
-      window.localStorage.setItem('napstr-player-mode', playerMode);
+      rememberPlayerMode();
     }
     playerQueueOrder = order;
     playerQueue = playerShuffle ? shuffledQueue(order, order[0].fileId) : order;
@@ -4556,7 +4560,7 @@
     playerQueueRemote = false;
     if (order.length > 1 && playerMode === 'single') {
       playerMode = 'all';
-      window.localStorage.setItem('napstr-player-mode', playerMode);
+      rememberPlayerMode();
     }
     playerQueueOrder = order;
     playerQueue = shuffledQueue(order, order[0].fileId);
@@ -5383,7 +5387,6 @@
             <section class="folders-card" aria-label={$t("Sources and folders")}>
               <div class="section-caption">
                 <span>{$t("Sources")}</span>
-                <small>{folderSources.length}</small>
                 <div class="results-caption-tools">
                   <button class="caption-button primary" onclick={() => void addLibrarySource()}>+ {$t("Add")}</button>
                 </div>
@@ -6226,13 +6229,6 @@
         <label class="player-volume" title={$t("Volume")}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 9.4h3L12 5.6v12.8l-4.2-3.8h-3z" /><path d="M15.4 9.2a4 4 0 0 1 0 5.6M17.8 6.8a7.4 7.4 0 0 1 0 10.4" /></svg>
           <input aria-label={$t("Volume")} type="range" min="0" max="1" step="0.05" value={playerVolume} oninput={changePlayerVolume} style={`--fill: ${playerVolume * 100}%`} />
-        </label>
-        <label class="player-mode" title={$t("After track")}>
-          <select bind:value={playerMode} onchange={changePlayerMode} aria-label={$t("After track")}>
-            <option value="single">{$t("Stop")}</option>
-            <option value="folder">{$t("Play folder")}</option>
-            <option value="all">{$t("Play all")}</option>
-          </select>
         </label>
       </div>
     </section>

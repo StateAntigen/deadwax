@@ -1148,6 +1148,16 @@
   let shownTrack = $derived(playbackTarget === 'desktop' ? desktopTrackFromState() : current);
   let shownPlaying = $derived(playbackTarget === 'desktop' ? remoteState?.playing === true : playing);
   /**
+   * The hue of the app's own colour, for a sleeve that has none.
+   *
+   * This used to be 247, which is a blue: a grey or black-and-white cover has no
+   * colour to name, so the player was painted in the one hue the cover did not
+   * contain. It is the desktop's green now, which is the app's colour rather than
+   * an invented one.
+   */
+  const APP_HUE = 157;
+
+  /**
    * The hue the player drawer is tinted with.
    *
    * Read out of this track's cover if that cover has been on screen, and the app's
@@ -1157,7 +1167,7 @@
    */
   let sheetHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(shownTrack?.fileId ?? '') ?? 247;
+    return coverHueOf(shownTrack?.fileId ?? '') ?? APP_HUE;
   });
   /**
    * The colour the player is painted with, out of the cover this track is wearing.
@@ -1188,12 +1198,12 @@
   /** The same question for the album view's glow, which is behind that album's art. */
   let albumHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(albumView?.tracks[0]?.fileId ?? '') ?? 247;
+    return coverHueOf(albumView?.tracks[0]?.fileId ?? '') ?? APP_HUE;
   });
   /** And for the discussion view's glow, which is behind the same track's art. */
   let discussionHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(discussionTrack?.fileId ?? '') ?? 247;
+    return coverHueOf(discussionTrack?.fileId ?? '') ?? APP_HUE;
   });
   let shownPosition = $derived(playbackTarget === 'desktop' ? remotePositionMs() / 1000 : currentTime);
   let shownDuration = $derived(playbackTarget === 'desktop' ? (remoteState?.durationMs ?? 0) / 1000 : duration);

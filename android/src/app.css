@@ -15,16 +15,16 @@ button { color: inherit; }
    attached, and the desktop build is driven by one. */
 button:not(:disabled), summary { cursor: pointer; }
 button:disabled { cursor: default; }
-:focus-visible { outline: 2px solid #b1a8ff; outline-offset: 4px; }
-.search-area form:focus-within { outline: 2px solid #b1a8ff; outline-offset: 3px; }
+:focus-visible { outline: 2px solid #a2ecc6; outline-offset: 4px; }
+.search-area form:focus-within { outline: 2px solid #a2ecc6; outline-offset: 3px; }
 audio { display: none; }
 
-.pair-screen { position: relative; min-height: 100vh; min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 48px) 27px calc(env(safe-area-inset-bottom) + 28px); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 15%, #242058 0, #11111a 36%, #08080a 75%); }
-.pair-glow { position: absolute; width: 280px; height: 280px; top: 5%; border-radius: 50%; background: #443cb8; opacity: .18; filter: blur(55px); }
+.pair-screen { position: relative; min-height: 100vh; min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 48px) 27px calc(env(safe-area-inset-bottom) + 28px); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 15%, #0f3327 0, #11111a 36%, #08080a 75%); }
+.pair-glow { position: absolute; width: 280px; height: 280px; top: 5%; border-radius: 50%; background: #1a8a60; opacity: .18; filter: blur(55px); }
 .pair-logo { position: relative; width: min(390px, 92vw); margin-bottom: 23px; display: flex; align-items: center; justify-content: center; gap: 10px; filter: drop-shadow(0 10px 25px rgba(0,0,0,.55)); }
 .pair-logo img { width: clamp(72px, 22vw, 104px); height: clamp(72px, 22vw, 104px); flex: 0 0 auto; }
 .pair-logo span { color: white; font: 900 italic clamp(43px, 13vw, 68px)/.9 "Arial Black", Arial, sans-serif; letter-spacing: -.075em; text-shadow: 1px 1px 0 #d7d7dd; white-space: nowrap; }
-.eyebrow { margin: 0 0 10px; color: #9e96ff; font-size: 12px; font-weight: 800; letter-spacing: .22em; }
+.eyebrow { margin: 0 0 10px; color: #8fe9bd; font-size: 12px; font-weight: 800; letter-spacing: .22em; }
 .pair-screen h1 { max-width: 390px; margin: 0; font-size: clamp(38px, 10vw, 57px); line-height: .98; letter-spacing: -.055em; }
 /* Away from the pairing screen, back to the app: a phone that already holds a
    computer does not have to be unpaired to pair another. */
@@ -33,7 +33,7 @@ audio { display: none; }
 .pair-copy { max-width: 380px; margin: 20px 0 26px; color: #b8b8c1; font-size: 16px; line-height: 1.45; }
 .scan-button { width: min(370px, 100%); min-height: 58px; padding: 11px 20px; display: flex; align-items: center; justify-content: center; gap: 13px; color: #09090b; background: #f5f5f6; border: 0; border-radius: 29px; font-size: 17px; font-weight: 800; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
 .scan-button span { font-size: 28px; }.scan-button:disabled { opacity: .6; }
-.browse-podcasts { margin-top: 14px; padding: 9px 16px; color: #c3beff; background: transparent; border: 0; text-decoration: underline; text-underline-offset: 3px; }
+.browse-podcasts { margin-top: 14px; padding: 9px 16px; color: #b3eecf; background: transparent; border: 0; text-decoration: underline; text-underline-offset: 3px; }
 .manual-pair { width: min(370px, 100%); margin-top: 18px; color: #aaaab3; font-size: 13px; }.manual-pair summary { cursor: pointer; }.manual-pair textarea { width: 100%; min-height: 76px; margin: 12px 0 7px; padding: 10px; color: white; background: #18181d; border: 1px solid #393941; border-radius: 10px; resize: vertical; font: 11px/1.35 monospace; }.manual-pair button { width: 100%; min-height: 42px; background: #29262f; border: 1px solid #4b4852; border-radius: 21px; }
 .pair-security { margin-top: 22px; color: #73737d; }
 /* The pairing code is typed on a desktop far more often than on a phone, so it
@@ -43,7 +43,7 @@ audio { display: none; }
 .manual-pair p { line-height: 1.6; text-align: left; }
 .manual-pair button:disabled { opacity: .45; }
 .desktop-pair summary { color: #f7f7f8; font-size: 17px; font-weight: 700; }
-.desktop-pair button { min-height: 48px; color: #111; background: #e4dfff; border: 0; font-size: 15px; font-weight: 750; }
+.desktop-pair button { min-height: 48px; color: #111; background: #d0fae7; border: 0; font-size: 15px; font-weight: 750; }
 :root .language-select select { color: #000; background: #f4f4f5; color-scheme: light; }
 .pair-screen > .language-select { position: relative; justify-content: center; max-width: 100%; }
 .error-card { width: min(380px, 100%); margin: 0 0 14px; padding: 10px 13px; color: #ffd9db; background: #3d1419; border: 1px solid #7d2831; border-radius: 10px; overflow-wrap: anywhere; }.error-card span { display: block; }.error-card button { min-height: 38px; margin-top: 9px; padding: 7px 14px; color: #fff; background: #72252e; border: 1px solid #a84450; border-radius: 19px; font-weight: 700; }
@@ -92,7 +92,7 @@ audio { display: none; }
    plain sibling below it, not a child, so they scroll away as the results move
    under the pair instead of making the fixed chrome twice as tall. */
 .search-area { position: sticky; z-index: 2; top: calc(52px + env(safe-area-inset-top)); padding: 10px 17px 7px; background: rgba(13,13,16,.82); backdrop-filter: blur(18px) saturate(1.35); -webkit-backdrop-filter: blur(18px) saturate(1.35); }
-.chips-row { padding: 0 17px; }.search-area form { height: 57px; padding: 0 16px; display: flex; align-items: center; gap: 10px; background: #f4f4f5; border-radius: 29px; box-shadow: 0 5px 22px rgba(0,0,0,.28); }.search-area form > span { color: #141419; font-size: 31px; line-height: 1; transform: rotate(-15deg); }.search-area input { min-width: 0; flex: 1; color: #101014; background: transparent; border: 0; outline: 0; font-size: 17px; font-weight: 650; }.search-area input::placeholder { color: #74747b; }.search-spinner { width: 18px; height: 18px; flex: 0 0 auto; border: 2px solid #cfcfd6; border-top-color: #5b4bd6; border-radius: 50%; animation: spin .8s linear infinite; }.clear-search { width: 32px; height: 32px; color: #33333a; background: #dedee1; border: 0; border-radius: 50%; font-size: 22px; }
+.chips-row { padding: 0 17px; }.search-area form { height: 57px; padding: 0 16px; display: flex; align-items: center; gap: 10px; background: #f4f4f5; border-radius: 29px; box-shadow: 0 5px 22px rgba(0,0,0,.28); }.search-area form > span { color: #141419; font-size: 31px; line-height: 1; transform: rotate(-15deg); }.search-area input { min-width: 0; flex: 1; color: #101014; background: transparent; border: 0; outline: 0; font-size: 17px; font-weight: 650; }.search-area input::placeholder { color: #74747b; }.search-spinner { width: 18px; height: 18px; flex: 0 0 auto; border: 2px solid #cfcfd6; border-top-color: #22996b; border-radius: 50%; animation: spin .8s linear infinite; }.clear-search { width: 32px; height: 32px; color: #33333a; background: #dedee1; border: 0; border-radius: 50%; font-size: 22px; }
 .chips { margin-top: 13px; display: flex; gap: 9px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }.chips::-webkit-scrollbar { display: none; }.chips button { flex: 0 0 auto; padding: 8px 16px; color: #eee; background: #28282b; border: 1px solid #313136; border-radius: 20px; scroll-snap-align: start; font-size: 14px; }.chips button.active { color: #111; background: #f1f1f2; }
 .podcast-search { padding-bottom: 12px; }
 .error-banner { width: calc(100% - 34px); margin: 7px 17px 0; padding: 10px 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #ffdfe1; background: #511b22; border: 1px solid #8a303b; border-radius: 8px; text-align: left; overflow-wrap: anywhere; }.error-banner span { font-size: 19px; }
@@ -112,12 +112,12 @@ audio { display: none; }
 .toast.toast-action button { flex: 0 0 auto; padding: 7px 15px; color: #ffe2e2; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); border-radius: 18px; font-size: 13px; font-weight: 700; }
 .toast.toast-action button:active { background: rgba(255,255,255,.22); }
 
-.library-heading { padding: 20px 20px 9px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }.library-heading p { margin: 0 0 4px; color: #8b84e9; font-size: 10px; font-weight: 800; letter-spacing: .18em; }.library-heading h1 { max-width: 70vw; margin: 0; overflow: hidden; font-size: 28px; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }.library-heading > span { flex: 0 0 auto; padding-bottom: 4px; color: #85858d; font-size: 12px; }
+.library-heading { padding: 20px 20px 9px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }.library-heading p { margin: 0 0 4px; color: #3fbf8d; font-size: 10px; font-weight: 800; letter-spacing: .18em; }.library-heading h1 { max-width: 70vw; margin: 0; overflow: hidden; font-size: 28px; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }.library-heading > span { flex: 0 0 auto; padding-bottom: 4px; color: #85858d; font-size: 12px; }
 .track-list { min-height: 250px; padding: 0 10px 22px; }.track-row { width: 100%; min-height: 72px; padding: 6px 5px 6px 7px; display: flex; align-items: center; color: white; background: transparent; border-radius: 10px; text-align: left; }.track-row.selected { background: #202027; }.track-row.remote { color: #e8e8ed; }.track-open { min-width: 0; padding: 0; flex: 1; display: grid; grid-template-columns: 58px minmax(0, 1fr) 46px; gap: 10px; align-items: center; color: inherit; background: transparent; border: 0; text-align: left; }.track-copy { min-width: 0; }.track-copy strong, .track-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.track-copy strong { font-size: 16px; font-weight: 620; letter-spacing: -.018em; }.track-copy small { margin-top: 5px; color: #a2a2aa; font-size: 13px; }.track-meta { display: block; margin-top: 4px; overflow: hidden; color: #777780; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .track-badge { width: 46px; display: flex; align-items: center; justify-content: center; gap: 3px; }
 .track-badge svg { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .track-badge b { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.track-badge.phone { color: #85e89b; }.track-badge.computer { color: #8fb7ff; }.track-badge.network { color: #c3beff; }
+.track-badge.phone { color: #85e89b; }.track-badge.computer { color: #6fd8ab; }.track-badge.network { color: #b3eecf; }
 /* The seeder count sits inside the seed rather than beside it: the badge is a grain,
    filled, with the digits knocked out of it. The grain is laid flat so the number has
    the length of it to sit in, and a row nobody is seeding is an empty outline - "0
@@ -126,9 +126,9 @@ audio { display: none; }
 .track-badge.network svg { width: 30px; height: 30px; stroke-width: 1.7; }
 .track-badge.network svg .fill { fill: currentColor; stroke: none; }
 .track-badge.network b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: #12121a; }
-.track-badge.network.nothing { color: #6a6a80; }
+.track-badge.network.nothing { color: #5f7268; }
 .track-badge.network.nothing svg .frame { stroke-dasharray: 2.4 2.2; }
-.track-badge.pending { color: #8fb7ff; }
+.track-badge.pending { color: #6fd8ab; }
 .track-badge.pending i { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,.2); border-top-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }.like-button { width: 38px; height: 38px; padding: 0; flex: 0 0 38px; color: #b3b3bb; background: transparent; border: 0; border-radius: 50%; font-size: 23px; line-height: 1; }.like-button.liked { color: #ff5576; }.like-button:active { background: rgba(255,255,255,.1); transform: scale(.94); }
 /* The same vertical ellipsis the album track list carries, so the row's menu
    opens from the same place on every list that shows a track. */
@@ -159,13 +159,13 @@ audio { display: none; }
 .queue-row.disliked .queue-copy strong::after,
 .album-tracks li.disliked .album-track-copy strong::after { content: ""; display: block; width: 40px; height: 2px; margin-top: 3px; border-radius: 2px; background: linear-gradient(90deg, #8c1f26, rgba(140,31,38,0)); }
 .artwork { width: 58px; height: 58px; overflow: hidden; background: linear-gradient(145deg, hsl(var(--cover-hue) 58% 44%), hsl(calc(var(--cover-hue) + 70) 45% 16%)); border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,.35); }.artwork img { width: 100%; height: 100%; object-fit: cover; }.artwork img.fallback { padding: 8px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.45)); }.artwork.large { width: 52px; height: 52px; flex: 0 0 auto; }
-.loading-list { min-height: 230px; display: grid; place-items: center; align-content: center; gap: 13px; color: #9a9aa2; }.loading-list i { width: 28px; height: 28px; border: 3px solid #33333b; border-top-color: #a69eff; border-radius: 50%; animation: spin .8s linear infinite; }.empty-library { min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #aaaab2; text-align: center; }.empty-library img { width: 70px; opacity: .65; }.empty-library h2 { margin: 14px 0 2px; color: #eee; }.empty-library p { max-width: 270px; margin: 4px; }.load-more { width: calc(100% - 18px); min-height: 45px; margin: 12px 9px; color: #ddd; background: #202025; border: 1px solid #33333a; border-radius: 23px; }
+.loading-list { min-height: 230px; display: grid; place-items: center; align-content: center; gap: 13px; color: #9a9aa2; }.loading-list i { width: 28px; height: 28px; border: 3px solid #33333b; border-top-color: #98e9c2; border-radius: 50%; animation: spin .8s linear infinite; }.empty-library { min-height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #aaaab2; text-align: center; }.empty-library img { width: 70px; opacity: .65; }.empty-library h2 { margin: 14px 0 2px; color: #eee; }.empty-library p { max-width: 270px; margin: 4px; }.load-more { width: calc(100% - 18px); min-height: 45px; margin: 12px 9px; color: #ddd; background: #202025; border: 1px solid #33333a; border-radius: 23px; }
 
-.podcast-show-heading { min-height: 128px; padding: 8px 12px 16px 17px; display: grid; grid-template-columns: 38px 86px minmax(0, 1fr) 40px; gap: 11px; align-items: center; background: linear-gradient(180deg, #1e1b33, #111116); border-bottom: 1px solid #282831; }.podcast-show-heading > img, .podcast-show-heading > .podcast-art-fallback { width: 86px; height: 86px; border-radius: 9px; box-shadow: 0 7px 18px rgba(0,0,0,.42); }.podcast-show-heading img { object-fit: cover; }.podcast-show-heading p { margin: 0 0 5px; color: #9e96ff; font-size: 9px; font-weight: 850; letter-spacing: .18em; }.podcast-show-heading h1 { max-height: 55px; margin: 0; overflow: hidden; font-size: 22px; line-height: 1.12; letter-spacing: -.03em; }.podcast-show-heading small { display: block; margin-top: 6px; overflow: hidden; color: #aaaab4; text-overflow: ellipsis; white-space: nowrap; }.podcast-back { width: 36px; height: 44px; padding: 0; color: white; background: #26262c; border: 1px solid #3b3b43; border-radius: 18px; font-size: 31px; line-height: 1; }.podcast-heading-like { align-self: start; margin-top: 7px; }
-.podcast-art-fallback { display: grid; place-items: center; color: #c3beff; background: linear-gradient(145deg, #4c438f, #27233f); font-size: 34px; }
-.episode-list { min-height: 260px; padding: 5px 10px 24px; }.episode-row { min-height: 104px; display: grid; grid-template-columns: 76px minmax(0, 1fr) 48px; gap: 9px; align-items: center; border-bottom: 1px solid #232329; }.episode-art { position: relative; width: 72px; height: 72px; padding: 0; overflow: hidden; background: #29253f; border: 0; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,.3); }.episode-art img, .episode-art > .podcast-art-fallback { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }.episode-art > i { position: absolute; right: 6px; bottom: 6px; width: 27px; height: 27px; display: grid; place-items: center; color: #111116; background: rgba(247,247,248,.94); border-radius: 50%; font-size: 10px; font-style: normal; box-shadow: 0 2px 7px rgba(0,0,0,.45); }.episode-copy { min-width: 0; padding: 10px 2px; color: white; background: transparent; border: 0; text-align: left; }.episode-copy strong, .episode-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.episode-copy strong { font-size: 14px; }.episode-copy > span { display: -webkit-box; margin-top: 5px; overflow: hidden; color: #aaaab4; font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.episode-copy small { margin-top: 6px; color: #777781; font-size: 10px; }.episode-download { width: 43px; min-height: 37px; padding: 5px; color: #c3bfff; background: #222128; border: 1px solid #3b3949; border-radius: 19px; font-size: 12px; font-weight: 800; }.episode-download.ready { color: #85e89b; border-color: #315b3b; }.episode-download:disabled { opacity: .75; }
-.audiobook-search { padding-bottom: 12px; }.audiobook-list, .audiobook-chapter-list { min-height: 280px; padding: 5px 11px 26px; }.audiobook-card { width: 100%; min-height: 82px; padding: 9px 5px; display: grid; grid-template-columns: 58px minmax(0, 1fr) 24px; gap: 11px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid #24242a; text-align: left; }.audiobook-cover { width: 56px; height: 64px; display: grid; place-items: center; color: #d9d5ff; background: linear-gradient(145deg, #343057, #1c1a2e); border: 1px solid #514b78; border-radius: 6px; font-size: 27px; box-shadow: 0 5px 13px rgba(0,0,0,.35); }.audiobook-card strong, .audiobook-card small, .audiobook-card i { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.audiobook-card strong { font-size: 16px; }.audiobook-card small { margin-top: 4px; color: #aaaab5; font-size: 12px; }.audiobook-card i { margin-top: 5px; color: #777483; font-size: 10px; font-style: normal; }.audiobook-card > b { color: #8d88ae; font-size: 25px; }.audiobook-show-heading { min-height: 112px; padding: 9px 14px 14px; display: grid; grid-template-columns: 38px 58px minmax(0, 1fr); gap: 11px; align-items: center; background: linear-gradient(180deg, #211e38, #111116); border-bottom: 1px solid #292735; }.audiobook-show-heading .audiobook-cover { width: 56px; height: 64px; }.audiobook-show-heading p { margin: 0 0 5px; color: #9e96ff; font-size: 9px; font-weight: 850; letter-spacing: .18em; }.audiobook-show-heading h1 { margin: 0; overflow: hidden; font-size: 21px; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }.audiobook-show-heading small { display: block; margin-top: 6px; overflow: hidden; color: #aaaab4; text-overflow: ellipsis; white-space: nowrap; }.audiobook-chapter { width: 100%; min-height: 65px; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid #24242a; text-align: left; }.audiobook-chapter > span:first-child { width: 35px; height: 35px; display: grid; place-items: center; color: #cfcaff; background: #252331; border-radius: 50%; }.audiobook-chapter strong, .audiobook-chapter small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.audiobook-chapter small { margin-top: 5px; color: #898994; font-size: 10px; }
-.podcast-history { padding: 5px 17px 8px; }.section-label { padding: 3px 1px 10px; display: flex; justify-content: space-between; align-items: baseline; }.section-label b { font-size: 17px; }.section-label span { color: #777780; font-size: 11px; }.history-scroller { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }.history-scroller::-webkit-scrollbar { display: none; }.history-scroller button { width: 112px; padding: 0; flex: 0 0 112px; color: white; background: transparent; border: 0; text-align: left; }.history-scroller img, .history-scroller button > span { width: 112px; height: 112px; display: grid; place-items: center; object-fit: cover; color: #c3beff; background: #29253f; border-radius: 8px; font-size: 31px; }.history-scroller strong, .history-scroller small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.history-scroller strong { margin-top: 7px; font-size: 12px; }.history-scroller small { margin-top: 3px; color: #8b8b94; font-size: 10px; }
+.podcast-show-heading { min-height: 128px; padding: 8px 12px 16px 17px; display: grid; grid-template-columns: 38px 86px minmax(0, 1fr) 40px; gap: 11px; align-items: center; background: linear-gradient(180deg, #0e1c16, #111116); border-bottom: 1px solid #282831; }.podcast-show-heading > img, .podcast-show-heading > .podcast-art-fallback { width: 86px; height: 86px; border-radius: 9px; box-shadow: 0 7px 18px rgba(0,0,0,.42); }.podcast-show-heading img { object-fit: cover; }.podcast-show-heading p { margin: 0 0 5px; color: #8fe9bd; font-size: 9px; font-weight: 850; letter-spacing: .18em; }.podcast-show-heading h1 { max-height: 55px; margin: 0; overflow: hidden; font-size: 22px; line-height: 1.12; letter-spacing: -.03em; }.podcast-show-heading small { display: block; margin-top: 6px; overflow: hidden; color: #aaaab4; text-overflow: ellipsis; white-space: nowrap; }.podcast-back { width: 36px; height: 44px; padding: 0; color: white; background: #26262c; border: 1px solid #3b3b43; border-radius: 18px; font-size: 31px; line-height: 1; }.podcast-heading-like { align-self: start; margin-top: 7px; }
+.podcast-art-fallback { display: grid; place-items: center; color: #b3eecf; background: linear-gradient(145deg, #1d6b4f, #13241c); font-size: 34px; }
+.episode-list { min-height: 260px; padding: 5px 10px 24px; }.episode-row { min-height: 104px; display: grid; grid-template-columns: 76px minmax(0, 1fr) 48px; gap: 9px; align-items: center; border-bottom: 1px solid #232329; }.episode-art { position: relative; width: 72px; height: 72px; padding: 0; overflow: hidden; background: #14251d; border: 0; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,.3); }.episode-art img, .episode-art > .podcast-art-fallback { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }.episode-art > i { position: absolute; right: 6px; bottom: 6px; width: 27px; height: 27px; display: grid; place-items: center; color: #111116; background: rgba(247,247,248,.94); border-radius: 50%; font-size: 10px; font-style: normal; box-shadow: 0 2px 7px rgba(0,0,0,.45); }.episode-copy { min-width: 0; padding: 10px 2px; color: white; background: transparent; border: 0; text-align: left; }.episode-copy strong, .episode-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.episode-copy strong { font-size: 14px; }.episode-copy > span { display: -webkit-box; margin-top: 5px; overflow: hidden; color: #aaaab4; font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.episode-copy small { margin-top: 6px; color: #777781; font-size: 10px; }.episode-download { width: 43px; min-height: 37px; padding: 5px; color: #b4efd0; background: #222128; border: 1px solid #3b3949; border-radius: 19px; font-size: 12px; font-weight: 800; }.episode-download.ready { color: #85e89b; border-color: #315b3b; }.episode-download:disabled { opacity: .75; }
+.audiobook-search { padding-bottom: 12px; }.audiobook-list, .audiobook-chapter-list { min-height: 280px; padding: 5px 11px 26px; }.audiobook-card { width: 100%; min-height: 82px; padding: 9px 5px; display: grid; grid-template-columns: 58px minmax(0, 1fr) 24px; gap: 11px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid #24242a; text-align: left; }.audiobook-cover { width: 56px; height: 64px; display: grid; place-items: center; color: #c8f6e3; background: linear-gradient(145deg, #173228, #1c1a2e); border: 1px solid #24463a; border-radius: 6px; font-size: 27px; box-shadow: 0 5px 13px rgba(0,0,0,.35); }.audiobook-card strong, .audiobook-card small, .audiobook-card i { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.audiobook-card strong { font-size: 16px; }.audiobook-card small { margin-top: 4px; color: #aaaab5; font-size: 12px; }.audiobook-card i { margin-top: 5px; color: #777483; font-size: 10px; font-style: normal; }.audiobook-card > b { color: #6f8879; font-size: 25px; }.audiobook-show-heading { min-height: 112px; padding: 9px 14px 14px; display: grid; grid-template-columns: 38px 58px minmax(0, 1fr); gap: 11px; align-items: center; background: linear-gradient(180deg, #10201a, #111116); border-bottom: 1px solid #292735; }.audiobook-show-heading .audiobook-cover { width: 56px; height: 64px; }.audiobook-show-heading p { margin: 0 0 5px; color: #8fe9bd; font-size: 9px; font-weight: 850; letter-spacing: .18em; }.audiobook-show-heading h1 { margin: 0; overflow: hidden; font-size: 21px; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }.audiobook-show-heading small { display: block; margin-top: 6px; overflow: hidden; color: #aaaab4; text-overflow: ellipsis; white-space: nowrap; }.audiobook-chapter { width: 100%; min-height: 65px; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid #24242a; text-align: left; }.audiobook-chapter > span:first-child { width: 35px; height: 35px; display: grid; place-items: center; color: #bff3dd; background: #252331; border-radius: 50%; }.audiobook-chapter strong, .audiobook-chapter small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.audiobook-chapter small { margin-top: 5px; color: #898994; font-size: 10px; }
+.podcast-history { padding: 5px 17px 8px; }.section-label { padding: 3px 1px 10px; display: flex; justify-content: space-between; align-items: baseline; }.section-label b { font-size: 17px; }.section-label span { color: #777780; font-size: 11px; }.history-scroller { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }.history-scroller::-webkit-scrollbar { display: none; }.history-scroller button { width: 112px; padding: 0; flex: 0 0 112px; color: white; background: transparent; border: 0; text-align: left; }.history-scroller img, .history-scroller button > span { width: 112px; height: 112px; display: grid; place-items: center; object-fit: cover; color: #b3eecf; background: #14251d; border-radius: 8px; font-size: 31px; }.history-scroller strong, .history-scroller small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.history-scroller strong { margin-top: 7px; font-size: 12px; }.history-scroller small { margin-top: 3px; color: #8b8b94; font-size: 10px; }
 .podcast-grid { min-height: 250px; padding: 0 14px 25px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 13px; }.podcast-grid > .loading-list, .podcast-grid > .empty-library { grid-column: 1 / -1; }.podcast-card { position: relative; min-width: 0; padding: 0; color: white; background: transparent; text-align: left; }.podcast-open { width: 100%; min-width: 0; padding: 0; color: white; background: transparent; border: 0; text-align: left; }.podcast-open img, .podcast-open > .podcast-art-fallback { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,.36); }.podcast-open span { display: block; min-width: 0; }.podcast-open strong, .podcast-open small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.podcast-open strong { margin-top: 8px; font-size: 14px; }.podcast-open small { margin-top: 3px; color: #92929b; font-size: 11px; }.podcast-like { position: absolute; top: 6px; right: 6px; color: white; background: rgba(8,8,11,.72); box-shadow: 0 2px 8px rgba(0,0,0,.4); }.podcast-like.liked { color: #ff5576; background: rgba(24,8,13,.82); }
 
 .now-playing { --art-size: var(--bar-height); position: fixed; z-index: 5; right: 8px; bottom: calc(69px + env(safe-area-inset-bottom)); left: 8px; height: var(--art-size); padding: 0; display: grid; grid-template-columns: var(--art-size) minmax(0, 1fr) 54px; align-items: stretch; overflow: hidden; border-radius: 12px; box-shadow: 0 10px 35px rgba(0,0,0,.62); backdrop-filter: blur(16px); background: linear-gradient(120deg, #17383a, #132d30 58%, #1b222b); transform: translateY(var(--bar-shift, 0px)); opacity: var(--bar-opacity, 1); transition: transform .18s ease-out, opacity .18s ease-out; }
@@ -199,8 +199,8 @@ audio { display: none; }
    to it. Nothing here is stored on the phone, so every screen is drawn from
    what the computer answered. */
 .playlist-view { padding: 0 14px 108px; }
-.playlist-new { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: #4c46a8; border: 0; border-radius: 50%; font-size: 26px; line-height: 1; }
-.playlist-new:active { background: #3a3585; }
+.playlist-new { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: #1f7a58; border: 0; border-radius: 50%; font-size: 26px; line-height: 1; }
+.playlist-new:active { background: #186348; }
 .playlist-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 8px 6px 13px; background: #16161a; border: 1px solid #24242b; border-radius: 14px; }
 .playlist-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 11px; padding: 4px 0; text-align: start; color: inherit; background: transparent; border: 0; font: inherit; }
 .playlist-row-art { width: 44px; height: 44px; flex: 0 0 auto; display: block; overflow: hidden; background: #1d1d24; border-radius: 8px; }
@@ -237,7 +237,7 @@ audio { display: none; }
 .playlist-badge { flex: 0 0 auto; padding: 2px 7px; color: #b9b9c1; background: #202027; border-radius: 9px; font-size: 10px; font-style: normal; }
 .playlist-actions { display: flex; gap: 8px; padding: 2px 0 12px; }
 .playlist-actions button { flex: 1 1 0; min-height: 46px; color: #d8d8e0; background: #1d1d24; border: 1px solid #2c2c34; border-radius: 13px; font-size: 14px; }
-.playlist-actions button.primary { color: #fff; background: #4c46a8; border-color: #4c46a8; font-weight: 700; }
+.playlist-actions button.primary { color: #fff; background: #1f7a58; border-color: #1f7a58; font-weight: 700; }
 .playlist-actions button:disabled { color: #55555d; background: #16161a; }
 .playlist-notice { margin: 0 0 10px; color: #79d18b; font-size: 13px; }
 .playlist-head-glyph { width: 46px; height: 46px; flex: 0 0 auto; display: grid; place-items: center; color: #b3b3bb; background: #1d1d24; border-radius: 10px; }
@@ -289,7 +289,7 @@ audio { display: none; }
 .playlist-heading { margin: 0 0 14px; padding: 0 16px; font-size: 22px; letter-spacing: -.02em; }
 .playlist-sheet .playlist-hint, .playlist-sheet .error-card, .playlist-sheet .playlist-notice, .playlist-sheet .playlist-field, .playlist-sheet .playlist-toggle, .playlist-sheet .playlist-actions { margin-right: 16px; margin-left: 16px; }
 .playlist-sheet .playlist-members { margin-right: 16px; margin-left: 16px; }
-.playlist-save { flex: 0 0 auto; min-height: 38px; padding: 0 16px; color: #fff; background: #4c46a8; border: 0; border-radius: 19px; font: inherit; font-size: 13px; font-weight: 700; }
+.playlist-save { flex: 0 0 auto; min-height: 38px; padding: 0 16px; color: #fff; background: #1f7a58; border: 0; border-radius: 19px; font: inherit; font-size: 13px; font-weight: 700; }
 .playlist-save:disabled { color: #55555d; background: #1d1d24; }
 .playlist-tools { display: flex; flex-wrap: wrap; gap: 7px; padding: 8px 16px 10px; }
 .playlist-tools button { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; color: #d8d8e0; background: #1d1d24; border: 1px solid #2c2c34; border-radius: 11px; font: inherit; font-size: 12px; }
@@ -306,14 +306,14 @@ audio { display: none; }
 .add-head-copy strong { font-size: 17px; }.add-head-copy small { margin-top: 3px; color: #9d9da7; font-size: 12px; }
 .add-tabs { display: flex; gap: 7px; padding: 0 14px 10px; overflow-x: auto; flex: 0 0 auto; }
 .add-tabs button { flex: 0 0 auto; min-height: 32px; padding: 0 14px; color: #b9b9c1; background: #1d1d24; border: 1px solid #2c2c34; border-radius: 16px; font: inherit; font-size: 12px; white-space: nowrap; }
-.add-tabs button.active { color: #fff; background: #4c46a8; border-color: #4c46a8; font-weight: 700; }
+.add-tabs button.active { color: #fff; background: #1f7a58; border-color: #1f7a58; font-weight: 700; }
 .add-view .playlist-hint, .add-view .error-card { margin: 0 16px 8px; }
 .add-list { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior-y: contain; padding: 0 6px calc(20px + env(safe-area-inset-bottom)); }
 /* The toggle is the row's fourth cell, inside the button, so the whole row -
    icon included - is what toggles the track. */
 .add-row .track-open { grid-template-columns: 58px minmax(0, 1fr) 46px 34px; }
 .add-row .picker-toggle { justify-self: end; margin-right: 8px; }
-.card-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #cdc8ff; background: linear-gradient(145deg, hsl(255 45% 32%), #17171d); font-size: 30px; }
+.card-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #bdf2dc; background: linear-gradient(145deg, hsl(255 45% 32%), #17171d); font-size: 30px; }
 /* The author's words, as chips: each is added or taken back as a whole. */
 .playlist-tags > span { color: #9a9aa3; font-size: 12px; }
 .tag-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; background: #16161a; border: 1px solid #2c2c34; border-radius: 12px; }
@@ -385,7 +385,7 @@ audio { display: none; }
 /* The two renditions share the square: the small one is drawn at once and the
    full cover fades in over it when it arrives. */
 .now-sheet-art img.now-sheet-art-full { opacity: 0; transition: opacity .22s ease-out; }
-.now-sheet-art img.now-sheet-art-full.ready { opacity: 1; }.now-sheet-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #cdc8ff; background: linear-gradient(145deg, hsl(var(--cover-hue) 55% 42%), hsl(calc(var(--cover-hue) + 70) 45% 14%)); font-size: 54px; }
+.now-sheet-art img.now-sheet-art-full.ready { opacity: 1; }.now-sheet-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #bdf2dc; background: linear-gradient(145deg, hsl(var(--cover-hue) 55% 42%), hsl(calc(var(--cover-hue) + 70) 45% 14%)); font-size: 54px; }
 /* The body may be taller than the room left under the art once there is more to
    say here than controls - lyrics are coming - so it scrolls from that point on
    rather than squeezing the art. */
@@ -443,7 +443,7 @@ audio { display: none; }
 .now-sheet-modes svg { width: 33px; height: 33px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 svg .filled { fill: currentColor; stroke: none; }
 .now-sheet-actions .skip-button svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.now-sheet-queue { display: flex; flex-direction: column; }.now-sheet-queue .section-label b { font-size: 15px; }.now-sheet-row { width: 100%; min-height: 58px; padding: 5px 2px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; gap: 10px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; }.now-sheet-row .artwork { width: 44px; height: 44px; }.now-sheet-row strong, .now-sheet-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.now-sheet-row strong { font-size: 14px; font-weight: 600; }.now-sheet-row small { margin-top: 3px; color: #a2a2aa; font-size: 11px; }.now-sheet-row > b { color: #8d88ae; font-size: 19px; }.now-sheet-more { margin: 11px 0 0; color: #77777f; font-size: 11px; text-align: center; }
+.now-sheet-queue { display: flex; flex-direction: column; }.now-sheet-queue .section-label b { font-size: 15px; }.now-sheet-row { width: 100%; min-height: 58px; padding: 5px 2px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; gap: 10px; align-items: center; color: white; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; }.now-sheet-row .artwork { width: 44px; height: 44px; }.now-sheet-row strong, .now-sheet-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.now-sheet-row strong { font-size: 14px; font-weight: 600; }.now-sheet-row small { margin-top: 3px; color: #a2a2aa; font-size: 11px; }.now-sheet-row > b { color: #6f8879; font-size: 19px; }.now-sheet-more { margin: 11px 0 0; color: #77777f; font-size: 11px; text-align: center; }
 
 /* Album carousels grouped out of the tracks this phone has loaded. */
 .album-shelves { padding: 6px 0 16px; display: flex; flex-direction: column; gap: 16px; }
@@ -478,18 +478,18 @@ svg .filled { fill: currentColor; stroke: none; }
 .discover-title { display: grid; gap: 3px; }
 .discover-title small { color: #8d8d99; font-size: 12px; }
 .discover-title small.discover-note { color: #6f6f7a; font-size: 11px; }
-.discover-start { width: 46px; height: 46px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; color: #0d0d10; background: #c9c2ff; border: 0; border-radius: 50%; font-size: 18px; }
-.discover-start:active { background: #ded9ff; transform: scale(.96); }
+.discover-start { width: 46px; height: 46px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; color: #0d0d10; background: #b9f0d9; border: 0; border-radius: 50%; font-size: 18px; }
+.discover-start:active { background: #ccf7e6; transform: scale(.96); }
 .discover-start:disabled { color: #6a6a75; background: #26262e; }
-.discover-play { padding: 8px 15px; color: #b9b3ff; background: #1e1c33; border: 1px solid #34305a; border-radius: 16px; font-size: 12px; font-weight: 700; letter-spacing: .03em; }
-.discover-play.active { color: #0b0b0f; background: #c9c2ff; border-color: #c9c2ff; }
+.discover-play { padding: 8px 15px; color: #a9efcd; background: #0f1d17; border: 1px solid #17352a; border-radius: 16px; font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+.discover-play.active { color: #0b0b0f; background: #b9f0d9; border-color: #b9f0d9; }
 .discover-play:disabled { color: #6a6a75; background: #26262e; border-color: #313139; }
 
 /* The playlist lives in its own view: the drawer itself never scrolls. */
 .queue-view { position: fixed; z-index: 40; inset: 0; display: flex; flex-direction: column; background: #0b0b0e; animation: queue-in .24s ease-out; }
 @keyframes queue-in { from { opacity: 0; transform: translateY(16px); } }
 .queue-head { padding: calc(env(safe-area-inset-top) + 14px) 18px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #1e1e24; }
-.queue-head p { margin: 0 0 4px; color: #8b84e9; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+.queue-head p { margin: 0 0 4px; color: #3fbf8d; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
 .queue-head h1 { margin: 0; font-size: 22px; letter-spacing: -.03em; }
 .queue-close { width: 40px; height: 40px; padding: 0; flex: 0 0 auto; color: #fff; background: #1d1d23; border: 1px solid #34343d; border-radius: 20px; font-size: 20px; line-height: 1; }
 .queue-list { min-height: 0; padding: 6px 12px calc(24px + env(safe-area-inset-bottom)); flex: 1; overflow-y: auto; overscroll-behavior-y: contain; }
@@ -521,7 +521,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .album-scroll .album-shelf-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid #1c1c22; }
 .album-art { width: min(70%, 31vh); margin: 0 auto; aspect-ratio: 1; overflow: hidden; background: #17171d; border-radius: 16px; box-shadow: 0 18px 44px rgba(0,0,0,.6); }
 .album-art img { width: 100%; height: 100%; object-fit: cover; }
-.album-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #cdc8ff; background: linear-gradient(145deg, hsl(var(--cover-hue) 55% 42%), hsl(calc(var(--cover-hue) + 70) 45% 14%)); font-size: 52px; }
+.album-art-empty { width: 100%; height: 100%; display: grid; place-items: center; color: #bdf2dc; background: linear-gradient(145deg, hsl(var(--cover-hue) 55% 42%), hsl(calc(var(--cover-hue) + 70) 45% 14%)); font-size: 52px; }
 /* The header paints the small rendition it already holds and fades the full
    cover in over it, so an album never opens on an empty square. */
 .album-art { position: relative; }
@@ -601,7 +601,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .settings-status i.offline { background: #ff9b3f; box-shadow: 0 0 8px #ff9b3f; }
 .settings-status strong, .settings-status small { display: block; }
 .settings-status strong { font-size: 16px; }.settings-status small { margin-top: 3px; color: #9d9da7; font-size: 12px; }
-.settings-note { margin: 0 18px 14px; padding: 10px 12px; color: #cbc4ff; background: #1b1930; border: 1px solid #34305c; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.settings-note { margin: 0 18px 14px; padding: 10px 12px; color: #bbf1db; background: #0d1a15; border: 1px solid #17352a; border-radius: 10px; font-size: 12px; line-height: 1.4; }
 .settings-row { width: 100%; min-height: 58px; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; color: #ececf1; background: transparent; border: 0; border-top: 1px solid #1c1c22; text-align: left; }
 .settings-row span { font-size: 15px; }.settings-row small { color: #8a8a95; font-size: 11px; text-align: right; }
 .settings-row.danger span { color: #ff9aa6; }
@@ -619,13 +619,13 @@ svg .filled { fill: currentColor; stroke: none; }
 .computer-dot.online { background: hsl(var(--host-hue) 78% 60%); box-shadow: 0 0 10px hsl(var(--host-hue) 78% 60% / .5); }
 .computer-row.left-out .computer-id { opacity: .45; }
 .computer-include { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; color: #8a8a95; font-size: 11px; }
-.computer-include input { width: 18px; height: 18px; accent-color: #7c6df2; }
+.computer-include input { width: 18px; height: 18px; accent-color: #2fc98f; }
 .settings-action { flex: 0 0 auto; padding: 7px 13px; color: #ff9aa6; background: #211519; border: 1px solid #3a2229; border-radius: 9px; font-size: 12px; }
 /* This phone's own key: a row that reads out the public half, and a textarea for
    the secret when somebody asks to see it. The secret is monospace and wraps,
    because writing it down by hand is the point of showing it at all. */
 .identity-row { padding: 4px 18px 12px; display: flex; align-items: center; gap: 10px; }
-.identity-row code { min-width: 0; flex: 1; overflow-wrap: anywhere; color: #cbc4ff; font-size: 11px; line-height: 1.35; }
+.identity-row code { min-width: 0; flex: 1; overflow-wrap: anywhere; color: #bbf1db; font-size: 11px; line-height: 1.35; }
 .identity-secret { padding: 0 18px 12px; display: flex; align-items: flex-start; gap: 10px; }
 .identity-secret textarea { min-width: 0; min-height: 62px; flex: 1; padding: 9px 10px; color: #ffd7dc; background: #17141b; border: 1px solid #3a2229; border-radius: 9px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.4; resize: vertical; }
 .settings-error { color: #ff9aa6; background: #211519; border-color: #3a2229; }
@@ -639,7 +639,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .track-badge.elsewhere { color: hsl(var(--host-hue) 78% 64%); }
 /* A computer that cannot be reached: dashed, like a seeder mark nobody can be
    found holding, because the badge promises the file can be had from there. */
-.track-badge.computer.away { color: #6f7c99; }
+.track-badge.computer.away { color: #6a8a7a; }
 .track-badge.computer.away svg { stroke-dasharray: 3 2.4; }
 /* The language picker is the last thing in the sheet, lined up with the rows. */
 .language-section { padding: 0 18px 20px; }
@@ -653,7 +653,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .quality-panel { padding: 4px 18px 10px; background: #08080b; }
 .quality-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .quality-chip { min-height: 34px; padding: 6px 13px; color: #b9b9c4; background: #16161c; border: 1px solid #26262e; border-radius: 17px; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
-.quality-chip.on { color: #0b0b0f; background: #c9c2ff; border-color: #c9c2ff; }
+.quality-chip.on { color: #0b0b0f; background: #b9f0d9; border-color: #b9f0d9; }
 .quality-hint { margin: 10px 0 2px; color: #85858f; font-size: 11px; line-height: 1.45; }
 
 /* How many tracks ahead: the same chip as a quality panel's, in a panel of its
@@ -663,7 +663,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .preload-panel { padding: 4px 18px 10px; background: #08080b; }
 .preload-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .preload-chip { min-width: 46px; min-height: 34px; padding: 6px 12px; color: #b9b9c4; background: #16161c; border: 1px solid #26262e; border-radius: 17px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-align: center; }
-.preload-chip.on { color: #0b0b0f; background: #c9c2ff; border-color: #c9c2ff; }
+.preload-chip.on { color: #0b0b0f; background: #b9f0d9; border-color: #b9f0d9; }
 
 /* A track's conversation: public messages fetched by the computer, in the same
    shape the desktop's own chat panel draws them. */
@@ -685,18 +685,18 @@ svg .filled { fill: currentColor; stroke: none; }
 .discussion-scroll { position: relative; z-index: 1; min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior-y: contain; padding: 10px 16px calc(20px + env(safe-area-inset-bottom)); }
 .discussion-message { margin: 0 0 12px; padding: 10px 13px; background: #131318; border: 1px solid #1f1f27; border-radius: 12px; }
 /* What this identity said is marked, which is what `status.pubkey` is for. */
-.discussion-message.mine { background: #191733; border-color: #34305c; }
+.discussion-message.mine { background: #0c1914; border-color: #17352a; }
 .discussion-message header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
 .discussion-message-tools { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
 .discussion-reply { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: #8f8f9c; background: transparent; border: 0; }
 .discussion-reply svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; }
-.discussion-reply:active { color: #cbc4ff; }
+.discussion-reply:active { color: #bbf1db; }
 /* What a message answers: a line of context, not a nested thread. NIP-C7 keeps a
    chat view as one ordered stream, so a reply sits in the stream like any other. */
-.discussion-quote { display: block; margin: 0 0 7px; padding: 6px 9px; border-left: 2px solid #514b78; background: rgba(81, 75, 120, .16); border-radius: 0 8px 8px 0; }
-.discussion-quote b { color: #cbc4ff; font-size: 11px; }
+.discussion-quote { display: block; margin: 0 0 7px; padding: 6px 9px; border-left: 2px solid #24463a; background: rgba(81, 75, 120, .16); border-radius: 0 8px 8px 0; }
+.discussion-quote b { color: #bbf1db; font-size: 11px; }
 .discussion-quote span { display: block; margin-top: 2px; color: #9d9da7; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.discussion-message header b { color: #cbc4ff; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discussion-message header b { color: #bbf1db; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .discussion-message header time { flex: 0 0 auto; color: #6f6f7a; font-size: 11px; }
 .discussion-message p { margin: 0; color: #ececf1; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 .discussion-error { margin: 0 0 12px; padding: 10px 12px; color: #ffb3bd; background: #2a1a1f; border: 1px solid #4a2b33; border-radius: 10px; font-size: 12px; }
@@ -704,11 +704,11 @@ svg .filled { fill: currentColor; stroke: none; }
 .discussion-compose { position: relative; z-index: 1; display: block; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #1c1c22; background: #0e0e12; }
 .discussion-compose-row { display: flex; gap: 8px; }
 /* What the box is answering. Tapping it drops the reply and writes a fresh one. */
-.discussion-replying { width: 100%; margin-bottom: 8px; padding: 7px 10px; display: block; color: #ececf1; background: #16161c; border: 0; border-left: 2px solid #c9c2ff; border-radius: 0 8px 8px 0; text-align: left; }
-.discussion-replying span { display: block; color: #cbc4ff; font-size: 11px; font-weight: 700; }
+.discussion-replying { width: 100%; margin-bottom: 8px; padding: 7px 10px; display: block; color: #ececf1; background: #16161c; border: 0; border-left: 2px solid #b9f0d9; border-radius: 0 8px 8px 0; text-align: left; }
+.discussion-replying span { display: block; color: #bbf1db; font-size: 11px; font-weight: 700; }
 .discussion-replying small { display: block; margin-top: 2px; color: #9d9da7; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .discussion-compose input { min-width: 0; flex: 1 1 auto; min-height: 42px; padding: 0 14px; color: #ececf1; background: #16161c; border: 1px solid #26262e; border-radius: 21px; font-size: 14px; }
-.discussion-compose button { flex: 0 0 auto; min-width: 74px; min-height: 42px; padding: 0 16px; color: #0b0b0f; background: #c9c2ff; border: 0; border-radius: 21px; font-size: 13px; font-weight: 700; }
+.discussion-compose button { flex: 0 0 auto; min-width: 74px; min-height: 42px; padding: 0 16px; color: #0b0b0f; background: #b9f0d9; border: 0; border-radius: 21px; font-size: 13px; font-weight: 700; }
 .discussion-compose button:disabled { opacity: .5; }
 
 
@@ -716,7 +716,7 @@ svg .filled { fill: currentColor; stroke: none; }
    one, an invitation when there is not. Always drawn, because a card that only
    appears once somebody has spoken is one nobody finds on a quiet network. */
 .sheet-card { width: 100%; padding: 10px 12px; display: block; color: #ececf1; background: #131318; border: 1px solid #1f1f27; border-radius: 12px; text-align: left; }
-.sheet-card-head { display: flex; align-items: center; gap: 7px; color: #cbc4ff; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.sheet-card-head { display: flex; align-items: center; gap: 7px; color: #bbf1db; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .sheet-card-head svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .sheet-card-line { display: block; margin-top: 5px; color: #b9b9c4; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-card-line b { color: #ececf1; }
@@ -724,7 +724,7 @@ svg .filled { fill: currentColor; stroke: none; }
 
 /* Temporary cover-art diagnostics, reached from Settings. Delete with
    CoverDebug.svelte. */
-.cover-debug-open { min-height: 30px; padding: 5px 11px; display: flex; align-items: center; gap: 10px; color: #d9d5ff; background: rgba(30,27,51,.94); border: 1px solid #514b78; border-radius: 15px; font-size: 12px; font-weight: 700; }
+.cover-debug-open { min-height: 30px; padding: 5px 11px; display: flex; align-items: center; gap: 10px; color: #c8f6e3; background: rgba(30,27,51,.94); border: 1px solid #24463a; border-radius: 15px; font-size: 12px; font-weight: 700; }
 .cover-debug-open.embedded { width: 100%; min-height: 58px; padding: 10px 18px; justify-content: space-between; gap: 14px; color: #ececf1; background: transparent; border: 0; border-top: 1px solid #1c1c22; font-size: 15px; font-weight: 400; text-align: left; }
 .cover-debug-open.embedded small { max-width: 52%; overflow: hidden; color: #8a8a95; font-size: 11px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .cover-debug { position: fixed; z-index: 46; inset: 0; padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 12px); overflow-y: auto; overscroll-behavior-y: contain; color: #e9e9ef; background: #0b0b0e; font-size: 11px; line-height: 1.4; }
@@ -732,7 +732,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .cover-debug header strong { font-size: 14px; }
 .cover-debug header button { width: 32px; height: 32px; padding: 0; color: #fff; background: #26262c; border: 1px solid #3b3b43; border-radius: 16px; font-size: 14px; }
 .cover-debug-status, .cover-debug-counts { margin: 6px 0 0; color: #a7a7b2; }
-.cover-debug-counts { color: #c3beff; }
+.cover-debug-counts { color: #b3eecf; }
 .cover-debug-actions { margin: 9px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
 .cover-debug-actions button { min-height: 30px; padding: 4px 10px; color: #eee; background: #1d1d23; border: 1px solid #34343d; border-radius: 15px; font-size: 11px; }
 .cover-debug h4 { margin: 12px 0 5px; color: #8b8b96; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
@@ -742,7 +742,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .cover-debug-rows.resolved b, .cover-debug-rows li.resolved b { color: #85e89b; }
 .cover-debug-events li.answer b { color: #85e89b; }
 .cover-debug-events li.error b { color: #ff7d8c; }
-.cover-debug-events li.cached b { color: #8fb7ff; }
+.cover-debug-events li.cached b { color: #6fd8ab; }
 .cover-debug-events li.skip b { color: #9a9aa4; }
 .cover-debug-rows span, .cover-debug-events span { color: #b8b8c2; }
 .cover-debug-rows em { color: #77777f; font-style: normal; }
@@ -752,7 +752,7 @@ svg .filled { fill: currentColor; stroke: none; }
 .ticket-qr { width: min(240px, 68vw); margin: 0 auto; padding: 10px; background: #fff; border-radius: 12px; }
 .ticket-qr svg { display: block; width: 100%; height: auto; }
 .ticket-note { margin: 0; color: #9d9da7; font-size: 12px; line-height: 1.45; }
-.ticket-card code { padding: 9px 10px; color: #cbc4ff; background: #0b0b0e; border: 1px solid #2a2a34; border-radius: 8px; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.ticket-card code { padding: 9px 10px; color: #bbf1db; background: #0b0b0e; border: 1px solid #2a2a34; border-radius: 8px; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .ticket-card > small { color: #8a8a95; font-size: 11px; line-height: 1.45; }
 .ticket-actions { display: flex; gap: 8px; }
 .ticket-actions button { min-height: 38px; padding: 6px 14px; flex: 1; color: #ececf1; background: #1d1d23; border: 1px solid #34343d; border-radius: 10px; font-size: 13px; }
@@ -824,7 +824,7 @@ svg .filled { fill: currentColor; stroke: none; }
   .app-shell.desktop > .bottom-nav { top: 0; bottom: 0; inset-inline-start: 0; width: var(--sidebar-width); height: auto; max-width: none; margin: 0; padding: 20px 12px; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 8px; border-top: 0; border-inline-end: 1px solid #26252f; background: #0c0c0f; transform: none; }
   .app-shell.desktop > .bottom-nav button { min-width: 0; height: 48px; padding: 0 14px; flex-direction: row; justify-content: flex-start; gap: 12px; border-radius: 10px; font-size: 14px; font-weight: 650; }
   .app-shell.desktop > .bottom-nav button span { width: 28px; font-size: 25px; text-align: center; }
-  .app-shell.desktop > .bottom-nav button.active { color: #e7e2ff; background: #282339; }
+  .app-shell.desktop > .bottom-nav button.active { color: #d3fae9; background: #282339; }
   /* Column three. A grid item in normal flow, so it can be pinned: `sticky`
      keeps it in the grid while the window scrolls, and its own height is the
      window's, so the now-playing card stays on screen however long the middle

@@ -237,6 +237,14 @@ class MediaNotificationService : Service() {
    * change is worth a fetch; anything already decoded is reused from the cache.
    */
   private fun updateArtwork(url: String) {
+    // A pulse that carries no cover is not news. Behind a lock screen the page may
+    // not have resolved one yet, and dropping what is already on screen for that
+    // is how the artwork used to vanish exactly when it was needed; the next track
+    // with a cover replaces it, and stopping playback clears it.
+    if (url.isEmpty()) {
+      updateSession()
+      return
+    }
     if (url == artworkUrl) return
     artworkUrl = url
     artwork = ArtworkCache.peek(url)
@@ -306,8 +314,7 @@ class MediaNotificationService : Service() {
     var actions = PlaybackStateCompat.ACTION_PLAY or
       PlaybackStateCompat.ACTION_PAUSE or
       PlaybackStateCompat.ACTION_PLAY_PAUSE
-    if (canSeek) actions = actions or PlaybackStateCompat.ACTION_SEEK_TO or
-      PlaybackStateCompat.ACTION_REWIND or PlaybackStateCompat.ACTION_FAST_FORWARD
+    if (canSeek) actions = actions or PlaybackStateCompat.ACTION_SEEK_TO
     if (canPrevious) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
     if (canNext) actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
     // The notification's own buttons are only drawn in the shade. Everything
@@ -321,13 +328,6 @@ class MediaNotificationService : Service() {
         .addCustomAction(
           customAction(ACTION_REPEAT, repeatLabel(), R.drawable.ic_napstrfy_loop)
         )
-        .apply {
-          // Android 13+ derives lock-screen buttons from session custom actions.
-          if (canSeek) {
-            addCustomAction(ACTION_REWIND, rewindLabel, R.drawable.ic_replay_15)
-            addCustomAction(ACTION_FORWARD, forwardLabel, R.drawable.ic_forward_15)
-          }
-        }
         .setState(
           if (playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
           position,
@@ -353,11 +353,11 @@ class MediaNotificationService : Service() {
     val previous = actionPendingIntent(ACTION_PREVIOUS, 1)
     val playPause = actionPendingIntent(if (playing) ACTION_PAUSE else ACTION_PLAY, 2)
     val next = actionPendingIntent(ACTION_NEXT, 3)
-    // The shade carries the five transport buttons: previous, back 15,
-    // play/pause, forward 15, next. Like and repeat stay session custom
-    // actions, which is where the lock screen and Android Auto read buttons from.
-    val rewind = if (canSeek) actionPendingIntent(ACTION_REWIND, 4) else null
-    val forward = if (canSeek) actionPendingIntent(ACTION_FORWARD, 5) else null
+    // Three buttons: previous, play/pause, next. The fifteen-second jumps used to
+    // sit between them, and on Android 13+ the lock screen draws its buttons in
+    // the order the session declares them - three of them, so like and repeat came
+    // first and previous was the button that fell off the end. Seeking is still
+    // offered as ACTION_SEEK_TO, which is a scrub rather than a fourth button.
     val launch = packageManager.getLaunchIntentForPackage(packageName)?.let {
       PendingIntent.getActivity(this, 0, it, pendingFlags())
     }
@@ -373,15 +373,13 @@ class MediaNotificationService : Service() {
       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
       .setOngoing(playing)
       .addAction(android.R.drawable.ic_media_previous, previousLabel, previous)
-      .addAction(R.drawable.ic_replay_15, rewindLabel, rewind)
       .addAction(
         if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
         if (playing) pauseLabel else playLabel,
         playPause
       )
-      .addAction(R.drawable.ic_forward_15, forwardLabel, forward)
       .addAction(android.R.drawable.ic_media_next, nextLabel, next)
-      .setStyle(MediaStyle().setMediaSession(mediaSession.sessionToken).setShowActionsInCompactView(1, 2, 3))
+      .setStyle(MediaStyle().setMediaSession(mediaSession.sessionToken).setShowActionsInCompactView(0, 1, 2))
       .build()
   }
 
