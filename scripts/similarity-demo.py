@@ -9,6 +9,17 @@ Signals and weights are copied from docs/SIMILARITY.md §4:
 
     score(c) = 1.00*album + 0.55*artist + 0.90*co_hat + 0.35*words
              + 0.12*genre + 0.04*decade
+
+The word signal uses the SAME words the network is searchable by, which is not
+just the title: `network::catalogue_search_tokens` derives the `t` tags from the
+filename, title, artist, album AND the author's own tags, in that order, deduped
+and capped at twenty. This module ports that rule so the demo cannot quietly
+score a narrower set than `remote_catalogue_fts` can find. That matters for a
+tag harvest: when a host reads a file's own genre frame and publishes it as a
+tag (§9), the words below widen with no change here.
+
+Regenerating the page is one command: this writes the data file and then
+substitutes it into docs/similarity-demo.template.html.
 """
 
 import json
@@ -21,6 +32,8 @@ from collections import defaultdict
 
 DB = os.path.join(os.environ["APPDATA"], "social.deadwax.desktop", "napstr.sqlite3")
 OUT = os.path.join("docs", "similarity-data.json")
+TEMPLATE = os.path.join("docs", "similarity-demo.template.html")
+PAGE = os.path.join("docs", "similarity-demo.html")
 
 NOW = int(time.time())
 WEIGHTS = {"album": 1.00, "artist": 0.55, "co": 0.90, "words": 0.35, "genre": 0.12, "decade": 0.04}
@@ -29,24 +42,56 @@ MMR_LAMBDA = 0.7
 PER_ARTIST = 6
 STATION_SIZE = 24
 
-WORD_RE = re.compile(r"[a-z0-9']+")
-STOP = {
-    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "by",
-    "vol", "cd", "disc", "disk", "remaster", "remastered", "edition", "deluxe",
-    "mix", "version", "feat", "ft", "lp", "ep", "ost", "bonus", "track", "unknown",
+# The fields a 30421 announcement puts words into, in the order the host derives
+# them from (network.rs, the `catalogue_search_tokens(&[...])` call).
+WORD_FIELDS = ("filename", "title", "artist", "album", "tags")
+# network.rs CATALOGUE_SEARCH_STOP_WORDS / CATALOGUE_SEARCH_TOKEN_LIMIT / _LENGTH.
+CATALOGUE_STOP = {
+    "a", "an", "and", "are", "as", "at", "audio", "be", "by", "flac", "for", "from",
+    "in", "is", "it", "mp3", "of", "ogg", "on", "opus", "or", "the", "to", "wav", "with",
 }
+TOKEN_LIMIT = 20
+TOKEN_LENGTH = 32
 
 
 def norm(value):
     return (value or "").strip().lower()
 
 
-def tokens(*values):
-    words = set()
-    for value in values:
-        for word in WORD_RE.findall(norm(value)):
-            if len(word) > 2 and word not in STOP and not word.isdigit():
-                words.add(word)
+def search_tokens(value):
+    """`lib.rs::search_tokens`: split on anything that is not alphanumeric."""
+    words, current = [], []
+    for character in norm(value):
+        if character.isalnum():
+            current.append(character)
+        elif current:
+            words.append("".join(current))
+            current = []
+    if current:
+        words.append("".join(current))
+    return words
+
+
+def catalogue_tokens(fields):
+    """`network.rs::catalogue_search_tokens`, ported: the words a file is findable by."""
+    per_field = [
+        [
+            token
+            for token in search_tokens(field)
+            if token != "napstr" and token not in CATALOGUE_STOP and len(token) <= TOKEN_LENGTH
+        ]
+        for field in fields
+    ]
+    seen, words = set(), []
+    for index in range(max((len(field) for field in per_field), default=0)):
+        for field in per_field:
+            if index < len(field):
+                token = field[index]
+                if token not in seen:
+                    seen.add(token)
+                    words.append(token)
+                    if len(words) == TOKEN_LIMIT:
+                        return words
     return words
 
 
@@ -72,13 +117,20 @@ def main():
     connection.row_factory = sqlite3.Row
 
     rows = connection.execute(
-        "SELECT file_id, title, artist, album, tags, format, size FROM remote_catalogue"
+        "SELECT file_id, filename, title, artist, album, tags, format, size FROM remote_catalogue"
     ).fetchall()
     # One announcement per file is enough: several authors announcing the same
-    # bytes say the same thing about them.
+    # bytes say the same thing about them. The exception is `tags`, which is the
+    # author's own field - the index holds one row per announcement, so a word any
+    # author put there is findable. Union them rather than keeping the first row's.
     files = {}
+    tags_by_file = defaultdict(set)
     for row in rows:
         files.setdefault(row["file_id"], dict(row))
+        if (row["tags"] or "").strip():
+            tags_by_file[row["file_id"]].add(row["tags"].strip())
+    for file_id, entry in files.items():
+        entry["tags"] = ", ".join(sorted(tags_by_file.get(file_id, ())))
 
     live = {
         row[0]
@@ -110,12 +162,31 @@ def main():
         for file_id in value:
             in_playlist[file_id].append(key)
 
-    # Document frequency for the word signal, over the catalogue's own titles.
-    title_tokens = {}
+    # Document frequency for the word signal, over every word the network publishes
+    # for a file - filename, title, artist, album and the author's own tags - less the
+    # artist's and album's own words, which are already scored above (§3.3).
+    #
+    # Numbers are dropped from the SIGNAL but kept in `catalogue_tokens`, which mirrors
+    # the index: searching "1975" is a legitimate query and `t` is where that lives.
+    # As a similarity input a bare number is a track position, and it is not rare
+    # enough for idf to neutralise it - measured here, `12` appears in 2,697
+    # announcements (idf 3.36) against `maybe`'s 33 (idf 7.76). §3.3 divides by the
+    # seed's WHOLE word weight, so one track number in a filename takes a third off
+    # every real match the seed has: the "Maybe" seed lost twelve real neighbours and
+    # fell from 39 above the floor to 27 that way.
+    word_tokens = {}
     df = defaultdict(int)
+    tagged = 0
     for file_id, row in files.items():
-        words = tokens(row["title"]) - tokens(row["artist"], row["album"])
-        title_tokens[file_id] = words
+        own = set(catalogue_tokens([row[field] for field in WORD_FIELDS]))
+        words = {
+            word
+            for word in own - set(catalogue_tokens([row["artist"], row["album"]]))
+            if not word.isdigit()
+        }
+        word_tokens[file_id] = words
+        if (row["tags"] or "").strip():
+            tagged += 1
         for word in words:
             df[word] += 1
     total_docs = max(1, len(files))
@@ -138,9 +209,9 @@ def main():
         if shared:
             co = sum(1.0 / (2 + sizes[key]) for key in shared)
             parts["co"] = WEIGHTS["co"] * (co / (1 + co))
-        seed_words = title_tokens[seed_id]
+        seed_words = word_tokens[seed_id]
         if seed_words:
-            shared_words = seed_words & title_tokens[candidate_id]
+            shared_words = seed_words & word_tokens[candidate_id]
             bottom = sum(idf.get(word, 0) for word in seed_words)
             if shared_words and bottom > 0:
                 parts["words"] = WEIGHTS["words"] * (sum(idf.get(word, 0) for word in shared_words) / bottom)
@@ -214,6 +285,12 @@ def main():
         ("this computer's own file", next(iter(sorted(local & set(catalogue))), None)),
         ("longest title", max(catalogue, key=lambda f: len(files[f]["title"] or ""), default=None)),
         ("no album at all", pick(lambda row: not norm(row["album"]), most_playlists[1:])),
+        # The tag signal is worth showing precisely because it is empty: this is the
+        # only live file on the network an author put a word in `tags` for.
+        (
+            "the only tagged file on the network",
+            next((f for f in catalogue if (files[f]["tags"] or "").strip()), None),
+        ),
     ]
     seen = set()
     for label, file_id in candidates:
@@ -233,6 +310,8 @@ def main():
                 "local": file_id in local,
                 "playlists": len(in_playlist.get(file_id, [])),
                 "genre": album_meta.get("%s|%s" % (norm(row["artist"]), norm(row["album"])), ("", ""))[0],
+                "tags": (row["tags"] or "").strip(),
+                "words": sorted(word_tokens.get(file_id, set())),
                 "candidatesAboveFloor": above,
                 "artistsAboveFloor": artist_count,
                 "raw": [
@@ -275,6 +354,9 @@ def main():
             "albumClaims": sum(len(value) for value in claims.values()),
             "albumsWithGenre": sum(1 for value in album_meta.values() if value[0]),
             "localFiles": len(local),
+            "wordFields": list(WORD_FIELDS),
+            "taggedFiles": tagged,
+            "taggedCandidates": sum(1 for f in catalogue if (files[f]["tags"] or "").strip()),
             "authors": connection.execute(
                 "SELECT COUNT(DISTINCT source_pubkey) FROM remote_catalogue"
             ).fetchone()[0],
@@ -284,6 +366,17 @@ def main():
     with open(OUT, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=1)
     print("wrote", OUT, len(json.dumps(payload)) // 1024, "KB")
+
+    # The page is the data plus a template, so one command regenerates both.
+    if os.path.exists(TEMPLATE):
+        with open(TEMPLATE, encoding="utf-8") as handle:
+            template = handle.read()
+        with open(PAGE, "w", encoding="utf-8") as handle:
+            handle.write(template.replace("__DATA__", json.dumps(payload, ensure_ascii=False)))
+        print("wrote", PAGE)
+    else:
+        print("no template at", TEMPLATE, "- page not regenerated")
+
     for seed in seeds:
         print("%-30s %-40s above-floor %4d  station %2d" % (
             seed["label"], (seed["title"] or "")[:38], seed["candidatesAboveFloor"], len(seed["station"])))

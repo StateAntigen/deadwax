@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deadwax similarity — what the catalogue actually produces</title>
+    <style>
+      :root {
+        --bg: #06080b; --panel: #0c0f14; --raised: #11151b; --sunken: #090c10;
+        --line: rgba(255, 255, 255, 0.075); --line-strong: rgba(255, 255, 255, 0.14);
+        --text: #e9edf4; --muted: #8d95a5; --dim: #59616f;
+        --accent: #43e5a0; --accent-soft: rgba(67, 229, 160, 0.13); --accent-line: rgba(67, 229, 160, 0.3);
+        --warn: #f2a93b; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        --album: #43e5a0; --artist: #58c7d8; --co: #f2a93b; --words: #a68bff; --genre: #f2617a; --decade: #7d8798;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: radial-gradient(900px 500px at 20% -10%, rgba(67, 229, 160, 0.08), transparent 70%), var(--bg);
+        color: var(--text); font: 13px/1.5 Inter, "Segoe UI", system-ui, sans-serif;
+      }
+      .wrap { max-width: 1720px; margin: 0 auto; padding: 22px 26px 40px; }
+      header.top { display: flex; align-items: baseline; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+      header.top b { font-size: 18px; letter-spacing: -0.01em; }
+      header.top small { color: var(--dim); font-size: 12px; }
+      header.top .stamp { margin-inline-start: auto; color: var(--dim); font-family: var(--mono); font-size: 11px; }
+      .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0 18px; }
+      .kpi { padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+      .kpi span { display: block; color: var(--dim); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+      .kpi b { font-size: 19px; font-weight: 600; }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+      .chip {
+        padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+        color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
+      }
+      .chip.on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+      .chip small { color: var(--dim); margin-inline-start: 6px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 360px); gap: 14px; align-items: start; }
+      /* A narrow window puts the relation map under the list rather than leaving
+         the station three hundred pixels wide. */
+      @media (max-width: 1250px) {
+        .grid { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); }
+        .grid > section:last-child { grid-column: 1 / -1; }
+        .grid > section:last-child #map svg { max-width: 460px; margin: 0 auto; display: block; }
+      }
+      @media (max-width: 780px) {
+        .grid { grid-template-columns: minmax(0, 1fr); }
+        .grid > section:last-child { grid-column: auto; }
+      }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .card > h2 {
+        margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--line);
+        background: var(--raised); font-size: 12px; font-weight: 600;
+      }
+      .card .body { padding: 12px; }
+      .seed-title { font-size: 15px; font-weight: 600; }
+      .seed-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+      .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .fact { padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--dim); font-size: 10.5px; }
+      .fact.on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+      .fact.off { color: var(--warn); border-color: rgba(242, 169, 59, .35); background: rgba(242, 169, 59, .08); }
+      .note { margin-top: 12px; color: var(--dim); font-size: 11.5px; line-height: 1.55; }
+      .note b { color: var(--muted); font-weight: 600; }
+      .modes { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--raised); }
+      .modes button {
+        padding: 3px 9px; border-radius: 7px; border: 1px solid var(--line); background: none;
+        color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
+      }
+      .modes button.on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th { padding: 6px 10px; text-align: start; color: var(--dim); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+      td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+      tr:last-child td { border-bottom: 0; }
+      .num { width: 26px; color: var(--dim); font-family: var(--mono); font-size: 11px; }
+      .track b { display: block; font-weight: 500; }
+      .track small { color: var(--dim); font-size: 11px; }
+      .bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--sunken); width: 100%; }
+      .bar i { display: block; height: 100%; }
+      .score { text-align: end; white-space: nowrap; font-family: var(--mono); font-size: 11px; color: var(--text); }
+      .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); color: var(--dim); font-size: 10.5px; }
+      .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-inline-end: 5px; }
+      .empty { padding: 22px 14px; color: var(--dim); text-align: center; }
+      svg .edge { stroke-linecap: round; }
+      svg text { fill: var(--dim); font-size: 9px; font-family: var(--mono); }
+      .map-legend { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 12px; color: var(--dim); font-size: 10.5px; }
+      .map-legend i { display: inline-block; width: 14px; height: 2px; margin-inline-end: 6px; vertical-align: middle; }
+      .why { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+      .why span { padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--dim); font-size: 10px; white-space: nowrap; }
+      footer { margin-top: 22px; color: var(--dim); font-size: 11.5px; line-height: 1.6; border-top: 1px solid var(--line); padding-top: 14px; }
+      footer b { color: var(--muted); }
+      code { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <b>Similarity</b>
+        <small>what the signals in <code>SIMILARITY.md</code> produce from this computer's own catalogue</small>
+        <span class="stamp" id="stamp"></span>
+      </header>
+
+      <div class="strip" id="strip"></div>
+      <div class="chips" id="chips"></div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>The seed</h2>
+          <div class="body" id="seed"></div>
+        </section>
+
+        <section class="card">
+          <h2>What the station plays, in order</h2>
+          <div class="modes" id="modes"></div>
+          <table>
+            <thead><tr><th class="num"></th><th style="width:38%">Track</th><th style="width:auto">Why</th><th style="width:64px;text-align:end">Score</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="legend" id="legend"></div>
+        </section>
+
+        <section class="card">
+          <h2>Relations</h2>
+          <div class="body" style="padding-bottom:0"><div id="map"></div></div>
+          <div class="map-legend" id="mapLegend"></div>
+        </section>
+      </div>
+
+      <footer id="footer"></footer>
+    </div>
+
+    <script id="data" type="application/json">__DATA__</script>
+    <script>
+      const DATA = JSON.parse(document.getElementById('data').textContent);
+      const SIGNALS = [
+        ['album', 'same album', 'var(--album)'],
+        ['artist', 'same artist', 'var(--artist)'],
+        ['co', 'shared playlist', 'var(--co)'],
+        ['words', 'shared words', 'var(--words)'],
+        ['genre', 'same genre claim', 'var(--genre)'],
+        ['decade', 'same decade', 'var(--decade)']
+      ];
+      let seedIndex = 0;
+      let mode = 'mmr';
+
+      const nf = (value) => value.toLocaleString('en-GB');
+      const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+      document.getElementById('stamp').textContent = 'read ' + DATA.generatedAt + ' · ' + DATA.inventory.candidates.toLocaleString('en-GB') + ' candidates';
+
+      document.getElementById('strip').innerHTML = [
+        ['Announcements in the mirror', nf(DATA.inventory.announcements)],
+        ['Distinct files', nf(DATA.inventory.distinctFiles)],
+        ['With a live heartbeat', nf(DATA.inventory.withHeartbeat)],
+        ['Candidates after filters', nf(DATA.inventory.candidates)],
+        ['Playlist members', nf(DATA.inventory.playlistMembers) + ' in ' + DATA.inventory.playlists],
+        ['Album claims', nf(DATA.inventory.albumClaims) + ' · ' + nf(DATA.inventory.albumsWithGenre) + ' with a genre'],
+        ['Publishers', nf(DATA.inventory.authors)]
+      ].map(([label, value]) => `<div class="kpi"><span>${label}</span><b>${value}</b></div>`).join('');
+
+      document.getElementById('chips').innerHTML = DATA.seeds
+        .map((seed, index) => `<button class="chip${index === seedIndex ? ' on' : ''}" data-index="${index}">${esc(seed.label)}<small>${seed.station.length} tracks</small></button>`)
+        .join('');
+
+      document.querySelectorAll('.chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          seedIndex = Number(chip.dataset.index);
+          document.querySelectorAll('.chip').forEach((other) => other.classList.toggle('on', other === chip));
+          render();
+        });
+      });
+
+      document.getElementById('modes').innerHTML = ['mmr', 'raw']
+        .map((value) => `<button data-mode="${value}" class="${mode === value ? 'on' : ''}">${value === 'mmr' ? 'with MMR + 6 per artist' : 'score order only'}</button>`)
+        .join('');
+      document.querySelectorAll('.modes button').forEach((button) => {
+        button.addEventListener('click', () => {
+          mode = button.dataset.mode;
+          document.querySelectorAll('.modes button').forEach((other) => other.classList.toggle('on', other === button));
+          render();
+        });
+      });
+
+      const colourOfSignal = Object.fromEntries(SIGNALS.map(([key, , colour]) => [key, colour]));
+      const labelOfSignal = Object.fromEntries(SIGNALS.map(([key, label]) => [key, label]));
+
+      function renderSeed(seed) {
+        document.getElementById('seed').innerHTML = `
+          <div class="seed-title">${esc(seed.title || '(no title)')}</div>
+          <div class="seed-sub">${esc(seed.artist || 'unknown artist')}${seed.album ? ' · ' + esc(seed.album) : ''}</div>
+          <div class="facts">
+            <span class="fact">${esc(seed.format)}</span>
+            <span class="fact${seed.local ? ' on' : ''}">${seed.local ? 'held here' : 'on the network only'}</span>
+            <span class="fact">${seed.playlists} playlist${seed.playlists === 1 ? '' : 's'}</span>
+            ${seed.genre ? `<span class="fact on">genre: ${esc(seed.genre)}</span>` : '<span class="fact off">no genre claim</span>'}
+            ${seed.tags ? `<span class="fact on">author tags: ${esc(seed.tags)}</span>` : '<span class="fact off">no author tags</span>'}
+          </div>
+          <p class="note">The words this seed is matched on, after the catalogue's own stop list and with its artist and album removed: ${(seed.words || []).map((w) => `<code>${esc(w)}</code>`).join(' ') || '<em>none</em>'}.</p>
+          <p class="note"><b>${nf(seed.candidatesAboveFloor)}</b> of ${nf(DATA.inventory.candidates)} candidates scored above the ${DATA.floor} floor, across <b>${seed.artistsAboveFloor}</b> artists. MMR and the six-per-artist cap are what cut that down to what is drawn.</p>
+          <p class="note">${seed.station.length ? 'The ordering here is the document\'s §5: score first, then each next pick must be good <em>and</em> not the same record again.' : '<b>Nothing qualified.</b> This file has words the catalogue shares with nobody and no playlist places it beside anything, so a station from it would be empty rather than padded with noise — which is the honest answer the document asks for.'}</p>`;
+      }
+
+      function renderRows(seed) {
+        const rows = mode === 'mmr' ? seed.station : seed.raw;
+        const top = Math.max(0.001, ...rows.map((row) => row.score));
+        document.getElementById('rows').innerHTML = rows.length
+          ? rows.map((row, index) => {
+              const segments = SIGNALS.filter(([key]) => row.parts[key])
+                .map(([key]) => `<i style="width:${(row.parts[key] / top) * 100}%;background:${colourOfSignal[key]}" title="${labelOfSignal[key]} ${row.parts[key].toFixed(2)}"></i>`)
+                .join('');
+              const why = SIGNALS.filter(([key]) => row.parts[key])
+                .map(([key]) => `<span>${labelOfSignal[key]}</span>`)
+                .join('');
+              return `<tr>
+                <td class="num">${String(index + 1).padStart(2, '0')}</td>
+                <td class="track"><b>${esc(row.title || '(no title)')}</b><small>${esc(row.artist || 'unknown artist')}${row.album ? ' · ' + esc(row.album) : ''}${row.local ? ' · <span style="color:var(--accent)">held here</span>' : ''}</small></td>
+                <td><div class="bar">${segments}</div><div class="why">${why}</div></td>
+                <td class="score">${row.score.toFixed(2)}</td>
+              </tr>`;
+            }).join('')
+          : '<tr><td colspan="4"><div class="empty">No candidate scored above the floor.</div></td></tr>';
+        document.getElementById('legend').innerHTML = SIGNALS
+          .map(([key, label]) => `<span><i style="background:${colourOfSignal[key]}"></i>${label} · ${DATA.weights[key].toFixed(2)}</span>`)
+          .join('');
+      }
+
+      function renderMap(seed) {
+        const rows = (mode === 'mmr' ? seed.station : seed.raw).slice(0, 12);
+        const width = 340;
+        const height = 300;
+        const cx = width / 2;
+        const cy = height / 2;
+        const rings = { album: 0.42, artist: 0.72, other: 1 };
+        const placed = rows.map((row, index) => {
+          const kind = row.parts.album ? 'album' : row.parts.artist ? 'artist' : 'other';
+          const angle = (index / Math.max(1, rows.length)) * Math.PI * 2 - Math.PI / 2;
+          const radius = Math.min(width, height) * 0.46 * rings[kind];
+          return { row, kind, x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+        });
+        const edgeColour = { album: 'var(--album)', artist: 'var(--artist)', other: 'var(--words)' };
+        const lines = placed.map((node) => `<line class="edge" x1="${cx}" y1="${cy}" x2="${node.x}" y2="${node.y}" stroke="${edgeColour[node.kind]}" stroke-opacity="${0.25 + node.row.score / 3}" stroke-width="${0.6 + node.row.score * 1.8}"/>`).join('');
+        const dots = placed.map((node) => `<circle cx="${node.x}" cy="${node.y}" r="${2.6 + node.row.score * 2}" fill="${edgeColour[node.kind]}" fill-opacity="0.85"/>`).join('');
+        document.getElementById('map').innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="Seed in the centre, candidates around it">
+          <circle cx="${cx}" cy="${cy}" r="34" fill="none" stroke="var(--line-strong)" stroke-dasharray="2 3"/>
+          <circle cx="${cx}" cy="${cy}" r="9" fill="var(--accent)"/>
+          <text x="${cx}" y="${cy + 22}" text-anchor="middle">seed</text>
+          ${lines}${dots}
+        </svg>`;
+        document.getElementById('mapLegend').innerHTML = `
+          <span><i style="background:var(--album)"></i>same album · the inner ring</span>
+          <span><i style="background:var(--artist)"></i>same artist · the middle ring</span>
+          <span><i style="background:var(--words)"></i>words or playlist only · the outer ring</span>
+          <span>Edge weight is the score; the first ${Math.min(12, rows.length)} tracks are drawn.</span>`;
+      }
+
+      function render() {
+        const seed = DATA.seeds[seedIndex];
+        renderSeed(seed);
+        renderRows(seed);
+        renderMap(seed);
+        document.getElementById('footer').innerHTML = `
+          <b>Everything above is read from <code>napstr.sqlite3</code>, read-only.</b>
+          Signals and weights are the document's §4; candidates are live, unblocked files
+          (<code>catalogue_seeder.expires_at</code> in the future), scored as
+          <code>1.00·album + 0.55·artist + 0.90·co&#770; + 0.35·words + 0.12·genre + 0.04·decade</code>,
+          kept above ${DATA.floor}, then thinned by MMR at λ=${DATA.mmr} and a cap of six per artist.
+          Genre and decade come from <code>30427</code> claims, so they exist only where somebody made one.
+          The word signal reads every field a <code>30421</code> publishes - ${(DATA.inventory.wordFields || ['filename', 'title', 'artist', 'album', 'tags']).map((field) => `<code>${esc(field)}</code>`).join(', ')} -
+          because that is exactly what <code>catalogue_search_tokens</code> derives the <code>t</code> tags from; tags are the rare one
+          (${nf(DATA.inventory.taggedCandidates || 0)} of ${nf(DATA.inventory.candidates)} candidates carry any).
+          Bare numbers are left out of the signal while the index keeps them: a shared <code>12</code> is a track
+          position, and it is common enough (2,697 announcements) that idf alone does not neutralise it.
+          No fingerprint, no audio analysis: "similar" here means what the catalogue says about a file,
+          who made it, and who put it beside what.`;
+      }
+
+      render();
+    </script>
+  </body>
+</html>

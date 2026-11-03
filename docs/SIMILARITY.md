@@ -116,10 +116,26 @@ The `t` tokens are the words that already make search work, so reusing them is f
 `remote_catalogue_fts` is already populated, maintained by triggers, and repaired
 when it is damaged.
 
-In practice this signal is about the title, the artist and the album. The author's
-own `tags` field — the only place a hand-written genre word can live today — is
-filled in for **481 of 76,805 announcements** on this installation, so a word there
-is a rare exception rather than a source of neighbour.
+In practice this signal is about the filename, the title, the artist and the album.
+The author's own `tags` field — the only place a hand-written genre word can live
+today — is filled in for **481 of 80,941 announcements** on this installation, and
+filling it is not the same as saying something with it: those 481 rows hold **four
+distinct strings** — `audiobook` on 478 of them, all from one publisher, plus one
+`punk`, one `classical` and one `Royal albert london` on a Daft Punk remix it does
+not describe — and exactly one of the 481 is live. So tags are not a rare source of
+neighbour; on this network they are no source at all, and the signal is carried by
+the words in the filename and the title. That is the argument for §9: a machine that
+reads the genre frame a file already carries would put values in this field, and
+every station on the network would gain the signal without a new kind.
+
+One part of the derivation is deliberately not used as a similarity input: bare
+numbers. The index keeps them, because searching `1975` is a legitimate query, but a
+shared `12` is a track position rather than a name, and it is far too common for idf
+to neutralise — measured here, 2,697 announcements at idf 3.36, against `maybe` at 33
+announcements and idf 7.76. Because the weighting below divides by the seed's *whole*
+word weight, one track number in a filename takes a third off every real match that
+seed has: leaving numbers in cost the "Maybe" seed twelve of its thirty-nine
+neighbours and the whole of its station.
 
 Score overlap with inverse document frequency, so `the` and `live` count for
 nothing and `shoegaze` counts for a lot:
@@ -188,6 +204,13 @@ shared playlist.
 
 The weights are a starting point, not a law. They are all in one place so they can
 be one function with one test, the way `throttle_delay` is.
+
+What this produces is not a guess: `scripts/similarity-demo.py` reads the local
+`napstr.sqlite3` read-only, scores every live candidate with the formula above, and
+writes `docs/similarity-demo.html` from `docs/similarity-demo.template.html` — one
+seed per case, the score broken into its signals, and the relations drawn as a map.
+Regenerating it after a change here is one command, and it is the fastest way to see
+whether a weight change was an improvement or a preference.
 
 ## 5. Assembling a station
 

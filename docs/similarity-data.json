@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-02 23:08",
+ "generatedAt": "2026-11-02 23:26",
  "weights": {
   "album": 1.0,
   "artist": 0.55,
@@ -17,9 +17,18 @@
   "candidates": 22291,
   "playlists": 7,
   "playlistMembers": 207,
-  "albumClaims": 1613,
+  "albumClaims": 1614,
   "albumsWithGenre": 426,
   "localFiles": 3191,
+  "wordFields": [
+   "filename",
+   "title",
+   "artist",
+   "album",
+   "tags"
+  ],
+  "taggedFiles": 479,
+  "taggedCandidates": 1,
   "authors": 119
  },
  "seeds": [
@@ -33,6 +42,11 @@
    "local": true,
    "playlists": 2,
    "genre": "",
+   "tags": "",
+   "words": [
+    "chasing",
+    "rainbows"
+   ],
    "candidatesAboveFloor": 113,
    "artistsAboveFloor": 2,
    "raw": [
@@ -466,6 +480,10 @@
    "local": false,
    "playlists": 0,
    "genre": "rap",
+   "tags": "",
+   "words": [
+    "maybe"
+   ],
    "candidatesAboveFloor": 39,
    "artistsAboveFloor": 5,
    "raw": [
@@ -1024,6 +1042,12 @@
    "local": true,
    "playlists": 0,
    "genre": "rock",
+   "tags": "",
+   "words": [
+    "all",
+    "good",
+    "soldiers"
+   ],
    "candidatesAboveFloor": 77,
    "artistsAboveFloor": 2,
    "raw": [
@@ -1213,10 +1237,10 @@
      "fileId": "695dc390b9764dfa3291aa5c50e744cd0eb01be15abe9a8860323953e7c51e42",
      "parts": {
       "artist": 0.55,
-      "words": 0.08350794899709216,
+      "words": 0.08277264764027796,
       "genre": 0.12
      },
-     "score": 0.7535,
+     "score": 0.7528,
      "title": "All There Is",
      "artist": "Bad Religion",
      "album": "The Empire Strikes First",
@@ -1452,10 +1476,10 @@
     {
      "fileId": "56296aa4cd8f76c18ded04285b74db90ab610d7cba2155c09371f024e8037c69",
      "parts": {
-      "words": 0.18837185259261877,
+      "words": 0.18725198789788325,
       "genre": 0.12
      },
-     "score": 0.3084,
+     "score": 0.3073,
      "title": "All the Good Ones",
      "artist": "Weezer",
      "album": "Van Weezer",
@@ -1474,6 +1498,24 @@
    "local": false,
    "playlists": 0,
    "genre": "rock",
+   "tags": "",
+   "words": [
+    "again",
+    "big",
+    "bohemian",
+    "carry",
+    "control",
+    "cruise",
+    "flesh",
+    "lovin",
+    "medley",
+    "rhapsody",
+    "son",
+    "squeezin",
+    "touchin",
+    "turn",
+    "wayward"
+   ],
    "candidatesAboveFloor": 643,
    "artistsAboveFloor": 1,
    "raw": [
@@ -1481,11 +1523,11 @@
      "fileId": "153e1b2280b6d27972a557cedaf4f1ed2bdfefdae23e3c18d62aec23d668adf3",
      "parts": {
       "album": 1.0,
-      "words": 0.11553723459497095,
+      "words": 0.02063252029871209,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2755,
+     "score": 1.1806,
      "title": "Led Zeppelin Medley - The Rover / Achilles Last Stand / The Song Remains the Same (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1496,11 +1538,10 @@
      "fileId": "1f0a2dfb3c738849ce6ef2c234e8b0ae2002029050e303319ebe55d7589c912c",
      "parts": {
       "album": 1.0,
-      "words": 0.10125015645713774,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2613,
+     "score": 1.16,
      "title": "Perfect Strangers (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1511,11 +1552,10 @@
      "fileId": "1f6b40017051919bbbdb9a248639e6b3488d5df1da7e39a38e9e56eef205ffa5",
      "parts": {
       "album": 1.0,
-      "words": 0.10125015645713774,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2613,
+     "score": 1.16,
      "title": "Funeral for a Friend / Love Lies Bleeding (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1644,69 +1684,13 @@
      "fileId": "385a29da6e2d6aa71736ce85a3ec0bcf5edaf9d012e88eaf3326d509ac07a191",
      "parts": {
       "artist": 0.55,
-      "words": 0.03154658694754359,
+      "words": 0.04555764231642906,
       "decade": 0.04
      },
-     "score": 0.6215,
+     "score": 0.6356,
      "title": "Beatles Medley: Golden SLUMBERS/ CARRY THAT WEIGHT/ THE END",
      "artist": "Dream Theater",
      "album": "Stranger Than Fiction",
-     "format": "MP3",
-     "local": false
-    },
-    {
-     "fileId": "6e195d7c2b166bf4287c2ddc0776eab4552cf99ab21a2a724bab0d36b4c6036c",
-     "parts": {
-      "artist": 0.55,
-      "words": 0.00835531569171283,
-      "decade": 0.04
-     },
-     "score": 0.5984,
-     "title": "To Live Forever (Acoustic Version-James LaBrie)",
-     "artist": "Dream Theater",
-     "album": "Stranger Than Fiction",
-     "format": "MP3",
-     "local": false
-    },
-    {
-     "fileId": "1d39d19f1ea7446e82c477739a0a44b576fcae488c61babee16f17fdc6f4f07f",
-     "parts": {
-      "artist": 0.55,
-      "words": 0.00835531569171283,
-      "decade": 0.04
-     },
-     "score": 0.5984,
-     "title": "6:00 (Impro-Live In Studio Solid Rock Radio Show WRZX)",
-     "artist": "Dream Theater",
-     "album": "Stranger Than Fiction",
-     "format": "MP3",
-     "local": false
-    },
-    {
-     "fileId": "2316933e43cb723e7432bb651e6f546fa8d5a70bdb9ea7af5e335af909e4f827",
-     "parts": {
-      "artist": 0.55,
-      "words": 0.00835531569171283,
-      "decade": 0.04
-     },
-     "score": 0.5984,
-     "title": "Learning To Live (Demo-James LaBrie)",
-     "artist": "Dream Theater",
-     "album": "Stranger Than Fiction",
-     "format": "MP3",
-     "local": false
-    },
-    {
-     "fileId": "16991c303085882d2c8c735d5ab8ae2e5663b29f4d9bdfc08822bef0ec1883e7",
-     "parts": {
-      "artist": 0.55,
-      "words": 0.00835531569171283,
-      "decade": 0.04
-     },
-     "score": 0.5984,
-     "title": "Learning to Live",
-     "artist": "Dream Theater",
-     "album": "Images and Words",
      "format": "MP3",
      "local": false
     },
@@ -1731,6 +1715,19 @@
      },
      "score": 0.59,
      "title": "Wait For Sleep (Acoustic Version Veronica Radio Show)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "6e195d7c2b166bf4287c2ddc0776eab4552cf99ab21a2a724bab0d36b4c6036c",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "To Live Forever (Acoustic Version-James LaBrie)",
      "artist": "Dream Theater",
      "album": "Stranger Than Fiction",
      "format": "MP3",
@@ -1800,6 +1797,45 @@
      "album": "Stranger Than Fiction",
      "format": "MP3",
      "local": false
+    },
+    {
+     "fileId": "e58697f959ba175a4763b09a8435dc32d6611b5be180bee1b524c5365055db22",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Don't Look Past Me (Demo-John Hendricks)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1d39d19f1ea7446e82c477739a0a44b576fcae488c61babee16f17fdc6f4f07f",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "6:00 (Impro-Live In Studio Solid Rock Radio Show WRZX)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "2316933e43cb723e7432bb651e6f546fa8d5a70bdb9ea7af5e335af909e4f827",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Learning To Live (Demo-James LaBrie)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
     }
    ],
    "station": [
@@ -1807,11 +1843,11 @@
      "fileId": "153e1b2280b6d27972a557cedaf4f1ed2bdfefdae23e3c18d62aec23d668adf3",
      "parts": {
       "album": 1.0,
-      "words": 0.11553723459497095,
+      "words": 0.02063252029871209,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2755,
+     "score": 1.1806,
      "title": "Led Zeppelin Medley - The Rover / Achilles Last Stand / The Song Remains the Same (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1822,11 +1858,10 @@
      "fileId": "1f0a2dfb3c738849ce6ef2c234e8b0ae2002029050e303319ebe55d7589c912c",
      "parts": {
       "album": 1.0,
-      "words": 0.10125015645713774,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2613,
+     "score": 1.16,
      "title": "Perfect Strangers (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1837,11 +1872,10 @@
      "fileId": "1f6b40017051919bbbdb9a248639e6b3488d5df1da7e39a38e9e56eef205ffa5",
      "parts": {
       "album": 1.0,
-      "words": 0.10125015645713774,
       "genre": 0.12,
       "decade": 0.04
      },
-     "score": 1.2613,
+     "score": 1.16,
      "title": "Funeral for a Friend / Love Lies Bleeding (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
      "artist": "Dream Theater",
      "album": "A Change of Seasons",
@@ -1879,10 +1913,10 @@
      "fileId": "385a29da6e2d6aa71736ce85a3ec0bcf5edaf9d012e88eaf3326d509ac07a191",
      "parts": {
       "artist": 0.55,
-      "words": 0.03154658694754359,
+      "words": 0.04555764231642906,
       "decade": 0.04
      },
-     "score": 0.6215,
+     "score": 0.6356,
      "title": "Beatles Medley: Golden SLUMBERS/ CARRY THAT WEIGHT/ THE END",
      "artist": "Dream Theater",
      "album": "Stranger Than Fiction",
@@ -1901,10 +1935,116 @@
    "local": false,
    "playlists": 1,
    "genre": "",
+   "tags": "",
+   "words": [
+    "enter",
+    "metalica",
+    "sandman"
+   ],
    "candidatesAboveFloor": 0,
    "artistsAboveFloor": 0,
    "raw": [],
    "station": []
+  },
+  {
+   "label": "the only tagged file on the network",
+   "fileId": "61f79c4b3ec0baba19f760931a057e576a213a1c4e1e5c1ba0156672f696b4b1",
+   "title": "Billie Jean (Daft Punk Remix)",
+   "artist": "Daft Punk",
+   "album": "Daft Punk Remixeados",
+   "format": "MP3",
+   "local": true,
+   "playlists": 0,
+   "genre": "",
+   "tags": "Royal albert london",
+   "words": [
+    "albert",
+    "billie",
+    "jean",
+    "london",
+    "remix",
+    "royal"
+   ],
+   "candidatesAboveFloor": 3,
+   "artistsAboveFloor": 1,
+   "raw": [
+    {
+     "fileId": "6a9d5b60c6f91ed5f70cf2d9a3e92fe20d65aed85726bcb09cf66bf0926dcd00",
+     "parts": {
+      "album": 1.0,
+      "words": 0.03273794516676179
+     },
+     "score": 1.0327,
+     "title": "Daft Punk Is Playing At My House (Soulwax Shibuya Re-Remix)",
+     "artist": "Daft Punk",
+     "album": "Daft Punk Remixeados",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "776ef203546e051593cbb325fb76d1a1b3e667dfd44b614253dc0f626bbb4b2d",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "Beyond",
+     "artist": "Daft Punk",
+     "album": "Random Access Memories",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1bc6322b491336723b85a8726cc8a39bb0e3dcf4997b45daf735388dc1ef1cb2",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "New Da Funk ALIVE (EXTENDED MIX)",
+     "artist": "Daft Punk",
+     "album": "one more time alive 2008",
+     "format": "MP3",
+     "local": false
+    }
+   ],
+   "station": [
+    {
+     "fileId": "6a9d5b60c6f91ed5f70cf2d9a3e92fe20d65aed85726bcb09cf66bf0926dcd00",
+     "parts": {
+      "album": 1.0,
+      "words": 0.03273794516676179
+     },
+     "score": 1.0327,
+     "title": "Daft Punk Is Playing At My House (Soulwax Shibuya Re-Remix)",
+     "artist": "Daft Punk",
+     "album": "Daft Punk Remixeados",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "776ef203546e051593cbb325fb76d1a1b3e667dfd44b614253dc0f626bbb4b2d",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "Beyond",
+     "artist": "Daft Punk",
+     "album": "Random Access Memories",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1bc6322b491336723b85a8726cc8a39bb0e3dcf4997b45daf735388dc1ef1cb2",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "New Da Funk ALIVE (EXTENDED MIX)",
+     "artist": "Daft Punk",
+     "album": "one more time alive 2008",
+     "format": "MP3",
+     "local": false
+    }
+   ]
   }
  ]
 }
