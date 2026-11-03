@@ -1,0 +1,1910 @@
+{
+ "generatedAt": "2026-11-02 23:08",
+ "weights": {
+  "album": 1.0,
+  "artist": 0.55,
+  "co": 0.9,
+  "words": 0.35,
+  "genre": 0.12,
+  "decade": 0.04
+ },
+ "floor": 0.3,
+ "mmr": 0.7,
+ "inventory": {
+  "announcements": 80941,
+  "distinctFiles": 77570,
+  "withHeartbeat": 24749,
+  "candidates": 22291,
+  "playlists": 7,
+  "playlistMembers": 207,
+  "albumClaims": 1613,
+  "albumsWithGenre": 426,
+  "localFiles": 3191,
+  "authors": 119
+ },
+ "seeds": [
+  {
+   "label": "in the most playlists",
+   "fileId": "7711cdb60b5cb459e7b67d92c53d3a8ac393589c94df16e5588359623616b204",
+   "title": "Chasing Rainbows",
+   "artist": "Bring Me The Horizon",
+   "album": "Sempiternal",
+   "format": "MP3",
+   "local": true,
+   "playlists": 2,
+   "genre": "",
+   "candidatesAboveFloor": 113,
+   "artistsAboveFloor": 2,
+   "raw": [
+    {
+     "fileId": "f35975595b1908e1fe745bef2d6c3eb0339e9231aa3fdbfcd1ba81eb8658a858",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Hospital For Souls",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "c2782d8a13240df974df1314ca14f13d91ab606160c4cb0734193cbcddf23a07",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Join The Club",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "5c4984a1d29badafd92f5075010565c534988786efbfc88745caa8a93e073d22",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Deathbeds",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "acbe0ae76d1484fe6afacbae5898b43c2e3be56c2b5740bcbe0db4fac5802be3",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Can You Feel My Heart",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "3343fbc0588316b06a534710c046804e272998460580d0f329a921f55ecbe715",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "And The Snakes Start To Sing",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "cff21edd9f43525729a372ccf31892176c3cf2191eab6d6b9f045b2109dcbac1",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Antivist",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "177b2ec90c9dd39ed23e148bacf4f56a559f3469836975d878c0799db1ada899",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Go To Hell, For Heaven's Sake",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "8edd82f776d74c23b446672716fbeb42ca1ce06fe5b02da83f339e7b2e83e14c",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Sleepwalking",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "95a58405b3fda14aa5497fcaab531ea077b6e607984bf968b8375d86223b73e1",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Seen It All Before",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "fdc5fbad0d63fe16057016ac4f9f2a6bfaa5cbc0026d80512156093fbdad9884",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "The House Of Wolves",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "c5be98281739cb58f9a6721faef29d25cac915a3aacf55ff53ecb30e937ae623",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Crooked Young",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "6ac02092ea908c6b3b58ef36d8387110473d091e363d0396a85648cccade100c",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Shadow Moses",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "21b6bd531ac4a98ffe10b35c95840afa9ee9d7e400004dde10f1f4d7cfc6f920",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Empire (Let Them Sing)",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "c7fce3b9e9210c0ac76b303bd656575f90de2610cdfa1600e151c230215110ad",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "I Don't Know What To Say",
+     "artist": "Bring Me The Horizon",
+     "album": "Amo",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "77b50b88ca812d9e0f7b932651d4a356523ccdba5988d8db914e64157909d7de",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "Heavy Metal",
+     "artist": "Bring Me The Horizon",
+     "album": "Amo",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "bbd2b57c2fa6e7ada0186f22f79bce23e5f096ea8a8bc4a98a9835c05fd6bef4",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "Crucify Me",
+     "artist": "Bring Me The Horizon",
+     "album": "There Is A Hell Believe Me I've Seen It. There Is a Heaven Let's Keep It A Secret.",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "96ca9ed5731ffd45c7443e44d45dfd8ef56dabd43c7cdf365d1e6a0a6a33cfc7",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "Oh No",
+     "artist": "Bring Me The Horizon",
+     "album": "That's The Spirit",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "6a0477bb4f2cc72c6d25620a1ac5cf29d28be0fa004cf06797cc3c22dfc8a433",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "The Fox And The Wolf",
+     "artist": "Bring Me The Horizon",
+     "album": "There Is A Hell Believe Me I've Seen It. There Is a Heaven Let's Keep It A Secret.",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "6e4c312e7184af92fa2df1ff7fbd7c963451af0cbd6bba8d301fcf2cc4cca0b5",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 0.6757,
+     "title": "Mother Tongue",
+     "artist": "Bring Me The Horizon",
+     "album": "Amo",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "f77670e2cb1641455da8aad30c55179c6a04fedcda4b92d44f117aa8d6d08585",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573
+     },
+     "score": 0.6357,
+     "title": "R.I.P. (Duskcore Remix)",
+     "artist": "Bring Me The Horizon",
+     "album": "Post Human: Nex Gen",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "35c6253e10668c7d60dc0fce96bb52bbf35cb2eda725fe85deb7000520b69374",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573
+     },
+     "score": 0.6357,
+     "title": "(OST) P.U.S.S.-E",
+     "artist": "Bring Me The Horizon",
+     "album": "Post Human: Nex Gen",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "4ef0adb362ffcf2117eb5533224700f7bd5c63a4f7e2d60c643632c5a3eb97ef",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573
+     },
+     "score": 0.6357,
+     "title": "Die4U",
+     "artist": "Bring Me The Horizon",
+     "album": "Post Human: Nex Gen",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "b81cea90556cdb4244ac5c51c34f739851deb3cc059c303ef942b63f0178f6ec",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573
+     },
+     "score": 0.6357,
+     "title": "Dig It",
+     "artist": "Bring Me The Horizon",
+     "album": "Post Human: Nex Gen",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "681124b0be0767a2d764a45f668252b7629fb2c6acc8331510837102f1ddd348",
+     "parts": {
+      "artist": 0.55,
+      "co": 0.08571428571428573
+     },
+     "score": 0.6357,
+     "title": "Amen!",
+     "artist": "Bring Me The Horizon",
+     "album": "Post Human: Nex Gen",
+     "format": "MP3",
+     "local": true
+    }
+   ],
+   "station": [
+    {
+     "fileId": "f35975595b1908e1fe745bef2d6c3eb0339e9231aa3fdbfcd1ba81eb8658a858",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Hospital For Souls",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "c2782d8a13240df974df1314ca14f13d91ab606160c4cb0734193cbcddf23a07",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Join The Club",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "5c4984a1d29badafd92f5075010565c534988786efbfc88745caa8a93e073d22",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Deathbeds",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "acbe0ae76d1484fe6afacbae5898b43c2e3be56c2b5740bcbe0db4fac5802be3",
+     "parts": {
+      "album": 1.0,
+      "co": 0.08571428571428573,
+      "decade": 0.04
+     },
+     "score": 1.1257,
+     "title": "Can You Feel My Heart",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "3343fbc0588316b06a534710c046804e272998460580d0f329a921f55ecbe715",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "And The Snakes Start To Sing",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "cff21edd9f43525729a372ccf31892176c3cf2191eab6d6b9f045b2109dcbac1",
+     "parts": {
+      "album": 1.0,
+      "decade": 0.04
+     },
+     "score": 1.04,
+     "title": "Antivist",
+     "artist": "Bring Me The Horizon",
+     "album": "Sempiternal",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "c4a1043580c0bee2d246ac2beb926887112fb729000aa131346d7f9b0c3688d3",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "I'm Always Chasing Rainbows",
+     "artist": "Alice Cooper",
+     "album": "Alice Cooper Goes to Hell",
+     "format": "FLAC",
+     "local": false
+    }
+   ]
+  },
+  {
+   "label": "an album with a genre claim",
+   "fileId": "4f6e64418e2d5d5c8b0dc632f5029d3075c2bf6a1e8dc6337635bd761927e7b5",
+   "title": "Maybe",
+   "artist": "Will Smith",
+   "album": "Born To Reign",
+   "format": "MP3",
+   "local": false,
+   "playlists": 0,
+   "genre": "rap",
+   "candidatesAboveFloor": 39,
+   "artistsAboveFloor": 5,
+   "raw": [
+    {
+     "fileId": "379c72ded26bfdac8c6e7c1ef82acb82fd1c1d64287f2c38484c597c863c8aad",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Block Party",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "23976254f3856423b5b6d53810c6a777ba1554b8917890c67eb4b68d376d4f11",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "I Gotta Go Home",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "25ad134f142eb16d1e01c1a1cb4ef8fa05abd85488941e357057e5504e369e3c",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "1000 Kisses feat. Jada",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "4d61ff0fbb914fb34cb2b44ee67a42cfa26d22450bb67739255d7b2c4497285e",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Who Am I",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "326634545218ff9ebe8148c696c5d0d35b2839e5ee745cfb59ba366cf8a0d0a7",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Freakin' It",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "933f1dd114eaaed63ef4ce39790f4ef15f920392cc9985cfe247a12f10fddece",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Da Butta",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "41ed3ae6920d3ea0c1c85094d5240a02e9cded141a7c74864e5c5b89b9fca2b3",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "La Fiesta",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "377d08cfd98823064885a86debff7badf5629d1b81a4f74fab906c9f1ecdfed7",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "No More",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "38d53960063aae5f4f57bdb30d03623f7cb86c62f998513f9a5461ebcbd4535a",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Wild Wild West",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "61731e0128a6e886b75fc33963731a5b3f7e831249b9f27b883dbf6b3e0a82e1",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Will 2k",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "2887cbc8f5fb2961d04e1f80597f8f9fa9a5186217b9970e2750ebd61540147e",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "I'm Comin'",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "09947a4ff89cccfd83ebc8ec3801c948b9f5b66df47f81aad61ee5c52199d244",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Can You Feel Me",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "592f7f8c13e55fbd1031c45ef02cb83df93d8f24af95cadde6dad9499e2fd314",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Just Cruisin'",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "5674b83bab2e5befb74f1f7577756799cf6b1b1b712b6d4d2f76c52e510a0bd9",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Girls Ain't Nothing but Trouble [1988 Extended Remix]",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "77db7fce842a6f4aee532b6fa7f9766e030255a0ad665cd0671ed33ba3710d5a",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Summertime",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "5927f2fa593a7cb417455fda26e2bf9d802fbdb44e6abdc38df157368d1fe4e1",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "The Fresh Prince of Bel Air",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "f37cb7ca599f496dbd64ce1253ac1ef971febff9fd6ad049d6cc7c9ed8efa1f0",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "The Fresh Prince Of Bel Air",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "81384718ab006926cad62d13c50ee5942b4eae7734ef027adcb1c9575057f40d",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Freakin' It",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "0a1dc070f710e02430c3ec293645f133ede1bf1ebe3a1b780fa6d0c017d4039b",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Men In Black",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "394a7f0e9dce837e0659a48999c9cc48f65e8a6804afeda6bfd830724e814841",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "It's all good",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "500b29246c02a7f8060126acd871c1d4061fca21cc01ddb938b15c36ede77d28",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "Keith b-real II (Interlude)",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "41cba701acc52fe38ba4b1d7045e1c5ca0d9dd8ebf6d88a38548a3f2c55e6aed",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "I loved you",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "56467a2e6bf845e3f5509fa6066bfe98aa33b541c9adc8bdd8b61cf17e7b76d1",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "Yes yes y'all (Feat Camp lo)",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "4e676543d5078d1f0ad64a9fafcb886b0d0d0ef354f78d998076078396402db3",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "Candy (Feat Larry blackmon & Cameo)",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    }
+   ],
+   "station": [
+    {
+     "fileId": "379c72ded26bfdac8c6e7c1ef82acb82fd1c1d64287f2c38484c597c863c8aad",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Block Party",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "23976254f3856423b5b6d53810c6a777ba1554b8917890c67eb4b68d376d4f11",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "I Gotta Go Home",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "25ad134f142eb16d1e01c1a1cb4ef8fa05abd85488941e357057e5504e369e3c",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "1000 Kisses feat. Jada",
+     "artist": "Will Smith",
+     "album": "Born To Reign",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "4d61ff0fbb914fb34cb2b44ee67a42cfa26d22450bb67739255d7b2c4497285e",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Who Am I",
+     "artist": "Will Smith",
+     "album": "Willennium",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "99bea747e933e2f2019491d1a3aabda24f1f441b9da9b4b10ec8928307378fc5",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe Tomorrow (Jackson 5)",
+     "artist": "Michael Jackson",
+     "album": "Gold (Disc 1)",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "304652e2848c39507af58c8dc8d6ffa51c8a82d426557bc7345334e81cad950f",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe I'm A Leo",
+     "artist": "Deep Purple",
+     "album": "Machine Head",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "fd03de7f95db00293bcc14eda4ab7948b97ab885257951d7ec61a0b7b1b51117",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe This Time",
+     "artist": "Frank Sinatra",
+     "album": "Live From Las Vegas",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "592f7f8c13e55fbd1031c45ef02cb83df93d8f24af95cadde6dad9499e2fd314",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Just Cruisin'",
+     "artist": "Will Smith",
+     "album": "Greatest Hits",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "71333db700aca4822bd48b0f206d3056c2504b112220b46083c95d01ba4d841e",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "Maybe Tomorrow",
+     "artist": "Jackson 5",
+     "album": "The Best Of Jackson 5 (20th Century Masters - The Millenium Collection)",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "99e126359f4abe410ff22d8761c9a10aa3ed30abecb285c7310467a2c8cf9acf",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "14 - Maybe Tomorrow.flac",
+     "artist": "",
+     "album": "",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "394a7f0e9dce837e0659a48999c9cc48f65e8a6804afeda6bfd830724e814841",
+     "parts": {
+      "artist": 0.55
+     },
+     "score": 0.55,
+     "title": "It's all good",
+     "artist": "Will smith",
+     "album": "Big willie style",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "e514a0941a2a543e2e12a1ee3fb7d4bad7d4feb54629a2435541ff2e802ef818",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe Tomorrow - Sturken & Rogers Remix",
+     "artist": "Michael Jackson",
+     "album": "The Remix Suite",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "3212c75d5fdc362440da1b77fd8e60fdb17f4a824c00e0c36d69cb4b52f054e4",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "09 - Maybe This Time",
+     "artist": "Frank Sinatra",
+     "album": "Sinatra 80th Live In Concert",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "f0dbc0ca2f50460071ff5c3fcd35829e2e1dae727c42962599c6b443b33fddfb",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "Maybe You'll Be There",
+     "artist": "Frank Sinatra",
+     "album": "Where Are You?",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "a7f21c8006d778cfe79f1aa77c6cedb6eed1029db3bf21b0015cad00052da934",
+     "parts": {
+      "words": 0.35
+     },
+     "score": 0.35,
+     "title": "Maybe I'm A Leo",
+     "artist": "Deep Purple",
+     "album": "Live At The Olympia '96",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "8f6db72b36b2e78ed179d5899c1af7f2bd10ec7dcbf8320620833d4fdbb0f9c4",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe I'm A Leo (Quadrophoni..",
+     "artist": "Deep Purple",
+     "album": "Machine Head",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "5919f7aff572beb5a133af24ae764b27355c7f417e9d2cb7558724f408a820ed",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe I'm A Leo",
+     "artist": "Deep Purple",
+     "album": "Machine Head",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "bee00a58a9633b94864633b35f6d20fc94141c98ed713307bee27d6bdbbc94ba",
+     "parts": {
+      "words": 0.35,
+      "decade": 0.04
+     },
+     "score": 0.39,
+     "title": "Maybe I'm A Leo",
+     "artist": "Deep Purple",
+     "album": "Machine Head",
+     "format": "MP3",
+     "local": false
+    }
+   ]
+  },
+  {
+   "label": "this computer's own file",
+   "fileId": "0007f093baa25b6e0637acfc25805f504ceb55369c7d36f9f3580270af337147",
+   "title": "All Good Soldiers",
+   "artist": "Bad Religion",
+   "album": "Recipe for Hate",
+   "format": "MP3",
+   "local": true,
+   "playlists": 0,
+   "genre": "rock",
+   "candidatesAboveFloor": 77,
+   "artistsAboveFloor": 2,
+   "raw": [
+    {
+     "fileId": "0a9a7d478f5977d8b86fad0bee805033bd65a7903e7786e63d079518b2f2c000",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Struck a Nerve",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1d61993a697852b206b9c96f687c13b340abb79ec0474bae55af65353480a986",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Don’t Pray on Me",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "260b40dcfcfe7b17e78cf58ef9188d496df259058c27f38ce90637b2296bab61",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Portrait of Authority",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "24ec04895dc3d7d3cdbf45c716e6920a38b8c67960595fe13b2c8595c5a7888c",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Recipe for Hate",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "3450107aad98e44350001d2cf3b21187ee9f4209d0a17ea854c7a84f1b8e0403",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "My Poor Friend Me",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "397aed034f7bd6b25921b71f4de10d57e7d5072a483f1d93ebf9d2c7345dbe0f",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "American Jesus",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "4dc06d8ea725dbf90e345b621216d92995ae8400f60483f3db5fa2ac75257539",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Watch It Die",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "6efe00f9541dfa1e9adf5373116d53a1dc20e2132b558e0f6af5a058bd1c8520",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Modern Day Catastrophists",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "64f90e0f3c85b6fbf580dc95346d1535c8f5a90671d24ea4a930d7bf50282632",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Skyscraper",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "921d7d4cfe806cd225f6b3be287e9c516af867704ac1a3f4a78311b3a5764d48",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Man With a Mission",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "baf6beb9d00c8f5a15f6fac7e73043df402debcddc6fe9997ce2df47d53b5c2b",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Stealth",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "ca38e2a3e868b338ab8e228ab328ade30aa1d52aac4e03318efb3f6aca94046b",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Kerosene",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "bb3003a95be9243a2a821f68ea1dffcc23b83583ce9ffcba0b3c0f6dcada15eb",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Lookin’ In",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "695dc390b9764dfa3291aa5c50e744cd0eb01be15abe9a8860323953e7c51e42",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.08350794899709216,
+      "genre": 0.12
+     },
+     "score": 0.7535,
+     "title": "All There Is",
+     "artist": "Bad Religion",
+     "album": "The Empire Strikes First",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "04f1f0bcfe23e8b6fbe7483fa932a64d3b6bb620349d11dc3c9825c35eb5831a",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "The Handshake",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "0b35f6f732015ec383a5c40871dd3b37cd4bb444d049e65829491f109abd9c75",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Leave Mine to Me",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "00afd6361acdb8d9d33f0c5f338d9f163e6378a89fb0054b612aa655161c6bc2",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Operation Rescue",
+     "artist": "Bad Religion",
+     "album": "Against the Grain",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "0c99653c7c49f8e8c3177383cfafa8340fe0b29938a74638882a0dabfbda74f8",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Unacceptable",
+     "artist": "Bad Religion",
+     "album": "Against the Grain",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "15931dda89c5afd2b9980ba2f05a617338cbd95e98eab4dbb3688b1bd67e19e3",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Marked",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1bf1e5ff207742ee17bcd23452f2db0579e9fab6133369ab1e15280d90f76082",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Incomplete",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1e1aa8b717e439f870afcac41816d16d5fb1746f93a7ea642af312986d97ffe6",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "Misery and Famine",
+     "artist": "Bad Religion",
+     "album": "Against the Grain",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1e0ad635465f4b3fb0305bc07b9703ef0bf2230274c9343d8a238d02d7985e3c",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "21st Century (Digital Boy)",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "2c2b6c96b8651cab03aba6b36aa81c9ea0d4075389cfcaedafda928a1cb1bb1d",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "God Song",
+     "artist": "Bad Religion",
+     "album": "Against the Grain",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "2fe1877a69999ace3f92c0b781b2a137b955afe495752a87a1818febe0cbcf97",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 0.71,
+     "title": "News From the Front",
+     "artist": "Bad Religion",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": true
+    }
+   ],
+   "station": [
+    {
+     "fileId": "0a9a7d478f5977d8b86fad0bee805033bd65a7903e7786e63d079518b2f2c000",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Struck a Nerve",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "1d61993a697852b206b9c96f687c13b340abb79ec0474bae55af65353480a986",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Don’t Pray on Me",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "260b40dcfcfe7b17e78cf58ef9188d496df259058c27f38ce90637b2296bab61",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Portrait of Authority",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "24ec04895dc3d7d3cdbf45c716e6920a38b8c67960595fe13b2c8595c5a7888c",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "Recipe for Hate",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "3450107aad98e44350001d2cf3b21187ee9f4209d0a17ea854c7a84f1b8e0403",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "My Poor Friend Me",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "397aed034f7bd6b25921b71f4de10d57e7d5072a483f1d93ebf9d2c7345dbe0f",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "American Jesus",
+     "artist": "Bad Religion",
+     "album": "Recipe for Hate",
+     "format": "MP3",
+     "local": true
+    },
+    {
+     "fileId": "56296aa4cd8f76c18ded04285b74db90ab610d7cba2155c09371f024e8037c69",
+     "parts": {
+      "words": 0.18837185259261877,
+      "genre": 0.12
+     },
+     "score": 0.3084,
+     "title": "All the Good Ones",
+     "artist": "Weezer",
+     "album": "Van Weezer",
+     "format": "MP3",
+     "local": true
+    }
+   ]
+  },
+  {
+   "label": "longest title",
+   "fileId": "e21987d4c143e0bcc652aab74f3a9cd86ce7e6dd9a06b22542e3f6dbe43c0fbb",
+   "title": "The Big Medley - In the Flesh? / Carry on Wayward Son / Bohemian Rhapsody / Lovin, Touchin, Squeezin / Cruise Control / Turn It on Again (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+   "artist": "Dream Theater",
+   "album": "A Change of Seasons",
+   "format": "MP3",
+   "local": false,
+   "playlists": 0,
+   "genre": "rock",
+   "candidatesAboveFloor": 643,
+   "artistsAboveFloor": 1,
+   "raw": [
+    {
+     "fileId": "153e1b2280b6d27972a557cedaf4f1ed2bdfefdae23e3c18d62aec23d668adf3",
+     "parts": {
+      "album": 1.0,
+      "words": 0.11553723459497095,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2755,
+     "title": "Led Zeppelin Medley - The Rover / Achilles Last Stand / The Song Remains the Same (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1f0a2dfb3c738849ce6ef2c234e8b0ae2002029050e303319ebe55d7589c912c",
+     "parts": {
+      "album": 1.0,
+      "words": 0.10125015645713774,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2613,
+     "title": "Perfect Strangers (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1f6b40017051919bbbdb9a248639e6b3488d5df1da7e39a38e9e56eef205ffa5",
+     "parts": {
+      "album": 1.0,
+      "words": 0.10125015645713774,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2613,
+     "title": "Funeral for a Friend / Love Lies Bleeding (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "dca3993a47d661292fb47fe8d59b1e87309f84132ad2eb20a037561ec62660c6",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "A Change of Seasons - The Crimson Sunrise / Innocence / Carpe Diem / The Darkest of Winters / Another World / The Inevitable Summer / The Crimson Sunset",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "74ce8573db02600129260389ccb51cf3a0b689449ce5c638b3dadb72240e0dcd",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "As I Am (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "0de0ddf4a365bbd3a74e81b996880402e90fef37cb890420b4760cbe194879d5",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Breaking All Illusions (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "1904afacde58dcb5ef20a3563a1a6cd6130f07acc73b674d83d12fdaa6664bff",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "The Gift of Music (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "3cd9b0361bb0a6511feeeeb4441e2c6e252a5a2558ed522577592ce050503833",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Portrait of Tracy (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "9afe787a13660d24e90837bb1805f3596eae66dfdb822c209848307c140f2bec",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "The Bigger Picture (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "bc52642f6d5b789aeba02fc0c99536848fc7db1fcddc035f303bfe5111e14164",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Our New World (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "c2a39190c9fe397909952bf979152a794ab2b58c35f7313a958052de7e50af67",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "Hell's Kitchen (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "bc62bd96323bf80eeda1aa49b4d2b6a7400b97a2ae09bd43bd69ed2eff527332",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "The Dark Eternal Night (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "385a29da6e2d6aa71736ce85a3ec0bcf5edaf9d012e88eaf3326d509ac07a191",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.03154658694754359,
+      "decade": 0.04
+     },
+     "score": 0.6215,
+     "title": "Beatles Medley: Golden SLUMBERS/ CARRY THAT WEIGHT/ THE END",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "6e195d7c2b166bf4287c2ddc0776eab4552cf99ab21a2a724bab0d36b4c6036c",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.00835531569171283,
+      "decade": 0.04
+     },
+     "score": 0.5984,
+     "title": "To Live Forever (Acoustic Version-James LaBrie)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1d39d19f1ea7446e82c477739a0a44b576fcae488c61babee16f17fdc6f4f07f",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.00835531569171283,
+      "decade": 0.04
+     },
+     "score": 0.5984,
+     "title": "6:00 (Impro-Live In Studio Solid Rock Radio Show WRZX)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "2316933e43cb723e7432bb651e6f546fa8d5a70bdb9ea7af5e335af909e4f827",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.00835531569171283,
+      "decade": 0.04
+     },
+     "score": 0.5984,
+     "title": "Learning To Live (Demo-James LaBrie)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "16991c303085882d2c8c735d5ab8ae2e5663b29f4d9bdfc08822bef0ec1883e7",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.00835531569171283,
+      "decade": 0.04
+     },
+     "score": 0.5984,
+     "title": "Learning to Live",
+     "artist": "Dream Theater",
+     "album": "Images and Words",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "046a3d864f5589be0afc2260042210c7b80b180e6e2e37129f8d1c0baeab31f9",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Lifting Shadows Off A Dream (Acoustic Version Veronica Radio Show)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "bdd7a1bb22e78bd2703acec73e4c853de2889ab7243027824cb894b689e076a5",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Wait For Sleep (Acoustic Version Veronica Radio Show)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "a69e94a2c301edfc5cf3d77b638c30fb1bdb984027b97d8a0c7ee34ce713a620",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Studio Chat",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "e8f31e67fafb3448e5ab4e7cfafed595811a433a76ff1c343f449235aed36066",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "The Trooper (Extra)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "ff6fe9bc521f44a32ec9f478a02da24a82bb26ecc4e7c0864be3a19f5d9568ae",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Space-Dye Vest (Demo-Kevin Moore)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "9f06d3c6667faef2bc5181432cb545b743bdfdc99ef357b03266fa8240b200a0",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "O Holy Night (Demo-Charlie Dominici)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "8b36a3754de96607e440b487c5c7691a31ac2d9adc8c85a10253d299484b9685",
+     "parts": {
+      "artist": 0.55,
+      "decade": 0.04
+     },
+     "score": 0.59,
+     "title": "Dream´s Blues (Impro)",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    }
+   ],
+   "station": [
+    {
+     "fileId": "153e1b2280b6d27972a557cedaf4f1ed2bdfefdae23e3c18d62aec23d668adf3",
+     "parts": {
+      "album": 1.0,
+      "words": 0.11553723459497095,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2755,
+     "title": "Led Zeppelin Medley - The Rover / Achilles Last Stand / The Song Remains the Same (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1f0a2dfb3c738849ce6ef2c234e8b0ae2002029050e303319ebe55d7589c912c",
+     "parts": {
+      "album": 1.0,
+      "words": 0.10125015645713774,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2613,
+     "title": "Perfect Strangers (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "1f6b40017051919bbbdb9a248639e6b3488d5df1da7e39a38e9e56eef205ffa5",
+     "parts": {
+      "album": 1.0,
+      "words": 0.10125015645713774,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.2613,
+     "title": "Funeral for a Friend / Love Lies Bleeding (Live at Ronnie Scott's Jazz Club, London, England, UK, 1/31/1995)",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "dca3993a47d661292fb47fe8d59b1e87309f84132ad2eb20a037561ec62660c6",
+     "parts": {
+      "album": 1.0,
+      "genre": 0.12,
+      "decade": 0.04
+     },
+     "score": 1.16,
+     "title": "A Change of Seasons - The Crimson Sunrise / Innocence / Carpe Diem / The Darkest of Winters / Another World / The Inevitable Summer / The Crimson Sunset",
+     "artist": "Dream Theater",
+     "album": "A Change of Seasons",
+     "format": "MP3",
+     "local": false
+    },
+    {
+     "fileId": "74ce8573db02600129260389ccb51cf3a0b689449ce5c638b3dadb72240e0dcd",
+     "parts": {
+      "artist": 0.55,
+      "genre": 0.12
+     },
+     "score": 0.67,
+     "title": "As I Am (Live at Budokan, Tokyo, Japan, 2017)",
+     "artist": "Dream Theater",
+     "album": "Lost Not Forgotten Archives: ...and Beyond - Live in Japan, 2017",
+     "format": "FLAC",
+     "local": false
+    },
+    {
+     "fileId": "385a29da6e2d6aa71736ce85a3ec0bcf5edaf9d012e88eaf3326d509ac07a191",
+     "parts": {
+      "artist": 0.55,
+      "words": 0.03154658694754359,
+      "decade": 0.04
+     },
+     "score": 0.6215,
+     "title": "Beatles Medley: Golden SLUMBERS/ CARRY THAT WEIGHT/ THE END",
+     "artist": "Dream Theater",
+     "album": "Stranger Than Fiction",
+     "format": "MP3",
+     "local": false
+    }
+   ]
+  },
+  {
+   "label": "no album at all",
+   "fileId": "48e5979efa6a56dc3cab293b954ae84e36f464b936bd8c534838189abcc93c68",
+   "title": "metalica_enter_sandman.mp3",
+   "artist": "",
+   "album": "",
+   "format": "MP3",
+   "local": false,
+   "playlists": 1,
+   "genre": "",
+   "candidatesAboveFloor": 0,
+   "artistsAboveFloor": 0,
+   "raw": [],
+   "station": []
+  }
+ ]
+}
