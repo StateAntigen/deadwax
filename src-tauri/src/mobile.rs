@@ -2392,23 +2392,28 @@ fn secure_audio_path(db_path: &Path, file_id: &str) -> Result<PathBuf, String> {
         return Err("invalid SHA-256 file ID".into());
     }
     let connection = open_connection(db_path)?;
-    let root = crate::get_setting(&connection, "shared_folder")?;
-    let path: Option<String> = connection
+    // A track is served when it is inside the source it was indexed from, which
+    // is not the same question as "inside the downloads folder": a library can
+    // have several sources, and books usually live outside that one.
+    let row: Option<(String, i64)> = connection
         .query_row(
-            "SELECT path FROM files WHERE file_id=?1 AND format IN ('MP3','FLAC','WAV','OGG','OPUS')",
+            "SELECT path, source_id FROM files WHERE file_id=?1 AND format IN ('MP3','FLAC','WAV','OGG','OPUS')",
             [file_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()
         .map_err(|error| error.to_string())?;
-    let root = PathBuf::from(root)
+    let (path, source_id) = row.ok_or("This track is no longer available")?;
+    let source = crate::folders::source(&connection, source_id)?;
+    let root = source
+        .path
         .canonicalize()
-        .map_err(|_| "The Deadwax folder is unavailable")?;
-    let path = PathBuf::from(path.ok_or("This track is no longer available")?)
+        .map_err(|_| "The shared folder is unavailable")?;
+    let path = PathBuf::from(path)
         .canonicalize()
         .map_err(|_| "This track is no longer available")?;
     if !path.starts_with(&root) || !path.is_file() {
-        return Err("Deadwax refused a path outside the selected folder".into());
+        return Err("Deadwax refused a path outside its shared folders".into());
     }
     Ok(path)
 }
@@ -3264,6 +3269,46 @@ mod tests {
         assert_eq!(audiobooks[0].title, "A Book");
         assert_eq!(audiobooks[0].chapters.len(), 2);
         assert!(audiobooks[0].chapters.iter().all(|chapter| chapter.local));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// A track is served when it is inside its own source.
+    ///
+    /// The guard used to compare every path against the downloads folder, which
+    /// was the only folder a library had. A library can now have several sources -
+    /// books usually live outside the downloads folder - and every one of their
+    /// tracks was refused with "a path outside the selected folder".
+    #[test]
+    fn a_track_in_a_second_source_is_still_served() {
+        let directory = std::env::temp_dir().join(format!(
+            "napstr-mobile-source-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let db_path = directory.join("napstr.sqlite3");
+        crate::initialise_database(&db_path, &directory).unwrap();
+
+        let books = directory.join("books");
+        fs::create_dir_all(&books).unwrap();
+        let path = books.join("Chapter One.mp3");
+        fs::write(&path, b"a file, for the sake of the path").unwrap();
+
+        let file_id = "44".repeat(32);
+        {
+            let connection = open_connection(&db_path).unwrap();
+            let source = crate::folders::add_source(&connection, &books).unwrap();
+            let folder = format!("{}/books", source.name);
+            connection
+                .execute(
+                    "INSERT INTO files(file_id,filename,path,size,format,indexed_at,mime,folder,title,artist,source_id)
+                     VALUES(?1,'Chapter One.mp3',?2,33,'MP3','now','audio/mpeg',?3,'Chapter One','Author',?4)",
+                    params![file_id, path.to_string_lossy(), folder, source.id],
+                )
+                .unwrap();
+        }
+
+        let served = secure_audio_path(&db_path, &file_id).expect("a source's own file is served");
+        assert_eq!(served, path.canonicalize().unwrap());
         fs::remove_dir_all(directory).unwrap();
     }
 
