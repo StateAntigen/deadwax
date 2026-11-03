@@ -249,7 +249,29 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
               playlists: [{ playlistId: '11111111-1111-1111-1111-111111111111', title: 'Night drive', tracks: [] }]
             };
           case 'get_snapshot':
-          case 'save_settings': return { native: true, indexedBytes: track.size, files: [track], audiobooks: [], transfers, settings: { napstrFolder: '/music', nostrRelays: '', displayName: 'Original user', profileAbout: 'Original profile', profilePicture: '' } };
+          case 'get_snapshot': return window.metadataSnapshot ?? { native: true, indexedBytes: track.size, files: [track], audiobooks: [], transfers, settings: { napstrFolder: '/music', audiobooksFolder: '/music/Audiobooks', nostrRelays: '', displayName: 'Original user', profileAbout: 'Original profile', profilePicture: '' } };
+          // A tag write answers with the library as it now is. The stand-in keeps
+          // the row's id, because what the page has to get right is reading the
+          // answer again and finding the row it was editing, not content addressing.
+          case 'save_file_metadata': {
+            const edit = args?.edit ?? {};
+            window.savedMetadata = edit;
+            const snapshot = await invoke('get_snapshot');
+            window.metadataSnapshot = {
+              ...snapshot,
+              files: (snapshot.files ?? []).map((file) => file.fileId === edit.fileId
+                ? {
+                    ...file,
+                    title: edit.title,
+                    artist: edit.artist,
+                    album: edit.album,
+                    trackNumber: edit.trackNumber,
+                    discNumber: edit.discNumber
+                  }
+                : file)
+            };
+            return window.metadataSnapshot;
+          }
           case 'get_transfers': return transfers;
           // The Network page's figures. A spec that cares seeds
           // `window.catalogueStats`, merged over this plausible catalogue.

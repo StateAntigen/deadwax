@@ -76,24 +76,38 @@ test('a range survives a sort, because the range is what is on screen', async ({
   await expect(selection(page)).toContainText('5');
 });
 
-test('Group Albums gathers a record under one heading with a download of its own', async ({ page }) => {
+test('Group Albums lists the records, and the one that is opened shows its tracks', async ({ page }) => {
   const rows = await openResults(page);
   await page.locator('.advanced-toggle').click();
   await page.getByLabel('Group Albums').check();
 
-  const heads = page.locator('.result-group-head');
-  // Two named albums and the loose track, each with its own heading.
-  await expect(heads).toHaveCount(3);
-  await expect(heads.nth(0)).toContainText('Alpha');
-  await expect(heads.nth(0)).toContainText('Artist Alpha');
-  await expect(heads.nth(0)).toContainText('3 tracks');
-  await expect(heads.nth(1)).toContainText('Beta');
-  await expect(heads.nth(1)).toContainText('2 tracks');
-  // The tracks are still all there, under their album.
-  await expect(page.locator('.search-results-table tbody tr:not(.result-group-head)')).toHaveCount(6);
+  // One entry per album: the tracks are no longer mixed into the list.
+  const albums = page.locator('.album-row');
+  await expect(albums).toHaveCount(3);
+  await expect(albums.nth(0)).toContainText('Alpha');
+  await expect(albums.nth(0)).toContainText('Artist Alpha');
+  await expect(albums.nth(0)).toContainText('3 tracks');
+  await expect(albums.nth(1)).toContainText('Beta');
+  await expect(albums.nth(1)).toContainText('2 tracks');
 
-  // The heading's own button queues the whole record.
-  await heads.nth(0).getByRole('button', { name: /Album/ }).click();
+  // Opening one puts its tracks in the pane beside it, in the order drawn.
+  await albums.nth(0).click();
+  const tracks = page.locator('.album-track');
+  await expect(tracks).toHaveCount(3);
+  await expect(tracks.nth(0)).toContainText('Track 1');
+  await expect(tracks.nth(1)).toContainText('Track 2');
+  await expect(tracks.nth(2)).toContainText('Track 3');
+
+  // A track is selectable, and ctrl-click adds one to the selection.
+  await tracks.nth(0).click();
+  await expect(tracks.nth(0)).toHaveAttribute('aria-pressed', 'true');
+  await tracks.nth(2).click({ modifiers: ['Control'] });
+  await expect(tracks.nth(0)).toHaveAttribute('aria-pressed', 'true');
+  await expect(tracks.nth(2)).toHaveAttribute('aria-pressed', 'true');
+  await expect(tracks.nth(1)).toHaveAttribute('aria-pressed', 'false');
+
+  // The record is one press to fetch.
+  await page.getByRole('button', { name: 'Download album' }).click();
   await expect
     .poll(async () => page.evaluate(() => window.calls.filter((call) => call.cmd === 'request_network_download').length))
     .toBe(3);

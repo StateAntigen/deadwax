@@ -143,3 +143,65 @@ test('a folder is shared and unshared from its own tick, and a source is parked 
   await expect.poll(() => lastCall(page, 'set_library_source_state')).toEqual({ id: 2, status: 'active' });
   await expect(audiobooks).toContainText('Shared');
 });
+
+test('a track feeds the editor, and saving writes its tags', async ({ page }) => {
+  await openFolders(page);
+  // Only the row the snapshot holds a library entry for can be edited; the
+  // others are files, not tracks this computer publishes.
+  await page.locator('.folder-table tbody tr').nth(0).click();
+
+  const editor = page.locator('.folders-editor');
+  await expect(editor).toContainText('01 - Intro.mp3');
+  // Format, bitrate and size are facts beside the name, not fields.
+  await expect(editor.locator('.folder-facts')).toContainText('WAV');
+  await expect(editor.getByLabel('Title')).toHaveValue('Search');
+  await expect(editor.getByLabel('Album')).toHaveValue('User album');
+
+  await editor.getByLabel('Title').fill('Intro (Remastered)');
+  await editor.getByLabel('Track').fill('1');
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+
+  await expect
+    .poll(() => page.evaluate(() => window.savedMetadata ?? null))
+    .toEqual({
+      fileId: 'a'.repeat(64),
+      title: 'Intro (Remastered)',
+      artist: 'Settings',
+      album: 'User album',
+      trackNumber: 1,
+      discNumber: 0
+    });
+  // The answer is read again, and the row being edited is the one chosen.
+  await expect(editor.getByLabel('Title')).toHaveValue('Intro (Remastered)');
+});
+
+test('a track right-clicked offers playing it and searching for its artist', async ({ page }) => {
+  await openFolders(page);
+  await page.locator('.folder-table tbody tr').nth(0).click({ button: 'right' });
+
+  const menu = page.locator('.context-menu');
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText('Play track');
+  await expect(menu).toContainText('Search for artist');
+  await expect(menu).toContainText('Search for album');
+  await expect(menu).toContainText('Stop sharing');
+
+  // The artist is the one the library holds, and searching for it leaves this page.
+  await menu.getByRole('menuitem', { name: 'Search for artist' }).click();
+  await expect(page.locator('.context-menu')).toHaveCount(0);
+  await expect(page.locator('#search-query')).toHaveValue('Settings');
+  await expect(page.locator('.search-results-table')).toBeVisible();
+});
+
+test('a folder right-clicked offers playing it, and opening it in the file manager', async ({ page }) => {
+  await openFolders(page);
+  await page.locator('.folder-node', { hasText: 'Muse' }).locator('.folder-open').click({ button: 'right' });
+
+  const menu = page.locator('.context-menu');
+  await expect(menu).toContainText('Play folder');
+  await expect(menu).toContainText('Open folder');
+  await menu.getByRole('menuitem', { name: 'Open folder' }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.calls.filter((call) => call.cmd === 'open_library_folder').at(-1)?.args))
+    .toEqual({ sourceId: 1, folder: 'Music/Muse' });
+});

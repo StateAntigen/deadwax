@@ -2,7 +2,7 @@ use lofty::{
     config::ParseOptions,
     file::{AudioFile, TaggedFileExt},
     probe::Probe,
-    tag::Accessor,
+    tag::{Accessor, Tag, TagExt},
 };
 use std::{
     fs::File,
@@ -152,6 +152,78 @@ pub fn read_details(path: &Path) -> (AudioMetadata, AudioProperties) {
             duration_ms: properties.duration().as_millis().min(u64::MAX as u128) as u64,
         },
     )
+}
+
+/// The tag fields a person can change from the window.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AudioTagEdit {
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub track_number: u32,
+    pub disc_number: u32,
+}
+
+/// Write those fields back into the file's own tag.
+///
+/// The container decides where a tag lives: an MP3 gets an ID3v2 frame set, a
+/// FLAC a Vorbis comment. A file with no tag at all is given the one its format
+/// expects rather than being refused, which is the ordinary case for a rip that
+/// was never tagged.
+///
+/// Writing changes the file's bytes, and therefore its SHA-256: the caller has
+/// to index it again, because the content address of a tagged file is a
+/// different track as far as every catalogue in the network is concerned. A
+/// field emptied on purpose is removed rather than written blank, so a cleared
+/// title reads as no title instead of as an empty one.
+pub fn write_metadata(path: &Path, edit: &AudioTagEdit) -> Result<(), String> {
+    let mut tagged = Probe::open(path)
+        .map_err(|error| format!("could not open this file: {error}"))?
+        .read()
+        .map_err(|error| format!("could not read this file's tags: {error}"))?;
+    let tag_type = tagged
+        .primary_tag()
+        .map(|tag| tag.tag_type())
+        .unwrap_or_else(|| tagged.file_type().primary_tag_type());
+    if tagged.primary_tag().is_none() {
+        tagged.insert_tag(Tag::new(tag_type));
+    }
+    let tag = tagged
+        .primary_tag_mut()
+        .ok_or_else(|| "this file has nowhere to keep its tags".to_string())?;
+    let text = |value: &str| value.trim().chars().take(MAX_PUBLIC_METADATA_CHARS).collect::<String>();
+    // The typed accessors keep each format's own idea of a field, which is why
+    // they are used rather than raw item keys.
+    let title = text(&edit.title);
+    if title.is_empty() {
+        tag.remove_title();
+    } else {
+        tag.set_title(title);
+    }
+    let artist = text(&edit.artist);
+    if artist.is_empty() {
+        tag.remove_artist();
+    } else {
+        tag.set_artist(artist);
+    }
+    let album = text(&edit.album);
+    if album.is_empty() {
+        tag.remove_album();
+    } else {
+        tag.set_album(album);
+    }
+    if edit.track_number == 0 {
+        tag.remove_track();
+    } else {
+        tag.set_track(edit.track_number);
+    }
+    if edit.disc_number == 0 {
+        tag.remove_disk();
+    } else {
+        tag.set_disk(edit.disc_number);
+    }
+    tag.save_to_path(path, lofty::config::WriteOptions::default())
+        .map_err(|error| format!("could not write this file's tags: {error}"))
 }
 
 fn first_safe_metadata_value<'a>(

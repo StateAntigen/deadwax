@@ -1123,7 +1123,18 @@ pub(crate) fn network_stats(
     // does not have yet: the counters on a status page are not worth refusing to
     // draw the page over, and an older installation's database is exactly the one
     // whose owner wants to look at it.
-    let count = |sql: &str, key: &str| -> u64 {
+    //
+    // Two helpers, because a statement with no placeholder cannot be given a
+    // parameter: passing one anyway is an error, and swallowing that error as
+    // zero is how the status page spent a long time claiming no cover claims and
+    // no playlists while the tables under it were full.
+    let count_all = |sql: &str| -> u64 {
+        connection
+            .query_row(sql, [], |row| row.get::<_, i64>(0))
+            .map(|value| value.max(0) as u64)
+            .unwrap_or(0)
+    };
+    let count_for = |sql: &str, key: &str| -> u64 {
         connection
             .query_row(sql, params![key], |row| row.get::<_, i64>(0))
             .map(|value| value.max(0) as u64)
@@ -1144,12 +1155,12 @@ pub(crate) fn network_stats(
         )
         .map(|value| value.max(0) as u64)
         .unwrap_or(0);
-    let cover_claims = count("SELECT COUNT(*) FROM album_covers WHERE deleted = 0", "");
-    let signed_claims = count(
+    let cover_claims = count_all("SELECT COUNT(*) FROM album_covers WHERE deleted = 0");
+    let signed_claims = count_for(
         "SELECT COUNT(*) FROM album_covers WHERE deleted = 0 AND source_pubkey = ?1",
         own_pubkey,
     );
-    let playlists = count("SELECT COUNT(*) FROM playlists", "");
+    let playlists = count_all("SELECT COUNT(*) FROM playlists");
 
     Ok(NetworkStats {
         announced: announced.max(0) as u64,
@@ -1409,6 +1420,45 @@ mod tests {
         assert_eq!(stats.publishers_top.len(), 2);
         assert_eq!(stats.publishers_top[0].announced, 2);
         assert_eq!(stats.publishers_top[0].live, 1);
+    }
+
+    #[test]
+    fn a_status_page_counts_the_claims_and_playlists_it_holds() {
+        // The two counters this page drew as zero for as long as they existed:
+        // their statements take no parameter, and being handed one made every
+        // read fail quietly into a zero.
+        let connection = database();
+        for (key, author, deleted) in [
+            ("a|one", "own", 0),
+            ("b|two", "own", 0),
+            ("c|three", "other", 0),
+            ("d|four", "other", 1),
+        ] {
+            connection
+                .execute(
+                    "INSERT INTO album_covers
+                       (cover_key,source_pubkey,art,thumb,mbid,year,genre,collection,source,
+                        cover_file_id,mime,event_id,created_at,deleted,seeder,seen_at)
+                     VALUES (?1,?2,'https://example.invalid/a.jpg','','','','','','musicbrainz',
+                             '','image/jpeg',?3,0,?4,0,'2026-09-30T00:00:00+00:00')",
+                    params![key, author, format!("event-{key}"), deleted],
+                )
+                .unwrap();
+        }
+        connection
+            .execute_batch("CREATE TABLE IF NOT EXISTS playlists (playlist_id TEXT PRIMARY KEY);")
+            .unwrap();
+        for id in ["one", "two"] {
+            connection
+                .execute("INSERT INTO playlists (playlist_id) VALUES (?1)", params![id])
+                .unwrap();
+        }
+
+        let stats = network_stats(&connection, 1_700_000_000, "own").unwrap();
+        // A tombstone is a claim nobody holds any more, so it is not counted.
+        assert_eq!(stats.cover_claims, 3);
+        assert_eq!(stats.signed_claims, 2);
+        assert_eq!(stats.playlists, 2);
     }
 
     #[test]

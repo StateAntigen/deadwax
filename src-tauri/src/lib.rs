@@ -118,6 +118,9 @@ pub(crate) struct Transfer {
 #[serde(rename_all = "camelCase")]
 struct Settings {
     napstr_folder: String,
+    /// Where books are dropped: its immediate children are one book each. A
+    /// setting of its own now, because a music folder is rarely where books live.
+    audiobooks_folder: String,
     nostr_relays: String,
     display_name: String,
     profile_about: String,
@@ -323,6 +326,13 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
     let downloads = downloads_path.to_string_lossy().into_owned();
     for (key, value) in [
         ("shared_folder", downloads.clone()),
+        (
+            "audiobooks_folder",
+            downloads_path
+                .join("Audiobooks")
+                .to_string_lossy()
+                .into_owned(),
+        ),
         ("nostr_relays", DEFAULT_NOSTR_RELAYS.to_string()),
         ("display_name", "napstr-user".to_string()),
         (
@@ -355,8 +365,13 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         )
         .map_err(|error| error.to_string())?;
     let shared_folder = get_setting(&connection, "shared_folder")?;
-    fs::create_dir_all(Path::new(&shared_folder).join("Audiobooks"))
-        .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
+    // A folder the settings name but that is not there is one this computer
+    // makes, so a first run has somewhere to drop a book.
+    let audiobooks_folder = get_setting(&connection, "audiobooks_folder")?;
+    if !audiobooks_folder.trim().is_empty() {
+        fs::create_dir_all(&audiobooks_folder)
+            .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
+    }
     let migrated_relays = connection
         .execute(
             "UPDATE settings SET value=?1 WHERE key='nostr_relays' AND replace(value,' ','') IN (?2,?3)",
@@ -408,6 +423,7 @@ fn get_setting(connection: &Connection, key: &str) -> Result<String, String> {
 fn load_settings(connection: &Connection) -> Result<Settings, String> {
     Ok(Settings {
         napstr_folder: get_setting(connection, "shared_folder")?,
+        audiobooks_folder: get_setting(connection, "audiobooks_folder")?,
         nostr_relays: get_setting(connection, "nostr_relays")?,
         display_name: get_setting(connection, "display_name")?,
         profile_about: get_setting(connection, "profile_about")?,
@@ -607,6 +623,55 @@ fn natural_sort_key(value: &str) -> String {
     key
 }
 
+/// The folder whose immediate children are one book each, as a library folder
+/// key: the audiobooks folder from the settings, written the way the library
+/// writes it - with its source's name in front. Empty when the setting names a
+/// folder that no source contains.
+fn audiobook_drop_zone(connection: &Connection) -> String {
+    let folder = get_setting(connection, "audiobooks_folder").unwrap_or_default();
+    let path = Path::new(folder.trim());
+    if path.as_os_str().is_empty() {
+        return String::new();
+    }
+    let Ok(list) = folders::sources(connection) else {
+        return String::new();
+    };
+    for source in list {
+        if let Some(relative) = folders::relative_path(&source.path, path) {
+            return if relative.is_empty() {
+                source.name
+            } else {
+                format!("{}/{relative}", source.name)
+            };
+        }
+    }
+    String::new()
+}
+
+/// Where inside the drop zone this file sits: the zone's own key, and what is
+/// below it. Empty below means the file is a complete one-file book.
+///
+/// The configured folder wins, but a file that is not inside it is still looked
+/// at the old way: any folder whose name is `Audiobooks` is a drop zone. That is
+/// what finds the books of a library whose rows were written before the setting
+/// existed, and before folder keys carried their source's name.
+fn audiobook_zone_parts(zone: &str, folder: &str) -> Option<(String, String)> {
+    if !zone.is_empty() {
+        if folder == zone {
+            return Some((zone.to_string(), String::new()));
+        }
+        if let Some(rest) = folder.strip_prefix(&format!("{zone}/")) {
+            return Some((zone.to_string(), rest.to_string()));
+        }
+    }
+    let segments = folder.split('/').collect::<Vec<_>>();
+    let at = segments.iter().position(|segment| *segment == "Audiobooks")?;
+    Some((
+        segments[..=at].join("/"),
+        segments[at + 1..].join("/"),
+    ))
+}
+
 pub(crate) fn build_local_audiobooks(
     connection: &Connection,
 ) -> Result<Vec<network::AudiobookResult>, String> {
@@ -734,33 +799,34 @@ pub(crate) fn build_local_audiobooks_from_files(
             audiobooks.push(book);
         }
     }
-    // `Audiobooks` is a convention-based drop zone. Each immediate child
-    // directory is one recursive book; loose files are complete one-file
-    // books. Explicitly configured collections above take precedence.
+    // The audiobooks folder is a drop zone. Each immediate child directory is one
+    // recursive book; loose files in it are complete one-file books. Explicitly
+    // configured collections above take precedence.
+    let zone = audiobook_drop_zone(connection);
     let mut automatic_folders: HashMap<String, Vec<&SharedFile>> = HashMap::new();
     let mut automatic_loose_files = Vec::new();
     for file in files
         .iter()
         .filter(|file| !grouped_file_ids.contains(&file.file_id))
     {
-        if file.folder == "Audiobooks" {
+        let Some((prefix, rest)) = audiobook_zone_parts(&zone, &file.folder) else {
+            continue;
+        };
+        if rest.is_empty() {
             automatic_loose_files.push(file);
-        } else if let Some(relative) = file.folder.strip_prefix("Audiobooks/") {
-            if let Some(folder) = relative
-                .split('/')
-                .next()
-                .filter(|folder| !folder.is_empty())
-            {
-                automatic_folders
-                    .entry(format!("Audiobooks/{folder}"))
-                    .or_default()
-                    .push(file);
-            }
+        } else if let Some(book) = rest.split('/').next().filter(|book| !book.is_empty()) {
+            automatic_folders
+                .entry(format!("{prefix}/{book}"))
+                .or_default()
+                .push(file);
         }
     }
     for (folder, chapters) in automatic_folders {
+        // The book's own folder name is the last segment of its key, whether the
+        // zone is the configured folder or the conventional one.
         let folder_title = folder
-            .strip_prefix("Audiobooks/")
+            .rsplit('/')
+            .next()
             .unwrap_or("Audiobook")
             .replace('_', " ");
         let title = audio::sanitise_public_text(&folder_title);
@@ -1896,9 +1962,22 @@ async fn set_napstr_folder(
     if !folder.is_dir() {
         return Err("The selected Deadwax folder does not exist or is not a directory".into());
     }
-    fs::create_dir_all(folder.join("Audiobooks"))
-        .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
     let connection = open_db(&state)?;
+    // The audiobooks folder follows the downloads folder only while it is still
+    // the default one inside it: a person who pointed it somewhere else meant it.
+    let previous = PathBuf::from(get_setting(&connection, "shared_folder")?);
+    let audiobooks = PathBuf::from(get_setting(&connection, "audiobooks_folder")?);
+    if audiobooks == previous.join("Audiobooks") {
+        let moved = folder.join("Audiobooks");
+        fs::create_dir_all(&moved)
+            .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('audiobooks_folder', ?1)",
+                [moved.to_string_lossy()],
+            )
+            .map_err(|error| error.to_string())?;
+    }
     connection
         .execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES ('shared_folder', ?1)",
@@ -2155,6 +2234,12 @@ async fn save_settings(
     validate_length("display name", &settings.display_name, 64)?;
     validate_length("profile about", &settings.profile_about, 500)?;
     validate_length("relay list", &settings.nostr_relays, 4096)?;
+    validate_length("downloads folder", &settings.napstr_folder, 4096)?;
+    validate_length("audiobooks folder", &settings.audiobooks_folder, 4096)?;
+    if !settings.audiobooks_folder.trim().is_empty() {
+        fs::create_dir_all(&settings.audiobooks_folder)
+            .map_err(|error| format!("could not create the Audiobooks folder: {error}"))?;
+    }
     let (snapshot, relays_changed) = {
         let connection = open_db(&state)?;
         let relays_changed = get_setting(&connection, "nostr_relays")? != settings.nostr_relays;
@@ -2163,6 +2248,7 @@ async fn save_settings(
             || get_setting(&connection, "profile_picture")? != settings.profile_picture;
         for (key, value) in [
             ("shared_folder", settings.napstr_folder),
+            ("audiobooks_folder", settings.audiobooks_folder),
             ("nostr_relays", settings.nostr_relays),
             ("display_name", settings.display_name),
             ("profile_about", settings.profile_about),
@@ -2593,6 +2679,84 @@ fn save_file_tags(
         return Err("track is no longer in the Deadwax folder".into());
     }
     snapshot(&connection)
+}
+
+/// The tag fields the track editor writes, as the window sends them.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileMetadataEdit {
+    file_id: String,
+    title: String,
+    artist: String,
+    album: String,
+    track_number: u32,
+    disc_number: u32,
+}
+
+/// Write a track's tags into the file, and index what comes out.
+///
+/// The file's bytes change, so its SHA-256 does too: this is the same track
+/// with a different content address. The walk is what notices that, but a person
+/// who just pressed Save should not have to wait for one, so the file is
+/// re-indexed here - the old row goes, and the new one is the track they edited.
+#[tauri::command]
+async fn save_file_metadata(
+    edit: FileMetadataEdit,
+    state: State<'_, AppState>,
+) -> Result<AppSnapshot, String> {
+    if !hex::decode(&edit.file_id)
+        .map(|bytes| bytes.len() == 32)
+        .unwrap_or(false)
+    {
+        return Err("invalid SHA-256 file ID".into());
+    }
+    validate_length("title", &edit.title, 256)?;
+    validate_length("artist", &edit.artist, 256)?;
+    validate_length("album", &edit.album, 256)?;
+    let (path, source) = {
+        let connection = open_db(&state)?;
+        let (path, source_id) = connection
+            .query_row(
+                "SELECT path, source_id FROM files WHERE file_id = ?1",
+                [&edit.file_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .map_err(|_| "track is no longer in the shared folders".to_string())?;
+        (PathBuf::from(path), folders::source(&connection, source_id)?)
+    };
+    audio::write_metadata(
+        &path,
+        &audio::AudioTagEdit {
+            title: edit.title,
+            artist: edit.artist,
+            album: edit.album,
+            track_number: edit.track_number,
+            disc_number: edit.disc_number,
+        },
+    )?;
+    let db_path = state
+        .db_path
+        .lock()
+        .map_err(|_| "database lock poisoned")?
+        .clone();
+    let scan_lock = state.scan_lock.clone();
+    let app_handle = state.app_handle.clone();
+    let network = state.network.clone();
+    let covers = state.covers.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        run_path_index_job(
+            &db_path,
+            &[source],
+            &[path],
+            &scan_lock,
+            &app_handle,
+            &network,
+            &covers,
+        )
+    })
+    .await
+    .map_err(|error| format!("library scan task failed: {error}"))??;
+    snapshot(&open_db(&state)?)
 }
 
 #[tauri::command]
@@ -3776,6 +3940,7 @@ pub fn run() {
             include_shared,
             open_library_folder,
             save_file_tags,
+            save_file_metadata,
             save_settings,
             remove_transfer,
             get_transfers,

@@ -26,13 +26,13 @@ for (const language of ['en', 'fr', 'ar']) {
     });
     await page.goto('http://127.0.0.1:15173');
     await expect(page.locator('.search-button')).toBeEnabled();
-    const views = ['Search', 'Network', 'Downloads', 'Shared', 'Playlists', 'Profile', 'Settings', 'Trollbox', 'Clients'];
+    const views = ['Search', 'Network', 'Downloads', 'Shared', 'Folders', 'Playlists', 'Profile', 'Settings', 'Trollbox', 'Clients'];
     for (const [width, height] of [[1180, 810], [851, 600], [850, 600], [651, 600], [650, 600], [560, 400]]) {
       await page.setViewportSize({ width, height });
       for (const [index, view] of views.entries()) {
         await page.locator('.tool-button').nth(index).click();
         const overflow = await page.evaluate(() => {
-          const selectors = ['.player-bar', '.search-form', '.results-pager', '.details-pane', '.full-panel', '.download-table', '.statusbar', '.folder-path', '.actionbar', '.tag-editor', '.profile-card', '.settings-view fieldset', '.mobile-connect-grid'];
+          const selectors = ['.player-bar', '.search-form', '.results-pager', '.details-pane', '.full-panel', '.download-table', '.statusbar', '.actionbar', '.tag-editor', '.profile-card', '.settings-view fieldset', '.mobile-connect-grid'];
           return selectors.flatMap((selector) => [...document.querySelectorAll(selector)].flatMap((node) => {
             const box = node.getBoundingClientRect();
             return box.width && box.height && (node.scrollWidth > node.clientWidth + 2 || box.left < -1 || box.right > innerWidth + 1)

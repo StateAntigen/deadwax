@@ -569,9 +569,20 @@ label { color: var(--muted); }
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 .classic-button:hover:not(:disabled) { border-color: var(--line-strong); background: var(--hover); }
-.classic-button:active:not(:disabled) { background: var(--track); }
+/* The Win98 skin draws a disabled button as a white/grey bevel with a white
+t   text-shadow, and presses one by shifting its label. Both survived the theme
+   because they are not colours: what a greyed-out button needs is to look
+   unavailable, not to look embossed. */
+.classic-button:active:not(:disabled) { background: var(--track); border-color: var(--line); padding: 0 12px; }
 .classic-button:focus-visible { outline: 0; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
-.classic-button:disabled { color: var(--dim); opacity: 0.6; }
+.classic-button:disabled {
+  color: var(--dim);
+  opacity: 0.6;
+  background: var(--panel);
+  border-color: var(--line);
+  box-shadow: none;
+  text-shadow: none;
+}
 .classic-button.primary {
   color: var(--accent);
   background: var(--accent-soft);
@@ -596,7 +607,7 @@ label { color: var(--muted); }
   font-weight: 600;
 }
 .caption-button:hover:not(:disabled) { color: var(--text); background: var(--hover); border-color: var(--line-strong); }
-.caption-button:disabled { opacity: 0.5; }
+.caption-button:disabled { opacity: 0.5; box-shadow: none; text-shadow: none; border-color: var(--line); }
 .caption-button.primary { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
 .caption-button.primary:hover:not(:disabled) { background: var(--accent-fill); }
 
@@ -1926,6 +1937,12 @@ input:focus, select:focus, textarea:focus {
 .folders-tools { display: flex; align-items: center; gap: 10px; color: var(--dim); font-size: 11.5px; }
 .folders-tools > span { flex: 1 1 auto; min-width: 0; }
 .folders-split { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 12px; flex: 1 1 auto; min-height: 0; }
+/* A narrow window puts the contents and its editor under the tree: two columns
+   at 600px would leave each of them unreadable rather than merely tight. */
+@media (max-width: 900px) {
+  .folders-split { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .folders-card { min-height: 260px; }
+}
 .folders-card {
   display: flex; flex-direction: column; min-height: 0; min-width: 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
@@ -2022,3 +2039,69 @@ input:focus, select:focus, textarea:focus {
 .folder-summary .warn { color: var(--warn); }
 .folder-reason { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; color: var(--muted); font-size: 11.5px; }
 .folder-reason input { max-width: 340px; }
+
+/* ---- The right-hand column of the Folders page: contents, then the editor ---- */
+.folders-stack { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+.folders-stack > .folders-contents { flex: 1 1 auto; }
+.folders-stack > .folders-editor { flex: 0 0 auto; }
+
+.folder-table tr.selected td { background: var(--accent-soft); }
+.folder-table tbody tr { cursor: default; }
+.folder-table tbody tr:focus-visible { outline: 0; box-shadow: inset 0 0 0 1px var(--accent-line); }
+
+.folders-editor .folder-facts { color: var(--dim); font-family: var(--mono); font-size: 10.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-editor-body { display: flex; flex-direction: column; gap: 6px; padding: 10px; min-height: 0; overflow: auto; }
+.folder-tags { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; }
+.folder-tags input { min-width: 0; }
+.folder-note { color: var(--dim); font-size: 10.5px; }
+.folder-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 10px; }
+.folder-meta-grid label { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--muted); font-size: 11px; }
+.folder-meta-grid input, .folder-tags input {
+  height: 26px; min-width: 0; padding: 0 8px; color: var(--text); background: var(--sunken);
+  border: 1px solid var(--line); border-radius: 7px; font: inherit; font-size: 12px;
+}
+.folder-meta-grid input:focus-visible, .folder-tags input:focus-visible { outline: 0; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ---- Grouped search: one row per album, and its tracks in the pane ---- */
+.album-row td { padding: 0; cursor: default; }
+.album-row-inner { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+.album-row:hover td { background: var(--hover); }
+.album-row.selected td { background: var(--accent-soft); }
+.album-row b { color: var(--text); font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-row small { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-row-count { margin-inline-start: auto; color: var(--dim); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.album-row-mark { color: var(--dim); font-size: 11px; }
+
+.album-tracks { display: flex; flex-direction: column; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.album-track {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 6px 10px; width: 100%; text-align: start; font: inherit;
+  color: var(--muted); background: none; border: 0; border-bottom: 1px solid var(--line);
+}
+.album-track:last-child { border-bottom: 0; }
+.album-track:hover { background: var(--hover); }
+.album-track.selected { background: var(--accent-soft); }
+.album-track-index { color: var(--dim); font-family: var(--mono); font-size: 10.5px; }
+.album-track-copy { display: flex; flex-direction: column; min-width: 0; }
+.album-track-copy b { color: var(--text); font-weight: 500; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-track-copy small { color: var(--dim); font-family: var(--mono); font-size: 10.5px; }
+.album-track-mark { padding: 1px 7px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--dim); font-size: 10px; font-style: normal; white-space: nowrap; }
+.album-track-mark.local { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+.album-track.local .album-track-copy b { color: var(--text); }
+
+/* ---- The window's one context menu ---- */
+.context-menu {
+  position: fixed; z-index: 60; min-width: 208px; padding: 5px;
+  display: flex; flex-direction: column;
+  background: var(--panel-raised); border: 1px solid var(--line-strong); border-radius: 9px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.5);
+}
+.context-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 9px;
+  color: var(--text); background: none; border: 0; border-radius: 6px;
+  font: inherit; font-size: 12px; text-align: start; cursor: default;
+}
+.context-item:hover:not(:disabled) { background: var(--hover); }
+.context-item:disabled { color: var(--dim); }
+.context-item > span { color: var(--dim); font-size: 10px; }
+.context-menu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }

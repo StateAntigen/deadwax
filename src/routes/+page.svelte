@@ -108,6 +108,7 @@
     { label: 'Network', icon: '▦' },
     { label: 'Downloads', icon: '⇩' },
     { label: 'Shared', icon: '▤' },
+    { label: 'Folders', icon: '▤' },
     { label: 'Playlists', icon: '♫' },
     { label: 'Profile', icon: '☺' },
     { label: 'Settings', icon: '⚙' },
@@ -142,9 +143,9 @@
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
   const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
 
-  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string; bitrateKbps?: number };
+  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string; bitrateKbps?: number; trackNumber?: number; discNumber?: number };
   type NativeTransfer = { id: number; fileId: string; filename: string; size: number; progress: number; status: string; speed: string; destination: string };
-  type NativeSettings = { napstrFolder: string; nostrRelays: string; displayName: string; profileAbout: string; profilePicture: string };
+  type NativeSettings = { napstrFolder: string; audiobooksFolder: string; nostrRelays: string; displayName: string; profileAbout: string; profilePicture: string };
   type AudiobookChapter = { position: number; fileId: string; filename: string; title: string; format: string; mime: string; size: number };
   type Audiobook = { audiobookId: string; title: string; author: string; narrator: string; totalSize: number; chapters: AudiobookChapter[]; sources: SourceDetail[]; local: boolean; localFolder: string };
   type Snapshot = { files: NativeFile[]; audiobooks: Audiobook[]; transfers: NativeTransfer[]; settings: NativeSettings; indexedBytes: number; native: boolean };
@@ -331,6 +332,7 @@
   let nativeReady = false;
   let activityMessage: string | Message = msg("Starting Deadwax…");
   let napstrFolder = '';
+  let audiobooksFolder = '';
   let nostrRelays = 'wss://relay.damus.io, wss://nos.lol, wss://relay.nostr.com, wss://relay.primal.net, wss://relay.snort.social, wss://nostr.mom, wss://relay.nostr.band';
   let displayName = 'napstr-user';
   let profileAbout = 'Sharing files privately with Deadwax. deadwax.rip';
@@ -825,6 +827,8 @@
    * in the order their first track was drawn.
    */
   let groupAlbums = false;
+  /** The album whose tracks the pane is showing, by its group key. */
+  let selectedAlbumKey: string | null = null;
   type AlbumGroup = { key: string; artist: string; album: string; items: Result[] };
 
   function groupedByAlbum(items: Result[]) {
@@ -840,14 +844,9 @@
       }
       group.items.push(item);
     }
-    const heads = new Map<number, AlbumGroup>();
-    const rows: Result[] = [];
-    for (const key of order) {
-      const group = groups.get(key)!;
-      heads.set(rows.length, group);
-      rows.push(...group.items);
-    }
-    return { rows, heads };
+    // The albums keep the order their first track was drawn in, and the tracks
+    // inside one keep the order that was asked for.
+    return order.map((key) => groups.get(key)!);
   }
 
   const ADVANCED_FORMATS = ['Any', 'FLAC', 'WAV', 'MP3', 'OPUS', 'M4A'];
@@ -918,9 +917,12 @@
   $: resultPageItems = paginatedResults(ordered, resultPage);
   // Grouping is a view of the page that was asked for, not of the whole answer: a
   // page is what the pager counts, and an album split over two pages still reads
-  // honestly as two halves.
-  $: albumGrouping = groupAlbums ? groupedByAlbum(resultPageItems) : null;
-  $: resultRows = albumGrouping ? albumGrouping.rows : resultPageItems;
+  // honestly as two halves. The list is of albums rather than of rows: an album
+  // is what a person recognises, and its tracks belong in the pane beside it.
+  $: albumList = groupAlbums ? groupedByAlbum(resultPageItems) : [];
+  $: selectedAlbum = albumList.find((group) => group.key === selectedAlbumKey) ?? null;
+  $: if (!groupAlbums && selectedAlbumKey) selectedAlbumKey = null;
+  $: resultRows = resultPageItems;
   $: resultPageRange = resultPageItems.map((item) => item.fileId);
   // The rows on screen are what get asked about, once each: a discussion read is
   // a question to the relays, and a page of them is the size of the question.
@@ -1450,6 +1452,7 @@
     nativeReady = snapshot.native;
     indexedBytes = snapshot.indexedBytes;
     napstrFolder = snapshot.settings.napstrFolder;
+    audiobooksFolder = snapshot.settings.audiobooksFolder ?? '';
     nostrRelays = snapshot.settings.nostrRelays;
     displayName = snapshot.settings.displayName;
     profileAbout = snapshot.settings.profileAbout;
@@ -1989,6 +1992,7 @@
   let folderChosen: FolderNode | null = null;
   let folderShown: ChosenFolder | null = null;
   let foldersLoading = false;
+  let foldersLoaded = false;
   let foldersError: string | Message = '';
   let folderExcluding: ShareExclusion | null = null;
   let folderReason = '';
@@ -2021,6 +2025,10 @@
     activeView = 'Folders';
     void refreshFolders();
   }
+
+  // Reaching the page from the rail is the same wish as pressing the button that
+  // came before it, so the first time it is drawn it reads the sources itself.
+  $: if (activeView === 'Folders' && nativeReady && !foldersLoaded && !foldersLoading) void refreshFolders();
 
   /**
    * Read the sources and the first level of the tree.
@@ -2058,6 +2066,7 @@
       foldersError = msg("Could not read the shared folders: {p0}", { p0: String(error) });
     } finally {
       foldersLoading = false;
+      foldersLoaded = true;
     }
   }
 
@@ -2235,6 +2244,171 @@
   function sourceWord(source: LibrarySource) {
     if (source.state !== 'active') return $t("Parked");
     return source.reachable ? $t("Shared") : $t("Not there");
+  }
+
+  /** The track the editor under the contents is showing. */
+  let folderTrack: FolderFile | null = null;
+  let folderMeta = { title: '', artist: '', album: '', track: '', disc: '', tags: '' };
+  let folderMetaSaving = false;
+  $: folderTrackFile = folderTrack?.fileId
+    ? sharedFiles.find((file) => file.fileId === folderTrack!.fileId) ?? null
+    : null;
+
+  /** Choosing a row fills the editor from what the index knows about it. */
+  function selectFolderTrack(row: FolderFile) {
+    folderTrack = row;
+    const file = row.fileId ? sharedFiles.find((candidate) => candidate.fileId === row.fileId) ?? null : null;
+    folderMeta = {
+      title: file?.title ?? '',
+      artist: file?.artist ?? '',
+      album: file?.album ?? '',
+      track: file?.trackNumber ? String(file.trackNumber) : '',
+      disc: file?.discNumber ? String(file.discNumber) : '',
+      tags: file?.tags ?? ''
+    };
+  }
+
+  /**
+   * Write the five tag fields into the file.
+   *
+   * The bytes change, so the file's content address does too: the host re-indexes
+   * that one path and answers with the library as it now is, and the row is chosen
+   * again by name because its id is not the id it had.
+   */
+  async function saveFolderMetadata() {
+    const track = folderTrack;
+    const file = folderTrackFile;
+    if (!track || !file || folderMetaSaving) return;
+    folderMetaSaving = true;
+    try {
+      const snapshot = await invoke<Snapshot>('save_file_metadata', {
+        edit: {
+          fileId: file.fileId,
+          title: folderMeta.title,
+          artist: folderMeta.artist,
+          album: folderMeta.album,
+          trackNumber: Math.max(0, Number.parseInt(folderMeta.track || '0', 10) || 0),
+          discNumber: Math.max(0, Number.parseInt(folderMeta.disc || '0', 10) || 0)
+        }
+      });
+      applySnapshot(snapshot);
+      await refreshFolders();
+      const row = folderShown?.rows.find((candidate) => candidate.name === track.name) ?? null;
+      if (row) selectFolderTrack(row);
+      activityMessage = msg("Saved the tags in {p0}", { p0: track.name });
+    } catch (error) {
+      foldersError = msg("Could not save the tags: {p0}", { p0: String(error) });
+    } finally {
+      folderMetaSaving = false;
+    }
+  }
+
+  /** The catalogue's own tags, which travel with what this computer publishes. */
+  async function saveFolderTags() {
+    const file = folderTrackFile;
+    if (!file) return;
+    try {
+      applySnapshot(await invoke<Snapshot>('save_file_tags', { fileId: file.fileId, tags: folderMeta.tags }));
+      activityMessage = msg("Saved the tags for {p0}", { p0: file.filename });
+    } catch (error) {
+      foldersError = msg("Could not save those tags: {p0}", { p0: String(error) });
+    }
+  }
+
+  /** Every track this computer holds under one folder, in the order drawn. */
+  function folderTrackList(node: FolderNode) {
+    const prefix = `${node.key}/`;
+    return sharedFiles
+      .filter((file) => file.folder === node.key || file.folder.startsWith(prefix))
+      .sort((left, right) => left.filename.localeCompare(right.filename, undefined, { numeric: true, sensitivity: 'base' }));
+  }
+
+  /** Play a folder: its tracks in order, starting at the first one. */
+  async function playFolder(node: FolderNode) {
+    const list = folderTrackList(node);
+    if (!list.length) {
+      activityMessage = msg("{p0} holds nothing this computer can play", { p0: node.name });
+      return;
+    }
+    activePlayerAudiobook = null;
+    playerOrigin = 'shared';
+    playerQueueRemote = false;
+    if (list.length > 1 && playerMode === 'single') {
+      playerMode = 'all';
+      window.localStorage.setItem('napstr-player-mode', playerMode);
+    }
+    playerQueueOrder = list.map(toPlayerTrack);
+    playerQueue = playerShuffle ? shuffledQueue(playerQueueOrder, list[0].fileId) : playerQueueOrder;
+    await loadPlayerTrack(0);
+  }
+
+  /** What a folder's own menu offers. */
+  function folderMenuItems(node: FolderNode): ContextMenuItem[] {
+    return [
+      {
+        label: $t("▶ Play folder"),
+        disabled: !folderTrackList(node).length,
+        action: () => void playFolder(node)
+      },
+      { label: $t("Open folder"), action: () => { folderChosen = node; void openSharedFolder(); } },
+      {
+        label: node.shared ? $t("Stop sharing this folder") : $t("Share this folder"),
+        separator: true,
+        action: () => (node.shared ? askToExclude(node.sourceId, 'folder', node.key, node.name) : void includeAgain(node.sourceId, 'folder', node.key, node.name))
+      }
+    ];
+  }
+
+  /** What a track's own menu offers, wherever the track is drawn. */
+  function folderTrackMenuItems(row: FolderFile): ContextMenuItem[] {
+    const file = row.fileId ? sharedFiles.find((candidate) => candidate.fileId === row.fileId) ?? null : null;
+    return [
+      {
+        label: $t("▶ Play track"),
+        disabled: !file,
+        action: () => void playAudio(row.fileId, row.name, playerMode, 'shared')
+      },
+      {
+        label: $t("Search for artist"),
+        disabled: !(file?.artist ?? '').trim(),
+        separator: true,
+        action: () => searchFor(file?.artist ?? '')
+      },
+      {
+        label: $t("Search for album"),
+        disabled: !(file?.album ?? '').trim(),
+        action: () => searchFor(file?.album ?? '')
+      },
+      {
+        label: row.status === 'shared' ? $t("Stop sharing") : $t("Share again"),
+        separator: true,
+        disabled: row.status !== 'shared' && row.status !== 'excluded',
+        action: () => (row.status === 'shared'
+          ? askToExclude(folderShown!.sourceId, 'file', row.key, row.name)
+          : void includeAgain(folderShown!.sourceId, 'file', row.key, row.name))
+      }
+    ];
+  }
+
+  /** What a search result offers: play what is here, fetch what is not. */
+  function resultMenuItems(item: Result): ContextMenuItem[] {
+    const local = isLocalFile(item.fileId);
+    return [
+      local
+        ? { label: $t("▶ Play track"), action: () => void playAudio(item.fileId, item.name, playerMode, 'search') }
+        : { label: $t("⇩ Download"), disabled: !canDownloadResult(item), action: () => void downloadResults([item]) },
+      {
+        label: $t("Search for artist"),
+        disabled: !(item.artist ?? '').trim(),
+        separator: true,
+        action: () => searchFor(item.artist ?? '')
+      },
+      {
+        label: $t("Search for album"),
+        disabled: !(item.album ?? '').trim(),
+        action: () => searchFor(item.album ?? '')
+      }
+    ];
   }
 
   /** The worker changed what art exists, so nothing cached may survive it.
@@ -3452,6 +3626,101 @@
     return results.filter((item) => selectedResultIds.has(item.fileId));
   }
 
+  /**
+   * A click on one track inside the album the pane is showing.
+   *
+   * The range is measured inside the album, because that is the list the person
+   * is looking at: a shift-click that reached into the next record would select
+   * something they cannot see. Ctrl (or Cmd) adds and removes single tracks.
+   */
+  function selectAlbumTrack(item: Result, event: { shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean }) {
+    const list = selectedAlbum?.items ?? [];
+    const end = list.findIndex((row) => row.fileId === item.fileId);
+    const anchor = list.findIndex((row) => row.fileId === resultSelectionAnchor);
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey) {
+      const next = new Set(selectedResultIds);
+      if (next.has(item.fileId)) next.delete(item.fileId);
+      else next.add(item.fileId);
+      selectedResultIds = next;
+      resultSelectionAnchor = item.fileId;
+      selectResult(next.has(item.fileId) ? item : list.find((row) => next.has(row.fileId)) ?? null, false, true);
+      return;
+    }
+    if (event.shiftKey && anchor >= 0 && end >= 0) {
+      selectedResultIds = new Set(list.slice(Math.min(anchor, end), Math.max(anchor, end) + 1).map((row) => row.fileId));
+      selectResult(item, false, true);
+      return;
+    }
+    selectedResultIds = new Set([item.fileId]);
+    resultSelectionAnchor = item.fileId;
+    selectResult(item);
+  }
+
+  /** Open an album: its tracks are what the pane shows, and they are selectable. */
+  function openAlbum(group: AlbumGroup) {
+    selectedAlbumKey = group.key;
+    selectedResultIds = new Set();
+    resultSelectionAnchor = null;
+    selectResult(group.items[0] ?? null);
+  }
+
+  /*
+   * One context menu for the whole window.
+   *
+   * A row knows what can be done with it; this knows how to draw the answers and
+   * where they must not run off the edge of the screen. Every item's label is a
+   * translated message built where the item is made, so the menu itself needs no
+   * knowledge of what it is describing.
+   */
+  type ContextMenuItem = { label: string | Message; icon?: string; action: () => void; disabled?: boolean; separator?: boolean };
+  let contextMenu: { x: number; y: number; items: ContextMenuItem[] } | null = null;
+
+  function openContextMenu(event: MouseEvent, items: ContextMenuItem[]) {
+    event.preventDefault();
+    event.stopPropagation();
+    const width = 224;
+    const height = items.length * 30 + 18;
+    contextMenu = {
+      x: Math.max(6, Math.min(event.clientX, window.innerWidth - width - 6)),
+      y: Math.max(6, Math.min(event.clientY, window.innerHeight - height - 6)),
+      items
+    };
+  }
+
+  function runContextItem(item: ContextMenuItem) {
+    if (item.disabled) return;
+    contextMenu = null;
+    item.action();
+  }
+
+  /** Close the menu on a press anywhere else, or on Escape. */
+  function containContextMenu(node: HTMLElement) {
+    const away = (event: Event) => {
+      if (event.target instanceof Node && node.contains(event.target)) return;
+      contextMenu = null;
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') contextMenu = null;
+    };
+    window.addEventListener('pointerdown', away, true);
+    window.addEventListener('keydown', key);
+    return {
+      destroy() {
+        window.removeEventListener('pointerdown', away, true);
+        window.removeEventListener('keydown', key);
+      }
+    };
+  }
+
+  /** Run a search from wherever a name was found. */
+  function searchFor(value: string) {
+    const text = value.trim();
+    if (!text) return;
+    activeView = 'Search';
+    query = text;
+    void search();
+  }
+
   function canDownloadResult(item: Result) {
     if (item.audiobook) {
       return !item.audiobook.chapters.every((chapter) => isLocalFile(chapter.fileId))
@@ -4459,6 +4728,34 @@
     catch (error) { activityMessage = msg("Could not open Deadwax folder: {p0}", { p0: String(error) }); }
   }
 
+  /**
+   * Where books are dropped, chosen separately from where downloads land.
+   *
+   * The folder is remembered as a setting rather than a convention so a library
+   * can keep its books anywhere; the default is a folder inside the downloads
+   * one, which is what the convention was.
+   */
+  async function chooseAudiobooksFolder() {
+    if (!nativeReady) {
+      activityMessage = msg("Folder selection is available in the packaged desktop app");
+      return;
+    }
+    try {
+      const picked = await open({
+        directory: true,
+        multiple: false,
+        title: $t("Choose the folder books are dropped in"),
+        defaultPath: audiobooksFolder || napstrFolder || undefined
+      });
+      if (!picked || Array.isArray(picked)) return;
+      audiobooksFolder = picked;
+      applySnapshot(await invoke<Snapshot>('save_settings', { settings: { napstrFolder, audiobooksFolder, nostrRelays, displayName, profileAbout, profilePicture } }));
+      activityMessage = msg("Books are read from {p0}", { p0: picked });
+    } catch (error) {
+      activityMessage = msg("Could not set the audiobooks folder: {p0}", { p0: String(error) });
+    }
+  }
+
   async function rescanSharedFolder() {
     if (!nativeReady || rescanPending) return;
     rescanPending = true;
@@ -4486,7 +4783,7 @@
   async function persistSettings() {
     if (!nativeReady) return;
     try {
-      applySnapshot(await invoke<Snapshot>('save_settings', { settings: { napstrFolder, nostrRelays, displayName, profileAbout, profilePicture } }));
+      applySnapshot(await invoke<Snapshot>('save_settings', { settings: { napstrFolder, audiobooksFolder, nostrRelays, displayName, profileAbout, profilePicture } }));
       if (networkConnected) await invoke('publish_profile');
       activityMessage = networkConnected ? msg("Settings saved and profile published") : msg("Settings saved");
     } catch (error) { activityMessage = msg("Could not save settings: {p0}", { p0: String(error) }); }
@@ -4840,28 +5137,35 @@
                   <th>{$t("Line speed")}</th>
                 </tr></thead>
                 <tbody>
-                  {#each resultRows as item, index}
-                    {#if albumGrouping?.heads.has(index)}
-                      {@const group = albumGrouping!.heads.get(index)!}
-                      <!-- One heading per album, with the whole record in one press:
-                           the reason to gather the tracks is to fetch them. -->
-                      <tr class="result-group-head">
+                  {#if groupAlbums}
+                    <!-- One row per album: what a person recognises, and what the
+                         pane beside it opens. -->
+                    {#each albumList as group (group.key)}
+                      <tr class="album-row" class:selected={selectedAlbumKey === group.key} aria-selected={selectedAlbumKey === group.key} tabindex="0"
+                        onclick={() => openAlbum(group)}
+                        onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openAlbum(group); } }}>
                         <td colspan="7">
-                          <b>{group.album || $t("No album")}</b>
-                          {#if group.artist}<small>{group.artist}</small>{/if}
-                          <span>{$t("{p0} tracks", { p0: group.items.length })} · {readableSize(group.items.reduce((total, row) => total + sizeInBytes(row.size), 0))}</span>
-                          <button type="button" class="caption-button primary" disabled={!nativeReady || !group.items.some(canDownloadResult)} onclick={() => void downloadResults(group.items)}>{$t("⇩ Album")}</button>
+                          <div class="album-row-inner">
+                            <span class="album-row-mark" aria-hidden="true">▦</span>
+                            <b>{group.album || $t("No album")}</b>
+                            {#if group.artist}<small>{group.artist}</small>{/if}
+                            <span class="album-row-count">{$t("{p0} tracks", { p0: group.items.length })} · {readableSize(group.items.reduce((total, row) => total + sizeInBytes(row.size), 0))}</span>
+                          </div>
                         </td>
                       </tr>
-                    {/if}
+                    {/each}
+                  {:else}
+                  {#each resultRows as item, index}
                     <tr class:selected={selectedResultIds.has(item.fileId)} aria-selected={selectedResultIds.has(item.fileId)} tabindex="0"
                       onclick={(event) => selectResultRange(item, event)}
+                      oncontextmenu={(event) => { selectResultRange(item, event); openContextMenu(event, resultMenuItems(item)); }}
                       onkeydown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); selectResultRange(item, event, event.key === ' '); } }}
                       ondblclick={(event) => { if (!event.shiftKey) void activateSelected(); }}>
                       <td>{#if isLocalFile(item.fileId)}<span class="host-mark" title={$t("Already on this computer")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{:else}<span class="host-mark absent" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="11.8" rx="2" /><path d="M9 20h6M12 16.4V20" /></svg></span>{/if}{item.name}{#if discussionActivity[item.fileId]}<span class="discussion-mark" title={discussionMarkLabel(discussionActivity[item.fileId])}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 5.4h15.6v9.8H9.6L5.2 19v-3.8H4.2z" /></svg>{discussionActivity[item.fileId].messages}</span>{/if}</td>
                       <td>{item.artist || '—'}</td><td>{item.album || '—'}</td><td>{item.format}</td><td class="number">{item.size}</td><td class="number"><span class="source-dot"></span>{item.sources}</td><td>{$t(item.speed)}</td>
                     </tr>
                   {/each}
+                  {/if}
                 </tbody>
               </table>
             </div>
@@ -4874,7 +5178,45 @@
           </section>
 
           <aside class="details-pane">
-            {#if selected}
+            {#if groupAlbums && selectedAlbum}
+              <!-- The album, and its tracks as the list they are: the same shape
+                   the playlists page uses, so a record reads the same wherever
+                   it is opened. -->
+              <div class="detail-hero">
+                <CoverArt artist={selectedAlbum.artist} album={selectedAlbum.album} size="large" revision={coverRevision} />
+                <span class="detail-hero-scrim" aria-hidden="true"></span>
+                <span class="detail-hero-text">
+                  <b title={selectedAlbum.album}>{selectedAlbum.album || $t("No album")}</b>
+                  <small>{selectedAlbum.artist || $t("Unknown artist")}</small>
+                  <span class="detail-hero-meta">{$t("{p0} tracks", { p0: selectedAlbum.items.length })} · {readableSize(selectedAlbum.items.reduce((total, row) => total + sizeInBytes(row.size), 0))}</span>
+                </span>
+              </div>
+              <div class="detail-actions">
+                <button class="classic-button primary" disabled={!nativeReady || downloadingSelection || !selectedAlbum.items.some(canDownloadResult)} onclick={() => void downloadResults(selectedAlbum!.items)} aria-busy={downloadingSelection}>{downloadingSelection ? $t("… Requesting") : $t("⇩ Download album")}</button>
+                <button class="classic-button" onclick={() => { selectedResultIds = new Set(selectedAlbum!.items.map((row) => row.fileId)); }}>{$t("Select all")}</button>
+              </div>
+              <div class="album-tracks" aria-label={$t("Album tracks")}>
+                {#each selectedAlbum.items as item, index (item.fileId)}
+                  <button
+                    type="button"
+                    class="album-track"
+                    class:selected={selectedResultIds.has(item.fileId)}
+                    class:local={isLocalFile(item.fileId)}
+                    aria-pressed={selectedResultIds.has(item.fileId)}
+                    onclick={(event) => selectAlbumTrack(item, event)}
+                    oncontextmenu={(event) => { selectAlbumTrack(item, event); openContextMenu(event, resultMenuItems(item)); }}
+                    ondblclick={() => { if (isLocalFile(item.fileId)) void playAudio(item.fileId, item.name, playerMode, 'search'); else void downloadResults([item]); }}
+                  >
+                    <span class="album-track-index">{String(index + 1).padStart(2, '0')}</span>
+                    <span class="album-track-copy"><b>{item.name}</b><small>{item.format} · {item.size}</small></span>
+                    {#if isLocalFile(item.fileId)}<i class="album-track-mark local">{$t("Local")}</i>
+                    {:else if startingDownloads.has(item.fileId)}<i class="album-track-mark">{$t("Requesting…")}</i>
+                    {:else}<i class="album-track-mark">{$t("{p0} seeders", { p0: item.sources })}</i>{/if}
+                  </button>
+                {/each}
+              </div>
+              <p class="privacy-note"><span>♜</span> {$t("Downloads use Tor. Tracks already on this computer, queued, or without seeders are skipped.")}</p>
+            {:else if selected}
               {#if selectedResultIds.size > 1}
                 <div class="selected-file">
                   <div class="large-file-icon">♫</div>
@@ -4958,7 +5300,7 @@
       {:else if activeView === 'Downloads'}
         <section class="full-panel downloads-view">
           <div class="panel-title"><span></span><b>{$t("Transfer Manager")}</b><span></span></div>
-          <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Ⅱ Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Deadwax folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
+          <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Deadwax folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
           <div class="download-queue">
             {#each audiobookDownloads as book}
               <div class="audiobook-download-row"><span class="audiobook-glyph">▥</span><b>{book.title}</b><div class="progress"><span style={`width:${book.chapters.length ? (book.nextIndex / book.chapters.length) * 100 : 0}%`}></span><b>{book.nextIndex}/{book.chapters.length}</b></div><span>{book.activeFileId ? $t("Downloading chapter {p0}", { p0: book.nextIndex + 1 }) : $t("Preparing next chapter")}</span></div>
@@ -4974,8 +5316,7 @@
       {:else if activeView === 'Shared'}
         <section class="full-panel shared-view">
           <div class="panel-title"><span></span><b>{$t("Shared Files")}</b><span></span></div>
-          <div class="actionbar"><button class="classic-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={openFolders}>{$t("Folders")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
-          <div class="folder-path"><b>{$t("Deadwax folder:")}</b><input value={napstrFolder || 'No folder selected'} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></div>
+          <div class="actionbar"><button class="classic-button" onclick={openNapstrFolder}>{$t("Open folder")}</button><button class="classic-button" onclick={openFolders}>{$t("Folders")}</button><button class="classic-button" onclick={playSelectedSharedAudio} disabled={!selectedShared}>{$t("▶ Play")}</button><button class="classic-button" onclick={playSelectedFolder} disabled={!selectedShared}>{$t("▶ Play folder")}</button><button class="classic-button primary" onclick={playAllSongs} disabled={!sharedFiles.length}>{$t("▶ Play all")}</button><button class="classic-button audiobook-button" onclick={openAudiobookEditor} disabled={libraryFolderView === '*' || audiobookChapters.length < 1}>▥ {folderAudiobook ? $t("Edit audiobook") : $t("Group as audiobook…")}</button><div class="spacer"></div><span>{$t("Sharing")} {sharedFiles.length} {$t("files ·")} {readableSize(indexedBytes)}</span></div>
           <div class="library-filter">
             <span class="library-filter-label">{$t("View folder:")}</span>
             <div class="folder-picker" use:containLibraryFolderMenu>
@@ -5024,13 +5365,15 @@
         <!--
           What this computer shares, folder by folder, and the reason for every
           file that is not on the network. The tree is asked for one level at a
-          time; the right-hand card is the contents of whichever folder is chosen.
+          time; beside it the chosen folder's contents, and under those the tags
+          and metadata of whichever track is picked.
         -->
         <section class="full-panel folders-view">
           <div class="panel-title"><span></span><b>{$t("Folders")}</b><span></span></div>
           <p class="folders-subtitle">{$t("what this computer shares, folder by folder")}</p>
           <div class="folders-tools">
-            <button class="caption-button" onclick={() => (activeView = 'Shared')}>← {$t("Shared Files")}</button>
+            <button class="caption-button" onclick={indexing ? cancelLibraryScan : rescanSharedFolder}>{indexing ? $t("× Cancel scan") : rescanPending ? $t("… Rescanning") : $t("↻ Rescan")}</button>
+            <button class="caption-button" onclick={openNapstrFolder}>{$t("Open folder")}</button>
             <span>{foldersLoading ? $t("Reading…") : $t("{p0} sources · {p1} files shared", { p0: folderSources.length, p1: sharedFiles.length })}</span>
             <button class="caption-button" title={$t("Refresh")} aria-label={$t("Refresh")} disabled={foldersLoading} onclick={() => void refreshFolders()}>⟳</button>
           </div>
@@ -5068,7 +5411,7 @@
                     style:padding-inline-start={`${10 + node.depth * 14}px`}
                   >
                     <button class="folder-twisty" disabled={!node.expandable} title={$t("Open or close this folder")} aria-label={$t("Open or close this folder")} onclick={() => void toggleFolder(node)}>{node.expandable ? (folderExpanded.has(node.key) ? '▾' : '▸') : ''}</button>
-                    <button class="folder-open" title={node.path} onclick={() => void chooseFolder(node)}><span aria-hidden="true">{node.depth === 0 ? '▤' : '📁'}</span><b>{node.name}</b></button>
+                    <button class="folder-open" title={node.path} onclick={() => void chooseFolder(node)} ondblclick={() => void playFolder(node)} oncontextmenu={(event) => openContextMenu(event, folderMenuItems(node))}><span aria-hidden="true">{node.depth === 0 ? '▤' : '📁'}</span><b>{node.name}</b></button>
                     {#if !node.shared && node.reason}<small class="folder-node-why" title={node.reason}>{node.reason}</small>{:else}<small class="folder-node-count">{node.files}</small>{/if}
                     <button class="folder-tick" aria-pressed={node.shared} title={node.shared ? $t("Stop sharing this folder") : $t("Share this folder")} aria-label={node.shared ? $t("Stop sharing this folder") : $t("Share this folder")} onclick={() => tickFolder(node)}>{node.shared ? '✓' : '☐'}</button>
                   </div>
@@ -5076,53 +5419,102 @@
               </div>
             </section>
 
-            <section class="folders-card" aria-label={$t("Folder contents")}>
-              <div class="section-caption">
-                <span>{folderShown?.name ?? $t("No folder chosen")}</span>
-                {#if folderChosen && folderChosen.depth > 0}<small>{folderSourceOf(folderChosen)?.name ?? ''}</small>{/if}
-                <div class="results-caption-tools">
-                  {#if folderChosen}
-                    <button class="caption-button" disabled={!folderChosen.shared} onclick={() => askToExclude(folderChosen!.sourceId, 'folder', folderChosen!.key, folderChosen!.name)}>{$t("Stop sharing")}</button>
-                    <button class="caption-button" onclick={() => void openSharedFolder()}>{$t("Open folder")}</button>
+            <div class="folders-stack">
+              <section class="folders-card folders-contents" aria-label={$t("Folder contents")}>
+                <div class="section-caption">
+                  <span>{folderShown?.name ?? $t("No folder chosen")}</span>
+                  {#if folderChosen && folderChosen.depth > 0}<small>{folderSourceOf(folderChosen)?.name ?? ''}</small>{/if}
+                  <div class="results-caption-tools">
+                    {#if folderChosen}
+                      <button class="caption-button" disabled={!folderChosen.shared} onclick={() => askToExclude(folderChosen!.sourceId, 'folder', folderChosen!.key, folderChosen!.name)}>{$t("Stop sharing")}</button>
+                      <button class="caption-button" onclick={() => void openSharedFolder()}>{$t("Open folder")}</button>
+                    {/if}
+                  </div>
+                </div>
+                {#if folderShown}
+                  <div class="folder-crumb" title={folderShown.path}>{folderShown.path}</div>
+                {/if}
+                <div class="folders-scroll">
+                  {#if folderShown && folderShown.rows.length > 0}
+                    <table class="folder-table">
+                      <thead><tr><th>{$t("Name")}</th><th class="num">{$t("Size")}</th><th>{$t("Status")}</th><th>{$t("Why")}</th><th></th></tr></thead>
+                      <tbody>
+                        {#each folderShown.rows as row (row.key)}
+                          <tr
+                            class:selected={folderTrack?.key === row.key}
+                            class:excluded={row.status === 'excluded'}
+                            class:not-shared={row.status === 'notShared'}
+                            class:ignored={row.status === 'ignored'}
+                            tabindex="0"
+                            aria-selected={folderTrack?.key === row.key}
+                            onclick={() => selectFolderTrack(row)}
+                            ondblclick={() => { if (row.status === 'shared') void playAudio(row.fileId, row.name, playerMode, 'shared'); }}
+                            onkeydown={(event) => { if (event.key === 'Enter' && row.status === 'shared') void playAudio(row.fileId, row.name, playerMode, 'shared'); }}
+                            oncontextmenu={(event) => { selectFolderTrack(row); openContextMenu(event, folderTrackMenuItems(row)); }}
+                          >
+                            <td class="folder-file-name" title={row.name}>{row.name}</td>
+                            <td class="num">{readableSize(row.size)}</td>
+                            <td><span class="folder-pill" class:ok={row.status === 'shared'} class:off={row.status === 'notShared'} class:dim={row.status === 'excluded' || row.status === 'ignored'}>{folderStatusWord(row.status)}</span></td>
+                            <td class="folder-reason-cell" title={folderWhy(row)}>{folderWhy(row)}</td>
+                            <td class="folder-row-action">
+                              {#if row.status === 'shared'}<button class="caption-button" onclick={(event) => { event.stopPropagation(); askToExclude(folderShown!.sourceId, 'file', row.key, row.name); }}>{$t("Stop sharing")}</button>
+                              {:else if row.status === 'excluded'}<button class="caption-button" onclick={(event) => { event.stopPropagation(); void includeAgain(folderShown!.sourceId, 'file', row.key, row.name); }}>{$t("Share again")}</button>{/if}
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  {:else if folderShown}
+                    <p class="empty-state compact">{$t("Nothing in this folder.")}</p>
+                  {:else if !foldersLoading}
+                    <p class="empty-state compact">{$t("Choose a folder to see what it holds.")}</p>
                   {/if}
                 </div>
-              </div>
-              {#if folderShown}
-                <div class="folder-crumb" title={folderShown.path}>{folderShown.path}</div>
-              {/if}
-              <div class="folders-scroll">
-                {#if folderShown && folderShown.rows.length > 0}
-                  <table class="folder-table">
-                    <thead><tr><th>{$t("Name")}</th><th class="num">{$t("Size")}</th><th>{$t("Status")}</th><th>{$t("Why")}</th><th></th></tr></thead>
-                    <tbody>
-                      {#each folderShown.rows as row (row.key)}
-                        <tr class:excluded={row.status === 'excluded'} class:not-shared={row.status === 'notShared'} class:ignored={row.status === 'ignored'}>
-                          <td class="folder-file-name" title={row.name}>{row.name}</td>
-                          <td class="num">{readableSize(row.size)}</td>
-                          <td><span class="folder-pill" class:ok={row.status === 'shared'} class:off={row.status === 'notShared'} class:dim={row.status === 'excluded' || row.status === 'ignored'}>{folderStatusWord(row.status)}</span></td>
-                          <td class="folder-reason-cell" title={folderWhy(row)}>{folderWhy(row)}</td>
-                          <td class="folder-row-action">
-                            {#if row.status === 'shared'}<button class="caption-button" onclick={() => askToExclude(folderShown!.sourceId, 'file', row.key, row.name)}>{$t("Stop sharing")}</button>
-                            {:else if row.status === 'excluded'}<button class="caption-button" onclick={() => void includeAgain(folderShown!.sourceId, 'file', row.key, row.name)}>{$t("Share again")}</button>{/if}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                {:else if folderShown}
-                  <p class="empty-state compact">{$t("Nothing in this folder.")}</p>
-                {:else if !foldersLoading}
-                  <p class="empty-state compact">{$t("Choose a folder to see what it holds.")}</p>
+                {#if folderShown}
+                  <div class="folder-summary">
+                    <span>{$t("{p0} of {p1} audio files shared", { p0: folderShown.shared, p1: folderShown.audio })}</span>
+                    {#if folderShown.unsupported > 0}<span class="warn">{$t(folderShown.unsupported === 1 ? "1 file in no shared format" : "{p0} files in no shared format", { p0: folderShown.unsupported })}</span>{/if}
+                    <span>{$t(folderShown.folders === 1 ? "1 folder" : "{p0} folders", { p0: folderShown.folders })}</span>
+                  </div>
                 {/if}
-              </div>
-              {#if folderShown}
-                <div class="folder-summary">
-                  <span>{$t("{p0} of {p1} audio files shared", { p0: folderShown.shared, p1: folderShown.audio })}</span>
-                  {#if folderShown.unsupported > 0}<span class="warn">{$t(folderShown.unsupported === 1 ? "1 file in no shared format" : "{p0} files in no shared format", { p0: folderShown.unsupported })}</span>{/if}
-                  <span>{$t(folderShown.folders === 1 ? "1 folder" : "{p0} folders", { p0: folderShown.folders })}</span>
+              </section>
+
+              <!-- The editor for one track: its tags, and the five fields the
+                   file itself carries. Format, bitrate and size are facts about
+                   the audio rather than settings, so they are written as words
+                   beside the name instead of as boxes nobody can type into. -->
+              <section class="folders-card folders-editor" aria-label={$t("Track details and tags")}>
+                <div class="section-caption">
+                  <span>{folderTrack?.name ?? $t("No track chosen")}</span>
+                  {#if folderTrack}
+                    <small class="folder-facts">{folderTrack.status === 'shared' ? $t("{p0} · {p1} · {p2}", { p0: folderTrackFile?.format || folderTrack.name.split('.').pop()?.toUpperCase() || '—', p1: folderTrackFile?.bitrateKbps ? $t("{p0} kbps", { p0: folderTrackFile.bitrateKbps }) : $t("bitrate unknown"), p2: readableSize(folderTrack.size) }) : folderWhy(folderTrack)}</small>
+                  {/if}
+                  <div class="results-caption-tools">
+                    <button class="caption-button primary" disabled={!folderTrackFile || folderMetaSaving} onclick={() => void saveFolderMetadata()}>{folderMetaSaving ? $t("Saving…") : $t("Save")}</button>
+                  </div>
                 </div>
-              {/if}
-            </section>
+                <div class="folder-editor-body">
+                  {#if folderTrackFile}
+                    <label class="folder-tags">
+                      <span>{$t("Tags")}</span>
+                      <input bind:value={folderMeta.tags} maxlength="500" spellcheck="false" placeholder={$t("punk, live, audiobook")} onkeydown={(event) => { if (event.key === 'Enter') void saveFolderTags(); }} />
+                      <button class="caption-button" onclick={() => void saveFolderTags()}>{$t("Save tags")}</button>
+                    </label>
+                    <small class="folder-note">{$t("Comma-separated · published with your signed catalogue")}</small>
+                    <div class="folder-meta-grid">
+                      <label>{$t("Title")} <input bind:value={folderMeta.title} maxlength="256" /></label>
+                      <label>{$t("Artist")} <input bind:value={folderMeta.artist} maxlength="256" /></label>
+                      <label>{$t("Album")} <input bind:value={folderMeta.album} maxlength="256" /></label>
+                      <label>{$t("Track")} <input bind:value={folderMeta.track} inputmode="numeric" maxlength="4" /></label>
+                      <label>{$t("Disc")} <input bind:value={folderMeta.disc} inputmode="numeric" maxlength="4" /></label>
+                    </div>
+                    <small class="folder-note">{$t("Writing these changes the file's bytes, so it is published again under its new hash.")}</small>
+                  {:else}
+                    <p class="empty-state compact">{folderTrack ? $t("This file is not shared, so it has no catalogue entry to edit.") : $t("Pick a track above to edit its tags.")}</p>
+                  {/if}
+                </div>
+              </section>
+            </div>
           </div>
         </section>
       {:else if activeView === 'Trollbox'}
@@ -5621,17 +6013,17 @@
               <article class="net-kpi">
                 <span class="net-label">{$t("Cover claims")}</span>
                 <b class="net-value">{counted(catalogueStats.coverClaims)}</b>
-                <span class="net-under">{$t("kind {p0} held here", { p0: '30427' })}</span>
+                <span class="net-under">{$t("covers claimed by anyone, held here")}</span>
               </article>
               <article class="net-kpi">
                 <span class="net-label">{$t("Claims you signed")}</span>
                 <b class="net-value">{counted(catalogueStats.signedClaims)}</b>
-                <span class="net-under">{$t("of {p0} held", { p0: counted(catalogueStats.coverClaims) })}</span>
+                <span class="net-under">{$t("of {p0} held here", { p0: counted(catalogueStats.coverClaims) })}</span>
               </article>
               <article class="net-kpi">
                 <span class="net-label">{$t("Playlists")}</span>
                 <b class="net-value">{counted(catalogueStats.playlists)}</b>
-                <span class="net-under">{$t("held here, at any author")}</span>
+                <span class="net-under">{$t("held here, whoever wrote them")}</span>
               </article>
             </div>
             {#if behind}
@@ -5773,7 +6165,7 @@
           <div class="panel-title"><span></span><b>{$t("Deadwax Settings")}</b><span></span></div>
           <fieldset><legend>{$t("Language")}</legend><LanguageSelect /><small>{$t("Saved automatically on this device.")}</small></fieldset>
           <fieldset><legend>{$t("Network")}</legend><label><input type="checkbox" checked disabled /> {$t("Connect automatically at startup")}</label><label>{$t("Nostr relays")} <input bind:value={nostrRelays} /></label><label>Tor <input value={$t("Bundled, managed automatically")} readonly /></label></fieldset>
-          <fieldset><legend>{$t("Files")}</legend><label>{$t("Downloads and shared audio")} <input value={napstrFolder} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></label><label>{$t("Transfer mode")} <select disabled><option>{$t("Whole file")}</option></select></label><label><input type="checkbox" checked disabled /> {$t("Downloaded audio is automatically shared")}</label><label><input type="checkbox" checked disabled /> {$t("Verify the complete file with SHA-256")}</label></fieldset>
+          <fieldset><legend>{$t("Files")}</legend><label>{$t("Downloads folder")} <input value={napstrFolder} readonly /><button class="classic-button" onclick={chooseNapstrFolder}>{$t("Browse…")}</button></label><label>{$t("Audiobooks folder")} <input value={audiobooksFolder} readonly /><button class="classic-button" onclick={chooseAudiobooksFolder}>{$t("Browse…")}</button></label><label>{$t("Transfer mode")} <select disabled><option>{$t("Whole file")}</option></select></label><label><input type="checkbox" checked disabled /> {$t("Downloaded audio is automatically shared")}</label><label><input type="checkbox" checked disabled /> {$t("Verify the complete file with SHA-256")}</label></fieldset>
           <fieldset class="cover-settings"><legend>{$t("Album art")}</legend>
             <label class="settings-switch"><input type="checkbox" checked={coverStatus?.lookupExternal ?? false} onchange={(event) => void setCoverPreferences(event.currentTarget.checked, coverStatus?.publishClaims ?? false)} /><span>{$t("Look up art automatically")}<small>{$t("Asks MusicBrainz and the Cover Art Archive about every album without a cover, and the iTunes catalogue when those have nothing.")}</small></span></label>
             <label class="settings-switch"><input type="checkbox" checked={coverStatus?.publishClaims ?? false} onchange={(event) => void setCoverPreferences(coverStatus?.lookupExternal ?? false, event.currentTarget.checked)} /><span>{$t("Sign and publish the covers I resolve")}<small>{$t("Sends a claim signed with your own identity to your relays.")}</small></span></label>
@@ -6030,6 +6422,15 @@
       </dialog>
     </div>
   {/if}
+  {#if contextMenu}
+    <div class="context-menu" role="menu" use:containContextMenu style:left={`${contextMenu.x}px`} style:top={`${contextMenu.y}px`}>
+      {#each contextMenu.items as item, index (index)}
+        {#if item.separator && index > 0}<hr />{/if}
+        <button type="button" role="menuitem" class="context-item" disabled={item.disabled} onclick={() => runContextItem(item)}>{#if item.icon}<span aria-hidden="true">{item.icon}</span>{/if}{$t(item.label)}</button>
+      {/each}
+    </div>
+  {/if}
+
   {#if folderExcluding}
     <div class="modal-backdrop" role="presentation" onclick={() => (folderExcluding = null)}>
       <dialog class="dialog confirm-dialog" open aria-label={$t("Stop sharing")} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') folderExcluding = null; }}>

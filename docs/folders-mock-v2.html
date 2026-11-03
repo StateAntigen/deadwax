@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deadwax folders — console mock (v2, for review)</title>
+    <!--
+      The folders screen in the app's own console skin, for approval before it is
+      built. Same information as folders-mock.html — sources, a tree, per-folder
+      sharing, and a file status that says why something is not shared — drawn with
+      the tokens src/theme.css already uses: #0c0f14 panels, a --line hairline, one
+      small card header, mono figures, and the green accent for what is live.
+    -->
+    <style>
+      :root {
+        --bg: #080b10;
+        --panel: #0c0f14;
+        --panel-raised: #11151c;
+        --sunken: #090c11;
+        --line: #1d232c;
+        --line-strong: #2b333f;
+        --text: #e6edf3;
+        --muted: #97a3b1;
+        --dim: #6b7684;
+        --accent: #43e5a0;
+        --accent-soft: rgba(67, 229, 160, 0.12);
+        --accent-line: rgba(67, 229, 160, 0.45);
+        --warn: #f2a93b;
+        --danger: #ff6b6b;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 12.5px;
+        color: var(--text);
+        background: var(--bg);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; display: flex; justify-content: center; }
+      .window {
+        width: 1240px;
+        height: 780px;
+        display: grid;
+        grid-template-columns: 62px minmax(0, 1fr);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .rail { border-inline-end: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; padding: 14px 0; align-items: center; }
+      .rail span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: var(--dim); }
+      .rail span.on { color: var(--accent); background: var(--accent-soft); }
+      .main { display: grid; grid-template-rows: 46px minmax(0, 1fr) 40px; min-width: 0; }
+      .topbar { display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid var(--line); color: var(--muted); }
+      .topbar b { color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent-line); }
+
+      .page { padding: 12px 18px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+      .page-title { display: flex; align-items: baseline; gap: 10px; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .page-title small { color: var(--dim); font-size: 11.5px; font-weight: 400; }
+
+      .split { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 12px; min-height: 0; flex: 1 1 auto; }
+      .card { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+      .head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+      .head > span { color: var(--text); font-size: 12px; font-weight: 600; }
+      .head small { color: var(--dim); }
+      .head .tools { margin-inline-start: auto; display: flex; gap: 6px; }
+      .btn {
+        height: 22px; padding: 0 9px; display: inline-grid; place-items: center;
+        color: var(--muted); background: transparent; border: 1px solid var(--line);
+        border-radius: 7px; font: inherit; font-size: 11px; font-weight: 600;
+      }
+      .btn.primary { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+
+      /* Sources + tree */
+      .scroll { overflow: auto; min-height: 0; flex: 1 1 auto; }
+      .source, .node { display: grid; align-items: center; gap: 8px; padding: 6px 10px; }
+      .source { grid-template-columns: 8px minmax(0, 1fr) auto; border-bottom: 1px solid var(--line); }
+      .source.sel { background: var(--panel-raised); }
+      .source b { display: block; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .source small { display: block; color: var(--dim); font-family: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .led { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+      .led.off { background: var(--warn); }
+      .badge { padding: 1px 6px; color: var(--muted); background: var(--panel-raised); border: 1px solid var(--line); border-radius: 999px; font-size: 10px; }
+      .badge.off { color: var(--warn); border-color: rgba(242, 169, 59, 0.4); background: rgba(242, 169, 59, 0.08); }
+
+      .node { display: grid; grid-template-columns: 12px 16px minmax(0, 1fr) minmax(0, auto) auto 14px; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: default; }
+      .node:hover { background: var(--panel-raised); }
+      .node.sel { background: var(--accent-soft); }
+      .node .name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .node.root .name { color: var(--text); font-weight: 600; }
+      .node.excluded .name { color: var(--dim); text-decoration: line-through; }
+      .node .why { max-width: 190px; color: var(--dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .node .count { color: var(--dim); font-family: var(--mono); font-size: 10.5px; }
+      .twisty { color: var(--dim); font-size: 10px; }
+      .tick { width: 14px; height: 14px; display: grid; place-items: center; color: var(--accent); border: 1px solid var(--accent-line); border-radius: 4px; font-size: 9px; }
+      .tick.off { color: var(--dim); border-color: var(--line-strong); }
+
+      /* Contents */
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th { position: sticky; top: 0; padding: 6px 12px; text-align: start; color: var(--dim); background: var(--panel-raised); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+      td { padding: 6px 12px; border-bottom: 1px solid var(--line); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+      th:nth-child(1), td:nth-child(1) { width: auto; }
+      th:nth-child(2), td:nth-child(2) { width: 84px; }
+      th:nth-child(3), td:nth-child(3) { width: 96px; }
+      th:nth-child(4), td:nth-child(4) { width: 21%; }
+      td.num { text-align: end; color: var(--text); font-family: var(--mono); font-size: 11px; }
+      tr:hover td { background: var(--panel-raised); }
+      tr.excluded td.name { color: var(--dim); text-decoration: line-through; }
+      tr.unsupported td.reason, tr.unsupported td.cell-status { color: var(--danger); }
+      tr.ignored td { color: var(--dim); }
+      .pill { display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; line-height: 1.5; vertical-align: middle; color: var(--muted); }
+      .pill.ok { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+      .pill.off { color: var(--danger); border-color: rgba(255, 107, 107, 0.4); background: rgba(255, 107, 107, 0.08); }
+      .pill.dim { color: var(--dim); }
+      .crumb { padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--dim); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .summary { display: flex; gap: 14px; padding: 8px 12px; border-top: 1px solid var(--line); color: var(--dim); font-size: 11px; }
+      .summary .warn { color: var(--warn); }
+
+
+      /* Right column: the contents, and under it the tags + metadata tool. */
+      .stack { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+      .stack > .contents { flex: 1 1 auto; }
+      .stack > .editor { flex: 0 0 auto; }
+      .tools-row { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; }
+      .tools-row .grow { flex: 1 1 auto; }
+      tr.sel td { background: var(--accent-soft); }
+      tr { cursor: default; }
+
+      .ctx {
+        position: absolute; inset-inline-start: 34%; inset-block-start: 168px; z-index: 5;
+        min-width: 190px; padding: 5px; display: flex; flex-direction: column;
+        background: var(--panel-raised); border: 1px solid var(--line-strong);
+        border-radius: 9px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+      }
+      .ctx button {
+        display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+        color: var(--text); background: none; border: 0; border-radius: 6px;
+        font: inherit; font-size: 11.5px; text-align: start;
+      }
+      .ctx button:hover { background: var(--hover); }
+      .ctx button span { color: var(--dim); font-size: 10px; }
+      .ctx hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }
+
+      .editor-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; }
+      .tags-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; }
+      .editor-note { color: var(--dim); font-size: 10.5px; }
+      .head .facts { color: var(--dim); font-family: var(--mono); font-size: 10.5px; margin-inline-start: 4px; }
+      .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 10px; margin-top: 4px; }
+      .meta-grid label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 11px; }
+      input {
+        height: 26px; padding: 0 8px; color: var(--text); background: var(--sunken);
+        border: 1px solid var(--line); border-radius: 7px; font: inherit; font-size: 12px; min-width: 0;
+      }
+      .editor .card, .contents { position: relative; }      .statusbar { display: flex; align-items: center; gap: 18px; padding: 0 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div class="window">
+      <nav class="rail" aria-label="Views">
+        <span>⌕</span><span>▦</span><span>⇩</span><span>▤</span><span class="on">▥</span><span>♫</span><span>☺</span>
+      </nav>
+      <div class="main">
+        <header class="topbar"><b>deadwax</b><span>/</span><span>Folders</span><span style="flex: 1"></span><i class="dot"></i><span>Nostr connected</span><span>·</span><span>Tor connected</span></header>
+
+        <div class="page">
+          <div class="page-title">Folders <small>what this computer shares, folder by folder</small></div>
+          <div class="tools-row">
+            <button class="btn">↻ Rescan</button>
+            <button class="btn">Open folder</button>
+            <button class="btn">⟳</button>
+            <span class="grow"></span>
+            <span>Sharing 2,024 files · 41.2 GB</span>
+          </div>
+
+          <div class="split">
+            <section class="card" aria-label="Sources and folders">
+              <div class="head"><span>Sources</span><small>2</small><div class="tools"><button class="btn">+ Add</button></div></div>
+              <div class="scroll" id="sources">
+                <div class="source sel"><i class="led"></i><span><b>Music</b><small>\\192.168.12.112\music\Aristotle</small></span><span class="badge">Shared</span></div>
+                <div class="source"><i class="led off"></i><span><b>Audiobooks</b><small>D:\Audiobooks</small></span><span class="badge off">Parked</span></div>
+                <div class="node root">
+                  <span class="twisty">▾</span><span>▤</span>
+                  <span class="name">Music</span><span class="count">2,024</span><span class="tick">✓</span>
+                </div>
+                <div class="node" style="padding-inline-start:26px"><span class="twisty">▾</span><span>📁</span><span class="name">Muse</span><span class="count">44</span><span class="tick">✓</span></div>
+                <div class="node sel" style="padding-inline-start:44px"><span class="twisty"></span><span>📁</span><span class="name">Absolution (2003)</span><span class="count">6</span><span class="tick">✓</span></div>
+                <div class="node" style="padding-inline-start:44px"><span class="twisty"></span><span>📁</span><span class="name">Origin of Symmetry (2001)</span><span class="count">12</span><span class="tick">✓</span></div>
+                <div class="node" style="padding-inline-start:44px"><span class="twisty"></span><span>📁</span><span class="name">The Resistance (2009)</span><span class="count">11</span><span class="tick">✓</span></div>
+                <div class="node" style="padding-inline-start:26px"><span class="twisty">▸</span><span>📁</span><span class="name">Alexisonfire</span><span class="count">33</span><span class="tick">✓</span></div>
+                <div class="node excluded" style="padding-inline-start:26px"><span class="twisty">▸</span><span>📁</span><span class="name">Podcasts</span><span class="why">not music, kept off the network</span><span class="tick off">☐</span></div>
+              </div>
+            </section>
+
+            <div class="stack">
+              <section class="card contents" aria-label="Folder contents">
+                <div class="head"><span>Absolution (2003)</span><small>Muse</small><div class="tools"><button class="btn">Stop sharing</button><button class="btn">⇩ Album</button></div></div>
+                <div class="crumb">\\192.168.12.112\music\Aristotle\Muse\Absolution (2003)</div>
+                <div class="scroll">
+                  <table>
+                    <thead><tr><th>Name</th><th style="text-align:end">Size</th><th>Status</th><th>Why</th></tr></thead>
+                    <tbody>
+                      <tr><td class="name">01 - Apocalypse Please.mp3</td><td class="num">8.5 MB</td><td class="cell-status"><span class="pill ok">Shared</span></td><td class="reason"></td></tr>
+                      <tr class="sel"><td class="name">02 - Time Is Running Out.mp3</td><td class="num">7.4 MB</td><td class="cell-status"><span class="pill ok">Shared</span></td><td class="reason"></td></tr>
+                      <tr><td class="name">03 - Sing for Absolution.mp3</td><td class="num">9.0 MB</td><td class="cell-status"><span class="pill ok">Shared</span></td><td class="reason"></td></tr>
+                      <tr><td class="name">04 - Stockholm Syndrome.mp3</td><td class="num">9.5 MB</td><td class="cell-status"><span class="pill ok">Shared</span></td><td class="reason"></td></tr>
+                      <tr><td class="name">05 - Falling Away with You.mp3</td><td class="num">8.3 MB</td><td class="cell-status"><span class="pill ok">Shared</span></td><td class="reason"></td></tr>
+                      <tr class="excluded"><td class="name">06 - Interlude.mp3</td><td class="num">1.0 MB</td><td class="cell-status"><span class="pill dim">Excluded</span></td><td class="reason">the rip is silent</td></tr>
+                      <tr class="unsupported"><td class="name">07 - Hysteria.m4a</td><td class="num">8.8 MB</td><td class="cell-status"><span class="pill off">Not shared</span></td><td class="reason">M4A audio is not a shared format</td></tr>
+                      <tr class="ignored"><td class="name">cover.jpg</td><td class="num">182.0 KB</td><td class="cell-status"><span class="pill dim">Ignored</span></td><td class="reason">not audio</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="summary"><span>6 of 7 audio files shared</span><span class="warn">1 file in no shared format</span><span>3 folders</span></div>
+
+                <!-- Drawn open so the shape can be reviewed: right-clicking a row
+                     offers the same actions the search page will. -->
+                <div class="ctx" role="menu" aria-label="Track actions">
+                  <button role="menuitem"><span>▶</span> Play track</button>
+                  <button role="menuitem" class="muted-item"><span>⇩</span> Download</button>
+                  <button role="menuitem"><span>⌕</span> Search for artist</button>
+                  <button role="menuitem"><span>⌕</span> Search for album</button>
+                  <hr />
+                  <button role="menuitem"><span>⊘</span> Stop sharing</button>
+                </div>
+              </section>
+
+              <section class="card editor" aria-label="Track details and tags">
+                <div class="head"><span>02 - Time Is Running Out.mp3</span><small class="facts">MP3 · 192 kbps · 7.4 MB</small><div class="tools"><button class="btn primary">Save</button></div></div>
+                <div class="editor-body">
+                  <label class="tags-row">
+                    <span>Tags</span>
+                    <input value="alternative rock, 2003" spellcheck="false" />
+                    <button class="btn">Save tags</button>
+                  </label>
+                  <small class="editor-note">Comma-separated · published with your signed catalogue</small>
+                  <div class="meta-grid">
+                    <label>Title <input value="Time Is Running Out" /></label>
+                    <label>Artist <input value="Muse" /></label>
+                    <label>Album <input value="Absolution" /></label>
+                    <label>Album artist <input value="Muse" /></label>
+                    <label>Track <input value="2" /></label>
+                    <label>Disc <input value="1" /></label>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <footer class="statusbar"><span>›</span><span>2 sources</span><span>2,024 files shared</span><span style="color:var(--warn)">3 files in no shared format</span></footer>
+      </div>
+    </div>
+  </body>
+
+</html>
