@@ -116,7 +116,7 @@ test('Deadwax marks a track that came from another computer', async ({ page }) =
 /** Opens the settings sheet. */
 async function openSettings(page) {
   await page.getByLabel('Settings').click();
-  await expect(page.getByRole('button', { name: 'Add a computer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add a host' })).toBeVisible();
 }
 
 test('Deadwax lists the computers it may read, and forgets one without the rest', async ({ page }) => {
@@ -130,11 +130,13 @@ test('Deadwax lists the computers it may read, and forgets one without the rest'
 
   const rows = page.locator('.computer-row');
   await expect(rows).toHaveCount(2);
-  // The computer this phone acts through is named as such, so the two are not
-  // just two names.
+  // Each computer is named, and the one this phone acts through is the one that is
+  // not offering to become it - the row says so by its action rather than by a
+  // second line of prose under the name.
   await expect(rows.first()).toContainText('My Deadwax');
-  await expect(rows.first()).toContainText("This phone's home computer");
   await expect(rows.last()).toContainText("Ada's Deadwax");
+  await expect(rows.first().getByRole('button', { name: /the home computer/ })).toHaveCount(0);
+  await expect(rows.last().getByRole('button', { name: /the home computer/ })).toHaveCount(1);
 
   await page.getByRole('button', { name: "Forget Ada's Deadwax" }).click();
 
@@ -147,7 +149,7 @@ test('Deadwax lists the computers it may read, and forgets one without the rest'
   // The computer went, and the row that adds one is still there.
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('My Deadwax');
-  await expect(page.getByRole('button', { name: 'Add a computer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add a host' })).toBeVisible();
   // And the library on screen is the phone's own computer's again.
   await expect(page.locator('.track-row strong')).toHaveText(['My Song']);
 });
@@ -159,7 +161,7 @@ test('Deadwax adds a computer from settings, and the choice appears', async ({ p
 
   await openSettings(page);
   await expect(page.locator('.computer-row')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Add a computer' }).click();
+  await page.getByRole('button', { name: 'Add a host' }).click();
 
   // The pairing screen, said the way a phone that already holds a computer
   // should hear it. It covers the app rather than sitting inside it.
@@ -183,7 +185,7 @@ test('Deadwax adds a computer from settings, and the choice appears', async ({ p
 test('Deadwax leaves the adding screen on a back press rather than the app', async ({ page }) => {
   await openApp(page, { known: [myComputer] });
   await openSettings(page);
-  await page.getByRole('button', { name: 'Add a computer' }).click();
+  await page.getByRole('button', { name: 'Add a host' }).click();
   await expect(page.getByText('Another computer.')).toBeVisible();
 
   // Android only gives the press because the page said it could take it.
@@ -257,22 +259,22 @@ test('Deadwax lets the home computer be chosen, and keeps the choice', async ({ 
   await openSettings(page);
 
   const rows = page.locator('.computer-row');
-  await expect(rows.first()).toContainText("This phone's home computer");
-  await expect(rows.last()).toContainText('A library this phone reads');
   // Only one row offers the choice, because the home one already is.
   const choose = page.locator('.computer-row button:has-text("Make home")');
   await expect(choose).toHaveCount(1);
+  await expect(rows.last().getByRole('button', { name: /the home computer/ })).toHaveCount(1);
 
   await rows.last().getByRole('button', { name: "Make Ada's Deadwax the home computer" }).click();
 
   // The choice is the phone's to keep, so the call is the assertion - and the
-  // list on screen follows it rather than guessing.
+  // list on screen follows it rather than guessing: the offer has moved to the
+  // row that is no longer the home computer.
   await expect
     .poll(() => page.evaluate(() => window.calls.filter((call) => call.cmd === 'set_mobile_home_host').map((call) => call.args.endpointId)))
     .toEqual([id('f')]);
-  await expect(rows.last()).toContainText("This phone's home computer");
-  await expect(rows.first()).toContainText('A library this phone reads');
   await expect(choose).toHaveCount(1);
+  await expect(rows.first().getByRole('button', { name: /the home computer/ })).toHaveCount(1);
+  await expect(rows.last().getByRole('button', { name: /the home computer/ })).toHaveCount(0);
 });
 
 test('a cold start says it is connecting rather than offline, then connects once', async ({ page }) => {

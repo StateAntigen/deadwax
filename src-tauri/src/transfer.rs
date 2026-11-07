@@ -717,11 +717,14 @@ where
     let key = capability_key(&capability);
     let authorized = {
         let guard = grants.read().await;
-        guard
-            .get(&key)
-            .map(|grant| grant.file_id == file_id && grant.expires_at > Utc::now().timestamp())
-            .unwrap_or(false)
+        guard.get(&key).map(|grant| {
+            (
+                grant.file_id == file_id && grant.expires_at > Utc::now().timestamp(),
+                grant.requester.clone(),
+            )
+        })
     };
+    let (authorized, requester) = authorized.unwrap_or((false, String::new()));
     if !authorized {
         write_frame(
             &mut stream,
@@ -765,7 +768,7 @@ where
         &ServerFrame::Welcome {
             version: PROTOCOL_VERSION,
             file_id: file_id.clone(),
-            filename,
+            filename: filename.clone(),
             size,
         },
     )
@@ -813,6 +816,14 @@ where
             ClientFrame::TransferComplete => {
                 write_frame(&mut stream, &ServerFrame::TransferComplete).await?;
                 grants.write().await.remove(&key);
+                // The peer has the file. This is the moment the transfer really
+                // happened, so it is the moment the Uploads list remembers.
+                let recorded = crate::open_connection(db_path).and_then(|connection| {
+                    crate::record_upload(&connection, &file_id, &filename, size, &requester)
+                });
+                if let Err(error) = recorded {
+                    crate::diag::note(&format!("could not record an upload: {error}"));
+                }
                 return Ok(());
             }
             ClientFrame::Cancel => {

@@ -2,7 +2,7 @@ use lofty::{
     config::ParseOptions,
     file::{AudioFile, TaggedFileExt},
     probe::Probe,
-    tag::{Accessor, Tag, TagExt},
+    tag::{items::Timestamp, Accessor, Tag, TagExt},
 };
 use std::{
     fs::File,
@@ -18,6 +18,13 @@ pub struct AudioMetadata {
     pub title: String,
     pub artist: String,
     pub album: String,
+    /// The file's own genre frame, which is the only place a genre exists for a
+    /// track: the catalogue publishes whatever words the author chose, and a
+    /// `30427` claim puts a genre on an album rather than on a file.
+    pub genre: String,
+    /// Zero when the file does not say. A year is a number in every container
+    /// that keeps one, so zero is not a year anybody could mean.
+    pub year: u32,
     pub track_number: u32,
     pub disc_number: u32,
 }
@@ -130,6 +137,16 @@ pub fn read_details(path: &Path) -> (AudioMetadata, AudioProperties) {
             title: first_safe_metadata_value(&tagged_file, |tag| tag.title()),
             artist: first_safe_metadata_value(&tagged_file, |tag| tag.artist()),
             album: first_safe_metadata_value(&tagged_file, |tag| tag.album()),
+            genre: first_safe_metadata_value(&tagged_file, |tag| tag.genre()),
+            // lofty 0.25 keeps a year inside a date rather than as its own
+            // accessor, and `date()` already falls back to a bare `Year` frame,
+            // so one read covers "2021" and "2021-05-01" alike.
+            year: tagged_file
+                .tags()
+                .iter()
+                .find_map(|tag| tag.date())
+                .map(|date| date.year as u32)
+                .unwrap_or_default(),
             track_number: tagged_file
                 .tags()
                 .iter()
@@ -160,6 +177,8 @@ pub struct AudioTagEdit {
     pub title: String,
     pub artist: String,
     pub album: String,
+    pub genre: String,
+    pub year: u32,
     pub track_number: u32,
     pub disc_number: u32,
 }
@@ -211,6 +230,20 @@ pub fn write_metadata(path: &Path, edit: &AudioTagEdit) -> Result<(), String> {
         tag.remove_album();
     } else {
         tag.set_album(album);
+    }
+    let genre = text(&edit.genre);
+    if genre.is_empty() {
+        tag.remove_genre();
+    } else {
+        tag.set_genre(genre);
+    }
+    if edit.year == 0 {
+        tag.remove_date();
+    } else {
+        tag.set_date(Timestamp {
+            year: edit.year.min(u16::MAX as u32) as u16,
+            ..Timestamp::default()
+        });
     }
     if edit.track_number == 0 {
         tag.remove_track();

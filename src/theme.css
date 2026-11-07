@@ -1791,6 +1791,45 @@ input:focus, select:focus, textarea:focus {
 .shared-view .shared-meta { margin: 0; }
 .downloads-view .download-queue { margin: 0; }
 .downloads-view .actionbar { padding: 2px 4px; border: 0; }
+/* Two halves, one page: what came in on the left and what went out on the right.
+   Each half scrolls on its own, so a long upload history cannot push the queue
+   off the screen and a long queue cannot bury the history. */
+.downloads-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+}
+.downloads-view > .panel-title,
+.downloads-view > .actionbar { grid-column: 1 / -1; }
+.downloads-view > .download-queue,
+.downloads-view .upload-queue {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.queue-column-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.queue-column-head b {
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.queue-column-head small { color: var(--dim); font-size: 11px; }
+.queue-column-head .caption-button { margin-left: auto; }
+.upload-queue .file-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 900px) {
+  /* Two halves side by side on a narrow window leaves neither readable. */
+  .downloads-view {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+  }
+}
 .trollbox-view .trollbox-compose { margin: 0; }
 
 /* A page whose title is a sibling of its cards, rather than the first child of a

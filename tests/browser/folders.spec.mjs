@@ -156,8 +156,13 @@ test('a track feeds the editor, and saving writes its tags', async ({ page }) =>
   await expect(editor.locator('.folder-facts')).toContainText('WAV');
   await expect(editor.getByLabel('Title')).toHaveValue('Search');
   await expect(editor.getByLabel('Album')).toHaveValue('User album');
+  // The file's own genre and year, which the index now keeps.
+  await expect(editor.getByLabel('Genre')).toHaveValue('Shoegaze');
+  await expect(editor.getByLabel('Year')).toHaveValue('1997');
 
   await editor.getByLabel('Title').fill('Intro (Remastered)');
+  await editor.getByLabel('Genre').fill('Shoegaze');
+  await editor.getByLabel('Year').fill('1997');
   await editor.getByLabel('Track').fill('1');
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
 
@@ -168,11 +173,29 @@ test('a track feeds the editor, and saving writes its tags', async ({ page }) =>
       title: 'Intro (Remastered)',
       artist: 'Settings',
       album: 'User album',
+      genre: 'Shoegaze',
+      year: 1997,
       trackNumber: 1,
       discNumber: 0
     });
   // The answer is read again, and the row being edited is the one chosen.
   await expect(editor.getByLabel('Title')).toHaveValue('Intro (Remastered)');
+});
+
+test('the genre box offers the words this library already uses', async ({ page }) => {
+  // A suggestion list rather than a free box: a library that has already said
+  // "Shoegaze" should not be asked to spell it again, and the curated list is
+  // there for the case where nothing has been said yet.
+  await openFolders(page);
+  await page.locator('.folder-table tbody tr').nth(0).click();
+
+  const choices = await page.locator('#folder-genre-choices option').evaluateAll((options) =>
+    options.map((option) => option.value)
+  );
+  expect(choices).toContain('Shoegaze');
+  expect(choices).toContain('Rock');
+  // One entry per spelling, not one per file.
+  expect(new Set(choices).size).toBe(choices.length);
 });
 
 test('a track right-clicked offers playing it and searching for its artist', async ({ page }) => {

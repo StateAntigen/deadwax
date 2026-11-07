@@ -102,6 +102,16 @@
     status: string;
     destination: string;
   };
+  /** A file somebody took from this computer. */
+  type Upload = {
+    id: number;
+    fileId: string;
+    filename: string;
+    size: number;
+    /** The requester as an npub, or as the hex key when it could not be read. */
+    requester: string;
+    createdAt: string;
+  };
 
   const views: { label: View; icon: string }[] = [
     { label: 'Search', icon: '⌕' },
@@ -143,7 +153,7 @@
   const aboutIcon = 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 17h.01';
   const railChevron = { open: 'M15 5.5 8.5 12l6.5 6.5', closed: 'M9 5.5 15.5 12 9 18.5' };
 
-  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string; bitrateKbps?: number; trackNumber?: number; discNumber?: number };
+  type NativeFile = { fileId: string; filename: string; path: string; folder: string; size: number; format: string; status: string; title: string; artist: string; album: string; mime: string; license: string; description: string; tags: string; bitrateKbps?: number; trackNumber?: number; discNumber?: number; genre?: string; year?: number };
   type NativeTransfer = { id: number; fileId: string; filename: string; size: number; progress: number; status: string; speed: string; destination: string };
   type NativeSettings = { napstrFolder: string; audiobooksFolder: string; nostrRelays: string; displayName: string; profileAbout: string; profilePicture: string };
   type AudiobookChapter = { position: number; fileId: string; filename: string; title: string; format: string; mime: string; size: number };
@@ -312,6 +322,9 @@
   let downloadingSelection = false;
   let clearingTransfers = false;
   let removingTransfers = new Set<number>();
+  let uploadHistory: Upload[] = [];
+  let uploadsLoaded = false;
+  let uploadsError: string | Message = '';
   let downloadGeneration = 0;
   let nextOptimisticTransferId = Date.now();
   let downloadLibraryRefreshNeeded = false;
@@ -689,6 +702,31 @@
 
   function isLocalFile(fileId: string) {
     return localFileIds.has(fileId);
+  }
+
+  // Reaching the page from the rail is the same wish as pressing the button
+  // that came before it, so the first time it is drawn it reads what has left
+  // this computer by itself.
+  $: if (activeView === 'Downloads' && nativeReady && !uploadsLoaded) void refreshUploads();
+
+  /** What has been downloaded from this computer, newest first. */
+  async function refreshUploads() {
+    if (!nativeReady) return;
+    try {
+      uploadHistory = await invoke<Upload[]>('uploads');
+      uploadsError = '';
+    } catch (error) {
+      uploadsError = msg("Could not read the upload history: {p0}", { p0: String(error) });
+    } finally {
+      uploadsLoaded = true;
+    }
+  }
+
+  /** A timestamp as a person reads it, in their own clock and language. */
+  function uploadWhen(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
   function folderName(folder: string) {
@@ -2252,8 +2290,28 @@
 
   /** The track the editor under the contents is showing. */
   let folderTrack: FolderFile | null = null;
-  let folderMeta = { title: '', artist: '', album: '', track: '', disc: '', tags: '' };
+  let folderMeta = { title: '', artist: '', album: '', genre: '', year: '', track: '', disc: '', tags: '' };
   let folderMetaSaving = false;
+  /**
+   * What the genre box offers.
+   *
+   * Two sources and no request: the genres this library's own files already
+   * carry, so the spelling that is already in use is the one that comes back, and
+   * a short list of the words worth having before a library has any. Nothing here
+   * is authoritative - the box still takes whatever is typed into it.
+   */
+  const GENRE_SUGGESTIONS = [
+    'Alternative', 'Ambient', 'Blues', 'Classical', 'Country', 'Dance',
+    'Drum & Bass', 'Electronic', 'Folk', 'Funk', 'Hip Hop', 'House', 'Indie',
+    'Jazz', 'Metal', 'Pop', 'Punk', 'R&B', 'Reggae', 'Rock', 'Soul',
+    'Soundtrack', 'Techno', 'Trip Hop'
+  ];
+  $: genreChoices = [
+    ...new Set([
+      ...sharedFiles.map((file) => (file.genre ?? '').trim()).filter((genre) => genre !== ''),
+      ...GENRE_SUGGESTIONS
+    ])
+  ].sort((left, right) => left.localeCompare(right));
   $: folderTrackFile = folderTrack?.fileId
     ? sharedFiles.find((file) => file.fileId === folderTrack!.fileId) ?? null
     : null;
@@ -2266,6 +2324,8 @@
       title: file?.title ?? '',
       artist: file?.artist ?? '',
       album: file?.album ?? '',
+      genre: file?.genre ?? '',
+      year: file?.year ? String(file.year) : '',
       track: file?.trackNumber ? String(file.trackNumber) : '',
       disc: file?.discNumber ? String(file.discNumber) : '',
       tags: file?.tags ?? ''
@@ -2291,6 +2351,8 @@
           title: folderMeta.title,
           artist: folderMeta.artist,
           album: folderMeta.album,
+          genre: folderMeta.genre,
+          year: Math.max(0, Number.parseInt(folderMeta.year || '0', 10) || 0),
           trackNumber: Math.max(0, Number.parseInt(folderMeta.track || '0', 10) || 0),
           discNumber: Math.max(0, Number.parseInt(folderMeta.disc || '0', 10) || 0)
         }
@@ -5306,15 +5368,26 @@
           <div class="panel-title"><span></span><b>{$t("Transfer Manager")}</b><span></span></div>
           <div class="actionbar"><button class="classic-button" onclick={togglePause}>{paused ? $t("▶ Resume all") : $t("Pause all")}</button><button class="classic-button" onclick={openNapstrFolder}>{$t("Open Deadwax folder")}</button><button class="classic-button" onclick={clearFinishedTransfers} disabled={clearingTransfers || !transfers.some(isFinishedTransfer)}>{$t("Clear finished")}</button><button class="classic-button" onclick={clearAllTransfers} disabled={clearingTransfers || removingTransfers.size > 0 || (!transfers.length && !audiobookDownloads.length && !startingDownloads.size)}>{clearingTransfers ? $t("Clearing…") : $t("Clear all")}</button><div class="spacer"></div><span>{transfers.filter(isActiveTransfer).length} {$t("active ·")} {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</span></div>
           <div class="download-queue">
+            <div class="queue-column-head"><b>{$t("Downloads")}</b><small>{transfers.filter(isActiveTransfer).length} {$t("active")} · {transfers.filter(isCompleteTransfer).length} {$t("ready to play")}</small></div>
             {#each audiobookDownloads as book}
               <div class="audiobook-download-row"><span class="audiobook-glyph">▥</span><b>{book.title}</b><div class="progress"><span style={`width:${book.chapters.length ? (book.nextIndex / book.chapters.length) * 100 : 0}%`}></span><b>{book.nextIndex}/{book.chapters.length}</b></div><span>{book.activeFileId ? $t("Downloading chapter {p0}", { p0: book.nextIndex + 1 }) : $t("Preparing next chapter")}</span></div>
             {/each}
-            <table class="file-table download-table"><thead><tr><th>{$t("Download order")}</th><th>{$t("Progress")}</th><th>{$t("Size")}</th><th>{$t("Speed")}</th><th>{$t("Status")}</th><th></th></tr></thead><tbody>
+            <table class="file-table download-table"><thead><tr><th>{$t("Downloads")}</th><th>{$t("Progress")}</th><th>{$t("Size")}</th><th>{$t("Speed")}</th><th>{$t("Status")}</th><th></th></tr></thead><tbody>
               {#each transfers as transfer}
                 <tr class:transfer-complete={isCompleteTransfer(transfer)} ondblclick={() => { if (isCompleteTransfer(transfer)) playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }}><td>{transfer.name}</td><td><div class="progress"><span style={`width:${transfer.progress}%`}></span><b>{Math.round(transfer.progress)}%</b></div></td><td>{transfer.size}</td><td>{isCompleteTransfer(transfer) ? $t("Local") : transfer.speed}</td><td>{isCompleteTransfer(transfer) ? $t("Ready to play") : transfer.status}</td><td class="transfer-actions">{#if isCompleteTransfer(transfer)}<button class="classic-button transfer-play" onclick={(event) => { event.stopPropagation(); playAudio(transfer.fileId, transfer.name, playerMode, 'downloads'); }} title={$t("Play verified audio")}>{$t("▶ Play")}</button>{/if}<button class="tiny-button" disabled={clearingTransfers || removingTransfers.has(transfer.id)} onclick={(event) => { event.stopPropagation(); removeTransfer(transfer.id); }} aria-label={$t("Remove transfer: {p0}", { p0: transfer.name })} title={$t("Cancel and clear entry; keep completed audio")}>×</button></td></tr>
               {/each}
             </tbody></table>
             {#if transfers.length === 0}<p class="empty-state compact">{$t("There are no downloads in the queue.")}</p>{/if}
+          </div>
+          <div class="upload-queue">
+            <div class="queue-column-head"><b>{$t("Uploads")}</b><small>{$t("Taken from this computer")}</small><button class="caption-button" onclick={() => void refreshUploads()} disabled={!nativeReady}>{$t("Refresh")}</button></div>
+            <table class="file-table download-table"><thead><tr><th>{$t("File")}</th><th>{$t("Who")}</th><th>{$t("Size")}</th><th>{$t("When")}</th></tr></thead><tbody>
+              {#each uploadHistory as upload (upload.id)}
+                <tr><td title={upload.filename}>{upload.filename}</td><td class="upload-who" title={upload.requester}>{upload.requester.startsWith('npub1') ? `${upload.requester.slice(0, 12)}…` : upload.requester.slice(0, 12)}</td><td>{readableSize(upload.size)}</td><td>{uploadWhen(upload.createdAt)}</td></tr>
+              {/each}
+            </tbody></table>
+            {#if uploadsError}<div class="track-discussion-error">{uploadsError}</div>{/if}
+            {#if uploadHistory.length === 0 && !uploadsError}<p class="empty-state compact">{$t("Nothing has been downloaded from this computer yet.")}</p>{/if}
           </div>
         </section>
       {:else if activeView === 'Shared'}
@@ -5508,9 +5581,12 @@
                       <label>{$t("Title")} <input bind:value={folderMeta.title} maxlength="256" /></label>
                       <label>{$t("Artist")} <input bind:value={folderMeta.artist} maxlength="256" /></label>
                       <label>{$t("Album")} <input bind:value={folderMeta.album} maxlength="256" /></label>
+                      <label>{$t("Genre")} <input bind:value={folderMeta.genre} maxlength="64" list="folder-genre-choices" spellcheck="false" /></label>
+                      <label>{$t("Year")} <input bind:value={folderMeta.year} inputmode="numeric" maxlength="4" /></label>
                       <label>{$t("Track")} <input bind:value={folderMeta.track} inputmode="numeric" maxlength="4" /></label>
                       <label>{$t("Disc")} <input bind:value={folderMeta.disc} inputmode="numeric" maxlength="4" /></label>
                     </div>
+                    <datalist id="folder-genre-choices">{#each genreChoices as choice}<option value={choice}></option>{/each}</datalist>
                     <small class="folder-note">{$t("Writing these changes the file's bytes, so it is published again under its new hash.")}</small>
                   {:else}
                     <p class="empty-state compact">{folderTrack ? $t("This file is not shared, so it has no catalogue entry to edit.") : $t("Pick a track above to edit its tags.")}</p>

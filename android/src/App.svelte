@@ -16,7 +16,6 @@
   } from '@tauri-apps/plugin-barcode-scanner';
   import TrackArtwork from './lib/TrackArtwork.svelte';
   import TrackBadge from './lib/TrackBadge.svelte';
-  import CoverDebug from './lib/CoverDebug.svelte';
   import SeekIcon from './lib/SeekIcon.svelte';
   import { rateLimitedTask, safePosition, validDuration } from './lib/playback';
   import { AUDIO_FORMATS, BITRATE_CHOICES, activeProfile, fitsProfile, readQuality, writeQuality, type QualityProfile } from './lib/quality';
@@ -26,7 +25,7 @@
   import { meteredNow, onlineNow, watchNetwork } from './lib/network';
   import { CACHE_SIZE_CHOICES, readOfflineMode, readableBytes, storeOfflineMode } from './lib/offline';
   import appIcon from '../src-tauri/icons/icon.png';
-  import { coverAccentOf, coverFor, coverHueOf, coverHueRevision, coverKey, holdsArtFor, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverColours, type AlbumCover } from './lib/artwork';
+  import { coverAccentOf, coverFor, coverHasColour, coverHueOf, coverHueRevision, coverKey, holdsArtFor, invalidateCoverNegatives, loadFullCover, placeholderHue, preloadArtwork, rememberCoverColours, type AlbumCover } from './lib/artwork';
   import { colourOf } from './lib/palette';
   import { reportReasons } from './lib/types';
   import { hostHue } from './lib/hosts';
@@ -59,8 +58,6 @@
    * the whole time.
    */
   const CONNECT_GRACE_MS = 45_000;
-  /** Temporary: cover-art diagnostics overlay. Delete with CoverDebug.svelte. */
-  const COVER_DEBUG = true;
   /** The host caps a library page at 200, so one album always fits. */
   const MAX_ALBUM_TRACKS = 200;
   /** How many comments a page of a track's conversation holds. */
@@ -412,11 +409,6 @@
       return `${missing.map((computer) => computer.desktopName || 'A computer').join(', ')} unreachable`;
     }
     return `Connected to ${homeComputer()?.desktopName || status.desktopName || 'Deadwax'}`;
-  }
-
-  /** The letter on a computer's dot, so that a colour can be read as a name. */
-  function hostInitial(computer: RemoteHost) {
-    return (computer.desktopName || computer.endpointId).trim().charAt(0).toUpperCase() || '\u2022';
   }
 
   /** The name of a computer by its endpoint id, for a row that marks one. */
@@ -1158,6 +1150,21 @@
   const APP_HUE = 157;
 
   /**
+   * The hue a cover may be painted with, or the app's own when it has no colour.
+   *
+   * Two answers, in this order. The palette decides whether the picture has colour
+   * in it at all - it is the test that compares colours as an eye does - and a
+   * picture it calls colourless has no hue worth painting even though the hue test
+   * named one from a faint cast. Only then is the hue itself consulted, and a cover
+   * nobody has read yet falls back like the rest.
+   */
+  function coverHueFor(fileId: string) {
+    if (!fileId) return APP_HUE;
+    if (coverHasColour(fileId) === false) return APP_HUE;
+    return coverHueOf(fileId) ?? APP_HUE;
+  }
+
+  /**
    * The hue the player drawer is tinted with.
    *
    * Read out of this track's cover if that cover has been on screen, and the app's
@@ -1167,7 +1174,7 @@
    */
   let sheetHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(shownTrack?.fileId ?? '') ?? APP_HUE;
+    return coverHueFor(shownTrack?.fileId ?? '');
   });
   /**
    * The colour the player is painted with, out of the cover this track is wearing.
@@ -1198,12 +1205,12 @@
   /** The same question for the album view's glow, which is behind that album's art. */
   let albumHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(albumView?.tracks[0]?.fileId ?? '') ?? APP_HUE;
+    return coverHueFor(albumView?.tracks[0]?.fileId ?? '');
   });
   /** And for the discussion view's glow, which is behind the same track's art. */
   let discussionHue = $derived.by(() => {
     void $coverHueRevision;
-    return coverHueOf(discussionTrack?.fileId ?? '') ?? APP_HUE;
+    return coverHueFor(discussionTrack?.fileId ?? '');
   });
   let shownPosition = $derived(playbackTarget === 'desktop' ? remotePositionMs() / 1000 : currentTime);
   let shownDuration = $derived(playbackTarget === 'desktop' ? (remoteState?.durationMs ?? 0) / 1000 : duration);
@@ -6617,12 +6624,20 @@
     }
   }
 
-  /** When a message was written, in the reader's own clock. */
+  /** When a message was written, in the reader's own clock - and on which day. */
   function discussionStamp(seconds: number) {
     const at = new Date(seconds * 1000);
-    return Number.isNaN(at.getTime())
-      ? ''
-      : at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (Number.isNaN(at.getTime())) return '';
+    // A time on its own says nothing across a conversation that spans days, and
+    // these do: a track's discussion is read weeks later. The year appears only
+    // when it is not this one, so an ordinary message stays short.
+    const sameYear = at.getFullYear() === new Date().getFullYear();
+    return at.toLocaleString(
+      undefined,
+      sameYear
+        ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+        : { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+    );
   }
 
   /**
@@ -8828,8 +8843,7 @@
 
       {#if status.paired}
         <div class="settings-section">
-          <p>{$t("Computers")}</p>
-          <p class="settings-note">{$t("Your home computer is the one this phone signs, downloads and browses through. The others are libraries to read and play from.")}</p>
+          <p>{$t("Hosts")}</p>
           {#each knownHosts as computer (computer.endpointId)}
             <div class="settings-row computer-row" class:left-out={!computer.included}>
               <span class="computer-id">
@@ -8837,10 +8851,9 @@
                   class="computer-dot"
                   class:online={computer.online}
                   style={`--host-hue:${hostHue(computer.endpointId)}`}
-                >{hostInitial(computer)}</i>
+                ></i>
                 <span>
                   <strong>{computer.desktopName || computer.endpointId.slice(0, 8)}</strong>
-                  <small>{computer.home ? $t("This phone's home computer") : $t("A library this phone reads")}</small>
                   <small class="computer-state">
                     {computer.included
                       ? computer.online
@@ -8848,9 +8861,6 @@
                         : $t("Not reachable")
                       : $t("Left out")}
                   </small>
-                  {#if computer.online && computer.mayDownload}
-                    <small class="computer-state">{$t("Downloads through this one")}</small>
-                  {/if}
                 </span>
               </span>
               {#if !computer.home}
@@ -8876,8 +8886,8 @@
               >{$t("Forget")}</button>
             </div>
           {/each}
-          <button class="settings-row" onclick={() => { showSettings = false; addingComputer = true; }}>
-            <span>{$t("Add a computer")}</span><small>{$t("A friend's Deadwax, or another of your own")}</small>
+          <button class="settings-row add-host" onclick={() => { showSettings = false; addingComputer = true; }}>
+            <span>{$t("Add a host")}</span><small>{$t("A friend's Deadwax, or another of your own")}</small>
           </button>
         </div>
       {:else}
@@ -9030,13 +9040,6 @@
               </div>
             </div>
           {/if}
-        </div>
-      {/if}
-
-      {#if COVER_DEBUG}
-        <div class="settings-section">
-          <p>{$t("Developer tools")}</p>
-          <CoverDebug {tracks} {status} embedded />
         </div>
       {/if}
 

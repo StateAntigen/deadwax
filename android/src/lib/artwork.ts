@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import { writable } from 'svelte/store';
-import { recordCoverEvent } from './coverDebug';
 import { hueOfPixels, pixelsOfImage } from './hue';
 import { accentOf, colourOf, paletteOfPixels, type Swatch } from './palette';
 import type { RemoteTrack } from './types';
@@ -310,10 +309,7 @@ export function coverKey(artist: string, album: string): string {
 
 export function coverFor(track: RemoteTrack): Promise<AlbumCover | null> {
   const key = coverKey(track.artist ?? '', track.album ?? '');
-  if (!key) {
-    recordCoverEvent('skip', `${track.title || track.filename}: no artist or album tag`);
-    return Promise.resolve(null);
-  }
+  if (!key) return Promise.resolve(null);
   return requestCover(key).then((cover) => (cover ? withArtwork(cover) : null));
 }
 
@@ -396,7 +392,6 @@ function askForRendition(
       // A failed ask is not an answer, so it is forgotten and tried again rather
       // than remembered as "this album has no art".
       artAsks.delete(token);
-      recordCoverEvent('error', `${key} ${rendition}: ${String(error)}`);
       return '';
     });
   artAsks.set(token, promise);
@@ -416,7 +411,6 @@ function rememberHeld(key: string, rendition: 'thumb' | 'full', hash: string) {
   heldArt.set(key, held);
   const known = sessionCovers.get(key);
   if (known) writeStoredCover(key, known);
-  recordCoverEvent('cached', `${key} ${rendition} → ${hash.slice(0, 12)}`);
 }
 
 /**
@@ -524,10 +518,7 @@ export function dropCover(track: RemoteTrack) {
 
 function requestCover(key: string): Promise<HostCover | null> {
   const cached = cachedCover(key);
-  if (cached !== undefined) {
-    recordCoverEvent('cached', `${key} → ${cached ? 'cover' : 'host has none'}`);
-    return Promise.resolve(cached);
-  }
+  if (cached !== undefined) return Promise.resolve(cached);
   return new Promise((resolve) => {
     const waiters = pending.get(key);
     if (waiters) waiters.push(resolve);
@@ -565,14 +556,8 @@ async function resolveCovers(keys: string[]): Promise<CoverResolution> {
   const unanswered = new Set<string>();
   for (let index = 0; index < keys.length; index += INVOKE_KEY_LIMIT) {
     const slice = keys.slice(index, index + INVOKE_KEY_LIMIT);
-    const started = Date.now();
-    recordCoverEvent('request', `${slice.length} keys: ${previewKeys(slice)}`);
     try {
       const found = await invoke<WireCover[]>('remote_covers', { keys: slice });
-      recordCoverEvent(
-        'answer',
-        `${slice.length} keys → ${found.length} covers in ${Date.now() - started} ms`
-      );
       for (const cover of found) {
         const { art, thumb, ...host } = cover;
         // A cover the host has *something* for is worth remembering: a hash
@@ -590,47 +575,10 @@ async function resolveCovers(keys: string[]): Promise<CoverResolution> {
       }
     } catch (error) {
       // Unpaired, offline, or a host older than the cover NIP.
-      recordCoverEvent(
-        'error',
-        `${slice.length} keys failed in ${Date.now() - started} ms: ${String(error)}`
-      );
       for (const key of slice) unanswered.add(key);
     }
   }
   return { covers, unanswered };
-}
-
-function previewKeys(keys: string[]): string {
-  const shown = keys.slice(0, 2).join(', ');
-  return keys.length > 2 ? `${shown}, +${keys.length - 2}` : shown;
-}
-
-/** Temporary: what the cache currently knows, for the debug panel. */
-export function debugCoverState(tracks: RemoteTrack[]) {
-  return tracks.map((track) => {
-    const key = coverKey(track.artist ?? '', track.album ?? '');
-    const known = key ? sessionCovers.get(key) : undefined;
-    const stored = key ? readStoredCover(key) : undefined;
-    const cover = known ?? stored ?? null;
-    const held = key ? heldFor(key) : { full: '', thumb: '' };
-    return {
-      fileId: track.fileId,
-      title: track.title || track.filename,
-      key,
-      state: !key
-        ? 'no key'
-        : known === null
-          ? 'host: none'
-          : cover
-            ? servable(cover)
-              ? 'host: has art'
-              : 'host: fetching'
-            : 'unknown',
-      // What is on this phone rather than on the host, because that is what a
-      // blank tile is usually about.
-      url: held.thumb || held.full ? `${held.thumb ? 'thumb' : ''}${held.thumb && held.full ? ' + ' : ''}${held.full ? 'full' : ''}` : ''
-    };
-  });
 }
 
 /**
@@ -656,28 +604,7 @@ export function invalidateCoverNegatives(revision: number) {
   }
   // Nothing was waiting on art, so nothing on screen needs to move.
   if (dropped === 0) return;
-  recordCoverEvent('refresh', `host art changed at revision ${revision}; re-asking ${dropped}`);
   coverRevision.update((value) => value + 1);
-}
-
-/** Temporary: drop every cached cover so the next render asks again. */
-export function clearCoverCache() {
-  sessionCovers.clear();
-  negativeAt.clear();
-  heldArt.clear();
-  artAsks.clear();
-  pending.clear();
-  coverRevision.update((value) => value + 1);
-  try {
-    const stale: string[] = [];
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const name = window.localStorage.key(index);
-      if (name?.startsWith(CACHE_PREFIX)) stale.push(name);
-    }
-    for (const name of stale) window.localStorage.removeItem(name);
-  } catch {
-    // Nothing to clear.
-  }
 }
 
 /**
@@ -756,6 +683,24 @@ export function coverAccentOf(fileId: string): [number, number, number] | null {
 }
 
 /**
+ * Whether that cover has any colour in it at all, or `undefined` if it has not been
+ * looked at yet.
+ *
+ * This is the stronger of the two tests and it is asked second for a reason. A hue
+ * only needs a faint cast to be named - a black-and-white sleeve photographed warm,
+ * or a grey sleeve printed with a slight blue - and painting that hue at full
+ * saturation is what turns a monochrome cover blue. The palette compares colours the
+ * way an eye does and names nothing when every swatch is grey, so when it says there
+ * is no colour here, the hue is not to be trusted either and the app's own colour is
+ * the honest answer.
+ */
+export function coverHasColour(fileId: string): boolean | undefined {
+  const palette = coverPalettes.get(fileId);
+  if (palette === undefined) return undefined;
+  return palette !== null && accentOf(palette) !== null;
+}
+
+/**
  * Read the hue and the colours out of a picture that has already been decoded.
  *
  * Called when a cover's own image element loads, so nothing is fetched twice: the
@@ -782,7 +727,6 @@ export function rememberCoverColours(fileId: string, image: HTMLImageElement) {
   const pixels = pixelsOfImage(image);
   const name = fileId.slice(0, 8);
   if (!pixels) {
-    recordCoverEvent('hue', `${name}: picture could not be read`);
     coverHues.set(fileId, null);
     coverPalettes.set(fileId, null);
     coverHueRevision.update((value) => value + 1);
@@ -790,13 +734,6 @@ export function rememberCoverColours(fileId: string, image: HTMLImageElement) {
   }
   const read = hueOfPixels(pixels);
   const palette = paletteOfPixels(pixels);
-  const accent = accentOf(palette);
-  if (read === null) recordCoverEvent('hue', `${name}: picture has no colour`);
-  else recordCoverEvent('hue', `${name}: hue ${read}`);
-  recordCoverEvent(
-    'hue',
-    `${name}: ${palette.length} colours, accent ${accent ? colourOf(accent) : 'none'}`
-  );
   coverHues.set(fileId, read ?? null);
   coverPalettes.set(fileId, palette);
   coverHueRevision.update((value) => value + 1);

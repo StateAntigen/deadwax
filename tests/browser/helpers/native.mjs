@@ -8,7 +8,7 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
     }
     window.calls = [];
     window.nativeLocale = nativeLocale;
-    const track = { fileId: 'a'.repeat(64), filename: 'Search.wav', title: 'Search', artist: 'Settings', album: 'User album', folder: '', path: '/music/Search.wav', format: 'WAV', mime: 'audio/wav', size: 1234567, tags: 'Rock', local: !remote, sources: [], license: '', description: '', status: 'Shared' };
+    const track = { fileId: 'a'.repeat(64), filename: 'Search.wav', title: 'Search', artist: 'Settings', album: 'User album', folder: '', path: '/music/Search.wav', format: 'WAV', mime: 'audio/wav', size: 1234567, tags: 'Rock', genre: 'Shoegaze', year: 1997, local: !remote, sources: [], license: '', description: '', status: 'Shared' };
     const episode = { id: 'episode', title: 'Original episode', feedTitle: 'Original podcast', audioUrl: 'https://example.com/episode.mp3', datePublished: 1700000000, duration: 100, description: '', image: '', mime: 'audio/mpeg' };
     // The computer's own key, which is what tells its playlists from public
     // ones somebody else published. A stranger's playlist is one seeded with
@@ -265,6 +265,8 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
                     title: edit.title,
                     artist: edit.artist,
                     album: edit.album,
+                    genre: edit.genre ?? file.genre,
+                    year: edit.year ?? file.year,
                     trackNumber: edit.trackNumber,
                     discNumber: edit.discNumber
                   }
@@ -273,6 +275,9 @@ export async function mockNative(page, { app = 'napstrfy', nativeLocale = 'en-GB
             return window.metadataSnapshot;
           }
           case 'get_transfers': return transfers;
+          // What has been downloaded from this computer. A spec that cares seeds
+          // `window.uploads`.
+          case 'uploads': return window.uploads ?? [];
           // The Network page's figures. A spec that cares seeds
           // `window.catalogueStats`, merged over this plausible catalogue.
           case 'catalogue_status': return {

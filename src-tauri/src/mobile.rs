@@ -2395,9 +2395,16 @@ fn secure_audio_path(db_path: &Path, file_id: &str) -> Result<PathBuf, String> {
     // A track is served when it is inside the source it was indexed from, which
     // is not the same question as "inside the downloads folder": a library can
     // have several sources, and books usually live outside that one.
+    //
+    // Blocking is asked here rather than left to the caller. A block leaves the
+    // row in `files` (the bytes are still on this disk; we have been told not to
+    // offer them), so this function is the only place that can answer "may these
+    // bytes go to a client" - and the answer must not depend on every future
+    // caller remembering to ask first.
     let row: Option<(String, i64)> = connection
         .query_row(
-            "SELECT path, source_id FROM files WHERE file_id=?1 AND format IN ('MP3','FLAC','WAV','OGG','OPUS')",
+            "SELECT path, source_id FROM files WHERE file_id=?1 AND format IN ('MP3','FLAC','WAV','OGG','OPUS')
+               AND NOT EXISTS(SELECT 1 FROM blocked_files WHERE blocked_files.file_id=files.file_id)",
             [file_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
@@ -3309,6 +3316,84 @@ mod tests {
 
         let served = secure_audio_path(&db_path, &file_id).expect("a source's own file is served");
         assert_eq!(served, path.canonicalize().unwrap());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// A blocked track cannot be listed or handed over.
+    ///
+    /// Blocking leaves the row in `files` - the bytes are still here, we have been
+    /// told not to offer them - so every read has to ask about the block. The
+    /// listing always did; the serving path did not, and it is the one that decides
+    /// whether a client gets the audio.
+    #[test]
+    fn a_blocked_track_is_neither_listed_nor_served() {
+        let directory = std::env::temp_dir().join(format!(
+            "napstr-mobile-blocked-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let db_path = directory.join("napstr.sqlite3");
+        crate::initialise_database(&db_path, &directory).unwrap();
+
+        let path = directory.join("Silence.mp3");
+        fs::write(&path, b"a file, for the sake of the policy").unwrap();
+        let file_id = "55".repeat(32);
+        {
+            let connection = open_connection(&db_path).unwrap();
+            let source = crate::folders::add_source(&connection, &directory).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO files(file_id,filename,path,size,format,indexed_at,mime,folder,title,artist,source_id)
+                     VALUES(?1,'Silence.mp3',?2,36,'MP3','now','audio/mpeg',?3,'Silence','',?4)",
+                    params![
+                        file_id,
+                        path.to_string_lossy(),
+                        format!("{}/x", source.name),
+                        source.id
+                    ],
+                )
+                .unwrap();
+        }
+
+        // While it is allowed, all three answers agree it is there.
+        assert!(secure_audio_path(&db_path, &file_id).is_ok());
+        assert_eq!(load_library(&db_path, "", 0, MAX_PAGE_SIZE).unwrap().1, 1);
+
+        let revision_before = library_revision(&db_path).unwrap();
+        {
+            let connection = open_connection(&db_path).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO blocked_files(file_id,reason,created_at,label)
+                     VALUES(?1,'Blocked by user','now','Silence')",
+                    [&file_id],
+                )
+                .unwrap();
+            // What `block_file` does after writing the row: a block changes what a
+            // client may read, so the revision has to move or the client is never
+            // told.
+            crate::note_library_change(&connection).unwrap();
+        }
+
+        assert!(
+            secure_audio_path(&db_path, &file_id).is_err(),
+            "a blocked file's bytes must not be handed to a client"
+        );
+        assert_eq!(
+            load_library(&db_path, "", 0, MAX_PAGE_SIZE).unwrap().1,
+            0,
+            "a blocked file must not be listed"
+        );
+        assert!(
+            load_files_by_id(&open_connection(&db_path).unwrap(), &[file_id.clone()])
+                .unwrap()
+                .is_empty(),
+            "a blocked file must not be resolvable by id either"
+        );
+        assert!(
+            library_revision(&db_path).unwrap() > revision_before,
+            "the revision a client compares against must move"
+        );
         fs::remove_dir_all(directory).unwrap();
     }
 

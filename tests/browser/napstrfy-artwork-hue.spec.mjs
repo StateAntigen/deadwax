@@ -51,6 +51,18 @@ const GREY = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNoaGgAAAMEAYFL09IQAAAAAElFTkSuQmCC',
   'base64'
 );
+/**
+ * Grey with a faint blue cast - rgb(140, 148, 160).
+ *
+ * What a real monochrome sleeve usually is: a black-and-white photograph with a cool
+ * print, or a sleeve the phone's own screen tints. The hue test names ~215 out of
+ * this, and painting that at full saturation is the blue the user reported on grey
+ * covers. The palette is asked first for exactly this reason.
+ */
+const NEAR_GREY = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPombIAAANwAcE00BucAAAAAElFTkSuQmCC',
+  'base64'
+);
 
 /** Where the phone's own server answers, which is not where the page was loaded from. */
 const COVER_ORIGIN = 'http://127.0.0.1:15176';
@@ -192,6 +204,18 @@ test('a cover with no colour in it leaves the app’s own colour in place', asyn
   // the colour it has always had rather than being tinted grey by a grey sleeve.
   expect(await sheetAccent(page)).toBe('');
   expect(await barFill(page)).toBe(await paintOf(page, 'rgba(122, 222, 206, .2)'));
+});
+
+test('a grey sleeve with a faint cast is still grey', async ({ page }) => {
+  // The hue test would name a blue out of these pixels; the palette says there is no
+  // colour in them, and the palette wins. Being blunt about it matters: a monochrome
+  // cover is the common case, and a player that turns blue for one is the bug the
+  // user reported after the theme changed.
+  await openApp(page, { cover: NEAR_GREY, seed: 'near' });
+  await playAndOpen(page);
+
+  await expect.poll(() => sheetHue(page)).toBe('157');
+  expect(await sheetAccent(page)).toBe('');
 });
 
 test('a track with no picture draws a note rather than the app’s logo', async ({ page }) => {

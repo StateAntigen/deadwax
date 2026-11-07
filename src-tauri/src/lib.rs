@@ -39,7 +39,11 @@ const HASH_BUFFER_SIZE: usize = 256 * 1024;
 const MAX_INDEX_ERRORS: usize = 100;
 const INDEX_PROGRESS_INTERVAL: usize = 25;
 const INDEX_COMMIT_BATCH_SIZE: usize = 50;
-const AUDIO_METADATA_VERSION: i64 = 3;
+const AUDIO_METADATA_VERSION: i64 = 4;
+/// How much of the upload history the window shows. It is a record of what
+/// happened rather than a table to search, and a hundred rows is more than a
+/// session's worth.
+const UPLOAD_HISTORY_LIMIT: usize = 100;
 const LIBRARY_CHANGED_EVENT: &str = "napstr-library-changed";
 const INDEX_BATCH_EVENT: &str = "napstr-index-batch";
 const INDEX_PROGRESS_EVENT: &str = "napstr-index-progress";
@@ -99,6 +103,10 @@ struct SharedFile {
     channels: u32,
     lossless: bool,
     duration_ms: u64,
+    /// The file's own genre frame and year. `genre` is what the editor offers
+    /// back as the words this library already uses.
+    genre: String,
+    year: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -201,7 +209,8 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
            mime TEXT NOT NULL DEFAULT 'application/octet-stream', license TEXT NOT NULL DEFAULT 'unspecified',
            description TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '', folder TEXT NOT NULL DEFAULT '',
            modified_ns INTEGER NOT NULL DEFAULT 0,
-           track_number INTEGER NOT NULL DEFAULT 0, disc_number INTEGER NOT NULL DEFAULT 0
+           track_number INTEGER NOT NULL DEFAULT 0, disc_number INTEGER NOT NULL DEFAULT 0,
+           genre TEXT NOT NULL DEFAULT '', year INTEGER NOT NULL DEFAULT 0
          );
          CREATE TABLE IF NOT EXISTS transfers (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,6 +244,18 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
            narrator TEXT NOT NULL DEFAULT '',
            updated_at TEXT NOT NULL
          );
+         -- What somebody took from this computer. Written when a transfer
+         -- completes rather than when it is offered, so the list is what was
+         -- actually received and not what somebody asked for.
+         CREATE TABLE IF NOT EXISTS uploads (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           file_id TEXT NOT NULL,
+           filename TEXT NOT NULL,
+           size INTEGER NOT NULL DEFAULT 0,
+           requester TEXT NOT NULL DEFAULT '',
+           created_at TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS idx_uploads_created ON uploads(id DESC);
          DROP TABLE IF EXISTS download_chunks;"
     ).map_err(|error| error.to_string())?;
     // Pre-release databases used these transfer fields in the library table.
@@ -254,6 +275,11 @@ fn initialise_database(path: &Path, app_data: &Path) -> Result<(), String> {
         ("metadata_version", "INTEGER NOT NULL DEFAULT 0"),
         ("track_number", "INTEGER NOT NULL DEFAULT 0"),
         ("disc_number", "INTEGER NOT NULL DEFAULT 0"),
+        // What the file's own tag says it is. A genre here is the file's, not a
+        // claim about its album, and it is what the metadata editor offers back
+        // as the words already in use.
+        ("genre", "TEXT NOT NULL DEFAULT ''"),
+        ("year", "INTEGER NOT NULL DEFAULT 0"),
         // What the audio actually is, which is what a phone choosing between
         // what it can fetch needs to know and nothing else in the row says.
         ("bitrate_kbps", "INTEGER NOT NULL DEFAULT 0"),
@@ -456,13 +482,15 @@ fn shared_file_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SharedFile>
         channels: row.get::<_, i64>(15)?.max(0) as u32,
         lossless: row.get::<_, i64>(16)? != 0,
         duration_ms: row.get::<_, i64>(17)?.max(0) as u64,
+        genre: row.get(18)?,
+        year: row.get::<_, i64>(19)?.max(0) as u32,
     })
 }
 
 fn load_files(connection: &Connection, query: Option<&str>) -> Result<Vec<SharedFile>, String> {
     let mut statement = connection
         .prepare(
-            "SELECT file_id, filename, path, size, format, mime, folder, tags, title, artist, album, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms FROM files
+            "SELECT file_id, filename, path, size, format, mime, folder, tags, title, artist, album, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms, genre, year FROM files
          WHERE format IN ('MP3','FLAC','WAV','OGG','OPUS')
            AND NOT EXISTS(SELECT 1 FROM blocked_files WHERE blocked_files.file_id=files.file_id)
          ORDER BY filename",
@@ -498,7 +526,7 @@ fn load_files_by_id(
 ) -> Result<Vec<SharedFile>, String> {
     let mut statement = connection
         .prepare(
-            "SELECT file_id, filename, path, size, format, mime, folder, tags, title, artist, album, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms FROM files
+            "SELECT file_id, filename, path, size, format, mime, folder, tags, title, artist, album, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms, genre, year FROM files
              WHERE file_id=?1
                AND format IN ('MP3','FLAC','WAV','OGG','OPUS')
                AND NOT EXISTS(SELECT 1 FROM blocked_files WHERE blocked_files.file_id=files.file_id)",
@@ -588,6 +616,80 @@ fn load_transfers(connection: &Connection) -> Result<Vec<Transfer>, String> {
         .map_err(|error| error.to_string())?;
     transfers.extend(network::load_network_transfers(connection)?);
     Ok(transfers)
+}
+
+/// A file somebody took from this computer.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Upload {
+    id: i64,
+    file_id: String,
+    filename: String,
+    size: u64,
+    /// The requester as an npub, because a hex key is not something a person
+    /// reads. Falls back to the hex when the peer did not name a key this
+    /// computer can parse.
+    requester: String,
+    created_at: String,
+}
+
+/// Remember that a file went out to somebody. Called when a transfer completes.
+pub(crate) fn record_upload(
+    connection: &Connection,
+    file_id: &str,
+    filename: &str,
+    size: u64,
+    requester: &str,
+) -> Result<(), String> {
+    connection
+        .execute(
+            "INSERT INTO uploads(file_id,filename,size,requester,created_at) VALUES(?1,?2,?3,?4,?5)",
+            params![
+                file_id,
+                filename,
+                size as i64,
+                requester,
+                Utc::now().to_rfc3339()
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// The files this computer has served, newest first.
+fn load_uploads(connection: &Connection, limit: usize) -> Result<Vec<Upload>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT id, file_id, filename, size, requester, created_at FROM uploads
+             ORDER BY id DESC LIMIT ?1",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([limit as i64], |row| {
+            let requester: String = row.get(4)?;
+            Ok(Upload {
+                id: row.get(0)?,
+                file_id: row.get(1)?,
+                filename: row.get(2)?,
+                size: row.get::<_, i64>(3)?.max(0) as u64,
+                requester: nostr_sdk::PublicKey::from_hex(&requester)
+                    .ok()
+                    .and_then(|key| {
+                        use nostr_sdk::ToBech32;
+                        key.to_bech32().ok()
+                    })
+                    .unwrap_or(requester),
+                created_at: row.get(5)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn uploads(state: State<'_, AppState>) -> Result<Vec<Upload>, String> {
+    load_uploads(&open_db(&state)?, UPLOAD_HISTORY_LIMIT)
 }
 
 fn snapshot(connection: &Connection) -> Result<AppSnapshot, String> {
@@ -1005,14 +1107,15 @@ pub(crate) fn upsert_verified_file(
         .unwrap_or(0);
     connection
         .execute(
-            "INSERT INTO files (file_id, filename, path, size, format, indexed_at, mime, folder, modified_ns, title, artist, album, metadata_version, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms, source_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
+            "INSERT INTO files (file_id, filename, path, size, format, indexed_at, mime, folder, modified_ns, title, artist, album, metadata_version, track_number, disc_number, bitrate_kbps, sample_rate_hz, channels, lossless, duration_ms, source_id, genre, year)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
              ON CONFLICT(file_id) DO UPDATE SET filename=excluded.filename,path=excluded.path,size=excluded.size,
              format=excluded.format,mime=excluded.mime,folder=excluded.folder,indexed_at=excluded.indexed_at,
              modified_ns=excluded.modified_ns,title=excluded.title,artist=excluded.artist,album=excluded.album,
              metadata_version=excluded.metadata_version,track_number=excluded.track_number,disc_number=excluded.disc_number,
              bitrate_kbps=excluded.bitrate_kbps,sample_rate_hz=excluded.sample_rate_hz,channels=excluded.channels,
-             lossless=excluded.lossless,duration_ms=excluded.duration_ms,source_id=excluded.source_id",
+             lossless=excluded.lossless,duration_ms=excluded.duration_ms,source_id=excluded.source_id,
+             genre=excluded.genre,year=excluded.year",
             params![
                 file_id,
                 filename,
@@ -1035,6 +1138,8 @@ pub(crate) fn upsert_verified_file(
                 audio.properties.lossless as i64,
                 audio.properties.duration_ms as i64,
                 source.id,
+                audio.metadata.genre,
+                audio.metadata.year,
             ],
         )
         .map_err(|error| error.to_string())?;
@@ -2689,6 +2794,10 @@ struct FileMetadataEdit {
     title: String,
     artist: String,
     album: String,
+    #[serde(default)]
+    genre: String,
+    #[serde(default)]
+    year: u32,
     track_number: u32,
     disc_number: u32,
 }
@@ -2713,6 +2822,10 @@ async fn save_file_metadata(
     validate_length("title", &edit.title, 256)?;
     validate_length("artist", &edit.artist, 256)?;
     validate_length("album", &edit.album, 256)?;
+    validate_length("genre", &edit.genre, 64)?;
+    if edit.year > 9999 {
+        return Err("a year has four digits at most".into());
+    }
     let (path, source) = {
         let connection = open_db(&state)?;
         let (path, source_id) = connection
@@ -2730,6 +2843,8 @@ async fn save_file_metadata(
             title: edit.title,
             artist: edit.artist,
             album: edit.album,
+            genre: edit.genre,
+            year: edit.year,
             track_number: edit.track_number,
             disc_number: edit.disc_number,
         },
@@ -3142,6 +3257,24 @@ fn blocked_content(state: State<'_, AppState>) -> Result<BlockedContent, String>
     })
 }
 
+/// Tell anything watching this library that what it may read has changed.
+///
+/// Rows in `files` move this counter themselves, through triggers. A block does
+/// not touch the row - the bytes are still on this disk, we have merely been told
+/// not to offer them - so nothing would move, and a paired client would go on
+/// drawing the page it was given and playing a file this computer has stopped
+/// serving. The revision is what a client compares against, so a block has to
+/// count as a change like any other.
+pub(crate) fn note_library_change(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute(
+            "UPDATE library_state SET revision=revision+1 WHERE id=1",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 /// Stop ignoring something.
 ///
 /// Lifting a block is the whole of the operation: the catalogue this computer had
@@ -3168,6 +3301,9 @@ fn unblock(kind: String, key: String, state: State<'_, AppState>) -> Result<(), 
             params![key],
         )
         .map_err(|error| error.to_string())?;
+    if kind == "file" {
+        note_library_change(&connection)?;
+    }
     Ok(())
 }
 
@@ -3217,6 +3353,7 @@ async fn block_file(
     // The index over that table is maintained by triggers, but the heartbeats are
     // their own table: left behind, they would keep the file in the results.
     catalogue::forget_file(&connection, &file_id)?;
+    note_library_change(&connection)?;
     drop(connection);
     state.network.queue_catalogue_publish(false);
     Ok(())
@@ -3988,6 +4125,7 @@ pub fn run() {
             report_cover,
             set_downloads_paused,
             clear_all_transfers,
+            uploads,
             start_network,
             network_status,
             recover_after_sleep,
